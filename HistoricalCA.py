@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime, time, timedelta
 
 # ======================================================
-# STREAMLIT CONFIG
+# CONFIG
 # ======================================================
 st.set_page_config(
     page_title="Dashboard Divisi Credit Analyst",
@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ======================================================
-# HOLIDAY CALENDAR (FIXED & SAFE)
+# HOLIDAY CALENDAR
 # ======================================================
 HOLIDAYS = pd.to_datetime([
     "01-01-2025","27-01-2025","28-01-2025","29-01-2025",
@@ -39,24 +39,14 @@ def load_data():
 df = load_data()
 
 # ======================================================
-# SAFE DATE PARSING (ANTI ERROR)
+# SAFE DATE PARSING
 # ======================================================
-df['Initiation'] = pd.to_datetime(
-    df['Initiation'],
-    errors='coerce',
-    dayfirst=True
-)
-
-df['action_on'] = pd.to_datetime(
-    df['action_on'],
-    errors='coerce',
-    dayfirst=True
-)
-
-# DROP BROKEN RECORDS
-df = df.dropna(subset=['Initiation', 'action_on'])
+df['Initiation'] = pd.to_datetime(df['Initiation'], errors='coerce', dayfirst=True)
+df['action_on'] = pd.to_datetime(df['action_on'], errors='coerce', dayfirst=True)
+df = df.dropna(subset=['Initiation','action_on'])
 
 df['Action_Date'] = df['action_on'].dt.date
+df['YearMonth'] = df['action_on'].dt.to_period('M').astype(str)
 
 # ======================================================
 # OSPH RANGE
@@ -66,34 +56,52 @@ df['OSPH_Range'] = np.select(
         df['Outstanding_PH'] <= 250_000_000,
         df['Outstanding_PH'] <= 500_000_000
     ],
-    ['0 - 250 Juta', '250 - 500 Juta'],
+    ['0 - 250 Juta','250 - 500 Juta'],
     default='500 Juta+'
 )
 
 # ======================================================
-# NORMALIZE SCORING (SESUIAI DEFINISI USER)
+# SCORING (FULL – NO SIMPLIFICATION)
 # ======================================================
-def normalize_scoring(val):
-    if pd.isna(val) or val == "-":
-        return "-"
-    v = val.lower()
-    if "approve" in v:
-        return "APPROVE"
-    if "reguler" in v:
-        return "REGULER"
-    if "reject" in v:
-        return "REJECT"
-    if "progress" in v:
-        return "SCORING IN PROGRESS"
-    return "OTHER"
+df['Scoring_Group'] = df['Hasil_Scoring_1'].fillna('-')
 
-df['Scoring_Group'] = df['Hasil_Scoring_1'].apply(normalize_scoring)
+def scoring_tier(x):
+    if x in ['APPROVE','Approve 1']:
+        return 'Low Risk'
+    if x in ['Approve 2','Reguler']:
+        return 'Medium Risk'
+    if x in ['Reguler 1','Reguler 2']:
+        return 'High Risk'
+    if x in ['Reject','Reject 1','Reject 2']:
+        return 'Very High Risk'
+    if x == 'Scoring in Progress':
+        return 'In Progress'
+    return 'Unknown'
+
+df['Scoring_Tier'] = df['Scoring_Group'].apply(scoring_tier)
 
 # ======================================================
-# SLA LOGIC (DIVISI RULE – FULL)
+# OVD FEATURE
 # ======================================================
-WORK_START = time(8, 30)
-WORK_END = time(15, 30)
+df['LastOD'] = pd.to_numeric(df['LastOD'], errors='coerce').fillna(0)
+df['max_OD'] = pd.to_numeric(df['max_OD'], errors='coerce').fillna(0)
+
+df['OVD_Flag'] = np.select(
+    [
+        df['max_OD'] == 0,
+        df['max_OD'] <= 30,
+        df['max_OD'] <= 60,
+        df['max_OD'] > 60
+    ],
+    ['No OVD','OD 1–30','OD 31–60','OD >60'],
+    default='Unknown'
+)
+
+# ======================================================
+# SLA LOGIC
+# ======================================================
+WORK_START = time(8,30)
+WORK_END = time(15,30)
 
 def is_workday(d):
     return d.weekday() < 5 and d not in HOLIDAYS
@@ -102,7 +110,7 @@ def next_workday(dt):
     nxt = dt + timedelta(days=1)
     while not is_workday(nxt.date()):
         nxt += timedelta(days=1)
-    return nxt.replace(hour=8, minute=30, second=0)
+    return nxt.replace(hour=8,minute=30,second=0)
 
 def adjust_start(dt):
     if not is_workday(dt.date()):
@@ -110,65 +118,47 @@ def adjust_start(dt):
     if dt.time() > WORK_END:
         return next_workday(dt)
     if dt.time() < WORK_START:
-        return dt.replace(hour=8, minute=30, second=0)
+        return dt.replace(hour=8,minute=30,second=0)
     return dt
 
-def calculate_sla(start, end):
+def calculate_sla(start,end):
     if end <= start:
-        return 0.0
-
-    total_minutes = 0
+        return 0
+    total = 0
     cur = start
-
     while cur < end:
         if is_workday(cur.date()):
-            day_start = cur.replace(hour=8, minute=30)
-            day_end = cur.replace(hour=15, minute=30)
-
-            s = max(cur, day_start)
-            e = min(end, day_end)
-
+            ws = cur.replace(hour=8,minute=30)
+            we = cur.replace(hour=15,minute=30)
+            s = max(cur,ws)
+            e = min(end,we)
             if s < e:
-                total_minutes += (e - s).total_seconds() / 60
-
-        cur = (cur + timedelta(days=1)).replace(hour=0, minute=0)
-
-    return round(total_minutes / 60, 2)
+                total += (e-s).total_seconds()/3600
+        cur = (cur + timedelta(days=1)).replace(hour=0,minute=0)
+    return round(total,2)
 
 df['SLA_Start'] = df['Initiation'].apply(adjust_start)
-df['SLA_Hours'] = df.apply(
-    lambda x: calculate_sla(x['SLA_Start'], x['action_on']),
-    axis=1
-)
+df['SLA_Hours'] = df.apply(lambda x: calculate_sla(x['SLA_Start'],x['action_on']),axis=1)
 
 # ======================================================
 # SIDEBAR FILTER
 # ======================================================
-st.sidebar.title(" Filter Dashboard")
-
+st.sidebar.title(" Filter")
 produk = st.sidebar.multiselect("Produk", sorted(df['Produk'].dropna().unique()))
 ca = st.sidebar.multiselect("Nama CA", sorted(df['user_name'].dropna().unique()))
-osph = st.sidebar.multiselect("Range OSPH", sorted(df['OSPH_Range'].unique()))
 scoring = st.sidebar.multiselect("Scoring Group", sorted(df['Scoring_Group'].unique()))
-status = st.sidebar.multiselect("Status CA", sorted(df['apps_status'].unique()))
+ovd = st.sidebar.multiselect("OVD Flag", sorted(df['OVD_Flag'].unique()))
 
 date_range = st.sidebar.date_input(
     "Periode Action",
-    [df['Action_Date'].min(), df['Action_Date'].max()]
+    [df['Action_Date'].min(),df['Action_Date'].max()]
 )
 
 fdf = df.copy()
-
-if produk:
-    fdf = fdf[fdf['Produk'].isin(produk)]
-if ca:
-    fdf = fdf[fdf['user_name'].isin(ca)]
-if osph:
-    fdf = fdf[fdf['OSPH_Range'].isin(osph)]
-if scoring:
-    fdf = fdf[fdf['Scoring_Group'].isin(scoring)]
-if status:
-    fdf = fdf[fdf['apps_status'].isin(status)]
+if produk: fdf = fdf[fdf['Produk'].isin(produk)]
+if ca: fdf = fdf[fdf['user_name'].isin(ca)]
+if scoring: fdf = fdf[fdf['Scoring_Group'].isin(scoring)]
+if ovd: fdf = fdf[fdf['OVD_Flag'].isin(ovd)]
 
 fdf = fdf[
     (fdf['Action_Date'] >= date_range[0]) &
@@ -178,26 +168,78 @@ fdf = fdf[
 # ======================================================
 # HEADER
 # ======================================================
-st.title(" Dashboard Historical Divisi Credit Analyst")
-st.caption("Jam kerja 08.30–15.30 | Exclude weekend & tanggal merah")
+st.title(" Dashboard ANALYTICAL Divisi Credit Analyst")
+st.caption("Risk • Policy • Performance • Early Warning")
 
 # ======================================================
 # KPI
 # ======================================================
-c1, c2, c3, c4, c5 = st.columns(5)
-
-c1.metric("Distinct AppID", fdf['apps_id'].nunique())
-c2.metric("Total Records", len(fdf))
-c3.metric("Total CA", fdf['user_name'].nunique())
-c4.metric("Avg SLA (Hours)", f"{fdf['SLA_Hours'].mean():.2f}")
-c5.metric("Median SLA (Hours)", f"{fdf['SLA_Hours'].median():.2f}")
+k1,k2,k3,k4 = st.columns(4)
+k1.metric("Distinct AppID", fdf['apps_id'].nunique())
+k2.metric("Approval Rate (%)",
+    f"{(fdf['apps_status'].str.contains('RECOMMENDED',case=False)).mean()*100:.1f}")
+k3.metric("Avg SLA (Hours)", f"{fdf['SLA_Hours'].mean():.2f}")
+k4.metric("High OVD (%)",
+    f"{(fdf['OVD_Flag'].isin(['OD 31–60','OD >60'])).mean()*100:.1f}")
 
 st.divider()
 
 # ======================================================
+# MONTHLY TREND
+# ======================================================
+st.subheader(" Monthly Trend – Volume, Quality & Risk")
+
+monthly = (
+    fdf
+    .groupby('YearMonth')
+    .agg(
+        AppID=('apps_id','nunique'),
+        ApproveRate=('apps_status',
+            lambda x:(x.str.contains('RECOMMENDED',case=False)).mean()*100),
+        RejectRate=('apps_status',
+            lambda x:(x=='NOT RECOMMENDED CA').mean()*100),
+        AvgSLA=('SLA_Hours','mean'),
+        AvgOSPH=('Outstanding_PH','mean')
+    )
+    .reset_index()
+)
+
+st.line_chart(monthly.set_index('YearMonth')[['AppID','ApproveRate','RejectRate']])
+
+# ======================================================
+# SCORING DETAIL TREND
+# ======================================================
+st.subheader(" Scoring Distribution Trend (Detail)")
+
+score_trend = (
+    fdf.groupby(['YearMonth','Scoring_Group'])['apps_id']
+    .nunique().reset_index()
+)
+
+st.area_chart(
+    score_trend.pivot(
+        index='YearMonth',
+        columns='Scoring_Group',
+        values='apps_id'
+    ).fillna(0)
+)
+
+# ======================================================
+# OVD vs SCORING
+# ======================================================
+st.subheader(" OVD vs Scoring (Risk Signal)")
+
+ovd_score = (
+    fdf.groupby(['OVD_Flag','Scoring_Group'])['apps_id']
+    .nunique().reset_index()
+)
+
+st.dataframe(ovd_score, use_container_width=True)
+
+# ======================================================
 # CA vs SCORING
 # ======================================================
-st.subheader(" CA vs Scoring (History)")
+st.subheader(" CA vs Scoring")
 
 matrix = pd.pivot_table(
     fdf,
@@ -211,208 +253,22 @@ matrix = pd.pivot_table(
 st.dataframe(matrix, use_container_width=True)
 
 # ======================================================
-# RISK PATTERN
+# AUTO INSIGHT
 # ======================================================
-st.subheader(" Risk Pattern (Produk → OSPH → Kendaraan → Pekerjaan)")
+st.subheader("🚨 Auto Risk Insights")
 
-risk = (
-    fdf
-    .groupby(['Produk','OSPH_Range','JenisKendaraan','Pekerjaan'])
-    ['apps_id'].nunique()
-    .reset_index(name='Distinct AppID')
-    .sort_values('Distinct AppID', ascending=False)
-)
+high_risk_override = fdf[
+    (fdf['OVD_Flag'].isin(['OD 31–60','OD >60'])) &
+    (fdf['Scoring_Tier'].isin(['Low Risk','Medium Risk']))
+]['apps_id'].nunique()
 
-st.dataframe(risk, use_container_width=True)
-
-# ======================================================
-# DISTRIBUSI STATUS CA
-# ======================================================
-st.subheader(" Distribusi Keputusan CA")
-
-status_dist = (
-    fdf
-    .groupby('apps_status')['apps_id']
-    .nunique()
-    .reset_index(name='Distinct AppID')
-)
-
-st.bar_chart(status_dist.set_index('apps_status'))
-
-# ======================================================
-# SLA PER CA
-# ======================================================
-st.subheader("⏱ SLA per CA")
-
-sla_ca = (
-    fdf
-    .groupby('user_name')['SLA_Hours']
-    .mean()
-    .reset_index(name='Avg SLA (Hours)')
-    .sort_values('Avg SLA (Hours)')
-)
-
-st.dataframe(sla_ca, use_container_width=True)
-
-# ======================================================
-# ANOMALY CHECK
-# ======================================================
-st.subheader(" Scoring Approve / Reguler tapi NOT RECOMMENDED CA")
-
-anom = fdf[
-    (fdf['Scoring_Group'].isin(['APPROVE','REGULER'])) &
-    (fdf['apps_status'] == 'NOT RECOMMENDED CA')
-]
-
-st.dataframe(
-    anom[[
-        'apps_id','Produk','OSPH_Range',
-        'Hasil_Scoring_1','apps_status','user_name'
-    ]],
-    use_container_width=True
-)
-
-
-## TAMBAHAN
-df['YearMonth'] = df['action_on'].dt.to_period('M').astype(str)
-
-## TREND VOLUME DAN QUALITY 
-st.subheader(" Monthly Trend – Volume & Quality")
-
-monthly = (
-    fdf
-    .groupby('YearMonth')
-    .agg(
-        AppID=('apps_id','nunique'),
-        Avg_SLA=('SLA_Hours','mean'),
-        Avg_OSPH=('Outstanding_PH','mean'),
-        Approve_Rate=('apps_status',
-            lambda x: (x.str.contains("RECOMMENDED", case=False)).mean()*100
-        ),
-        Reject_Rate=('apps_status',
-            lambda x: (x=="NOT RECOMMENDED CA").mean()*100
-        )
+if high_risk_override > 0:
+    st.error(
+        f"{high_risk_override} aplikasi dengan OVD >30 hari "
+        f"masuk scoring APPROVE / REGULER"
     )
-    .reset_index()
-    .sort_values('YearMonth')
-)
-
-st.line_chart(
-    monthly.set_index('YearMonth')[['AppID','Approve_Rate','Reject_Rate']]
-)
-
-## RISK DRIFT
-st.subheader(" Risk Drift – OSPH Mix")
-
-osph_mix = (
-    fdf
-    .groupby(['YearMonth','OSPH_Range'])['apps_id']
-    .nunique()
-    .reset_index()
-)
-
-st.area_chart(
-    osph_mix.pivot(
-        index='YearMonth',
-        columns='OSPH_Range',
-        values='apps_id'
-    ).fillna(0)
-)
-
-## SCORING VC CA GAP
-st.subheader(" CA vs Scoring Gap Trend")
-
-gap = (
-    fdf
-    .assign(
-        Gap=lambda x:
-        np.where(
-            (x['Scoring_Group'].isin(['APPROVE','REGULER'])) &
-            (x['apps_status']=='NOT RECOMMENDED CA'),
-            'Scoring Good - CA Reject',
-            np.where(
-                (x['Scoring_Group']=='REJECT') &
-                (x['apps_status'].str.contains('RECOMMENDED')),
-                'Scoring Reject - CA Approve',
-                'Aligned'
-            )
-        )
-    )
-    .groupby(['YearMonth','Gap'])['apps_id']
-    .nunique()
-    .reset_index()
-)
-
-st.bar_chart(
-    gap.pivot(
-        index='YearMonth',
-        columns='Gap',
-        values='apps_id'
-    ).fillna(0)
-)
-
-## PRODUCT RISK SIGNAL
-st.subheader(" Product Risk Signal")
-
-product_signal = (
-    fdf
-    .groupby('Produk')
-    .agg(
-        AppID=('apps_id','nunique'),
-        Reject_Rate=('apps_status',
-            lambda x: (x=='NOT RECOMMENDED CA').mean()*100
-        ),
-        Avg_SLA=('SLA_Hours','mean'),
-        Avg_OSPH=('Outstanding_PH','mean')
-    )
-    .reset_index()
-)
-
-st.dataframe(
-    product_signal
-    .sort_values('Reject_Rate', ascending=False),
-    use_container_width=True
-)
-
-## CA PERFORMANCE
-st.subheader(" CA Performance – Speed vs Quality")
-
-ca_perf = (
-    fdf
-    .groupby('user_name')
-    .agg(
-        AppID=('apps_id','nunique'),
-        Avg_SLA=('SLA_Hours','mean'),
-        Reject_Rate=('apps_status',
-            lambda x: (x=='NOT RECOMMENDED CA').mean()*100
-        )
-    )
-    .reset_index()
-)
-
-st.scatter_chart(
-    ca_perf,
-    x='Avg_SLA',
-    y='Reject_Rate',
-    size='AppID'
-)
-
-## INSIGHT
-st.subheader(" Key Insights (Auto)")
-
-latest = monthly.iloc[-1]
-prev = monthly.iloc[-2] if len(monthly)>1 else None
-
-if prev is not None:
-    if latest['Reject_Rate'] > prev['Reject_Rate'] + 3:
-        st.warning("Reject rate naik signifikan bulan ini → cek policy / risk intake")
-    if latest['Avg_SLA'] > prev['Avg_SLA'] + 1:
-        st.warning("SLA memburuk → potensi overload CA")
-    if latest['Avg_OSPH'] > prev['Avg_OSPH']:
-        st.info("Average OSPH meningkat → risk exposure naik")
-
 
 # ======================================================
 # FOOTER
 # ======================================================
-st.caption("Dashboard Divisi CA | HistoricalCA.xlsx | Streamlit Production")
+st.caption("Analytical Dashboard Divisi CA | Production Ready")
