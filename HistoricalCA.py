@@ -133,8 +133,8 @@ df = load_data()
 # SIDEBAR FILTER
 # ======================================================
 st.sidebar.title(" Filter Dashboard Pro")
-branch = st.sidebar.multiselect("Branch", sorted(df['Branch'].dropna().unique()))
-jenis_kendaraan = st.sidebar.multiselect("Jenis Kendaraan", sorted(df['Jenis_Kendaraan'].dropna().unique()))
+branch_name = st.sidebar.multiselect("branch", sorted(df['Branch'].dropna().unique()))
+JenisKendaraan = st.sidebar.multiselect("Jenis Kendaraan", sorted(df['Jenis_Kendaraan'].dropna().unique()))
 produk = st.sidebar.multiselect("Produk", sorted(df['Produk'].dropna().unique()))
 ca = st.sidebar.multiselect("Nama CA", sorted(df['user_name'].dropna().unique()))
 scoring = st.sidebar.multiselect("Scoring Group", sorted(df['Scoring_Group'].unique()))
@@ -143,8 +143,8 @@ ovd = st.sidebar.multiselect("OVD Flag", sorted(df['OVD_Flag'].unique()))
 date_range = st.sidebar.date_input("Periode Action", [df['Action_Date'].min(), df['Action_Date'].max()])
 
 fdf = df.copy()
-if branch: fdf = fdf[fdf['Branch'].isin(branch)]
-if jenis_kendaraan: fdf = fdf[fdf['Jenis_Kendaraan'].isin(jenis_kendaraan)]
+if branch_name: fdf = fdf[fdf['Branch'].isin(branch)]
+if JenisKendaraan: fdf = fdf[fdf['Jenis_Kendaraan'].isin(jenis_kendaraan)]
 if produk: fdf = fdf[fdf['Produk'].isin(produk)]
 if ca: fdf = fdf[fdf['user_name'].isin(ca)]
 if scoring: fdf = fdf[fdf['Scoring_Group'].isin(scoring)]
