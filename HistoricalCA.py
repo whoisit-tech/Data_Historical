@@ -1,5 +1,5 @@
 # ======================================================
-# app.py — FULL BI PRO Analytical Dashboard Divisi CA
+# app.py — FULL Streamlit Dashboard Divisi CA Pro Final
 # ======================================================
 
 import streamlit as st
@@ -11,7 +11,7 @@ import plotly.express as px
 # ======================================================
 # PAGE CONFIG
 # ======================================================
-st.set_page_config(page_title="Dashboard Divisi CA Pro", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Dashboard Divisi CA Pro Final", layout="wide", initial_sidebar_state="expanded")
 
 # ======================================================
 # HOLIDAYS
@@ -133,16 +133,22 @@ df = load_data()
 # SIDEBAR FILTER
 # ======================================================
 st.sidebar.title(" Filter Dashboard Pro")
+branch = st.sidebar.multiselect("Branch", sorted(df['Branch'].dropna().unique()))
+jenis_kendaraan = st.sidebar.multiselect("Jenis Kendaraan", sorted(df['Jenis_Kendaraan'].dropna().unique()))
 produk = st.sidebar.multiselect("Produk", sorted(df['Produk'].dropna().unique()))
 ca = st.sidebar.multiselect("Nama CA", sorted(df['user_name'].dropna().unique()))
 scoring = st.sidebar.multiselect("Scoring Group", sorted(df['Scoring_Group'].unique()))
+apps_status = st.sidebar.multiselect("Apps Status", sorted(df['apps_status'].unique()))
 ovd = st.sidebar.multiselect("OVD Flag", sorted(df['OVD_Flag'].unique()))
 date_range = st.sidebar.date_input("Periode Action", [df['Action_Date'].min(), df['Action_Date'].max()])
 
 fdf = df.copy()
+if branch: fdf = fdf[fdf['Branch'].isin(branch)]
+if jenis_kendaraan: fdf = fdf[fdf['Jenis_Kendaraan'].isin(jenis_kendaraan)]
 if produk: fdf = fdf[fdf['Produk'].isin(produk)]
 if ca: fdf = fdf[fdf['user_name'].isin(ca)]
 if scoring: fdf = fdf[fdf['Scoring_Group'].isin(scoring)]
+if apps_status: fdf = fdf[fdf['apps_status'].isin(apps_status)]
 if ovd: fdf = fdf[fdf['OVD_Flag'].isin(ovd)]
 fdf = fdf[(fdf['Action_Date'] >= date_range[0]) & (fdf['Action_Date'] <= date_range[1])]
 
@@ -155,7 +161,7 @@ page = st.sidebar.radio("Pilih Halaman", ["Executive Summary","Risk Analysis","P
 # EXECUTIVE SUMMARY
 # ======================================================
 if page == "Executive Summary":
-    st.title(" Executive Summary Pro")
+    st.title(" Executive Summary Pro Final")
     k1,k2,k3,k4 = st.columns(4)
     k1.metric("Distinct AppID", fdf['apps_id'].nunique())
     k2.metric("Approval Rate (%)", f"{(fdf['apps_status'].str.contains('RECOMMENDED',case=False)).mean()*100:.1f}")
@@ -165,7 +171,7 @@ if page == "Executive Summary":
     st.divider()
     
     st.subheader(" Monthly Trend (Interaktif)")
-    monthly = fdf.groupby('YearMonth').agg(
+    monthly = fdf.groupby(['YearMonth','Branch','Jenis_Kendaraan']).agg(
         AppID=('apps_id','nunique'),
         ApproveRate=('apps_status', lambda x:(x.str.contains('RECOMMENDED',case=False)).mean()*100),
         RejectRate=('apps_status', lambda x:(x=='NOT RECOMMENDED CA').mean()*100),
@@ -173,12 +179,12 @@ if page == "Executive Summary":
         AvgOSPH=('Outstanding_PH','mean')
     ).reset_index()
     
-    fig = px.line(monthly, x='YearMonth', y=['AppID','ApproveRate','RejectRate'], title="Trend Bulanan")
+    fig = px.line(monthly, x='YearMonth', y='AppID', color='Branch', line_dash='Jenis_Kendaraan', title="Trend Bulanan AppID per Branch & Jenis Kendaraan")
     st.plotly_chart(fig, use_container_width=True)
     
     st.subheader(" Scoring Group Trend")
-    score_trend = fdf.groupby(['YearMonth','Scoring_Group'])['apps_id'].nunique().reset_index()
-    pivot_score = score_trend.pivot(index='YearMonth',columns='Scoring_Group',values='apps_id').fillna(0)
+    score_trend = fdf.groupby(['YearMonth','Branch','Jenis_Kendaraan','Scoring_Group'])['apps_id'].nunique().reset_index()
+    pivot_score = score_trend.pivot_table(index='YearMonth',columns='Scoring_Group',values='apps_id',aggfunc='sum').fillna(0)
     fig2 = px.area(pivot_score, x=pivot_score.index, y=pivot_score.columns, title="Trend Scoring per Bulan")
     st.plotly_chart(fig2, use_container_width=True)
     
@@ -192,37 +198,38 @@ if page == "Executive Summary":
 # RISK ANALYSIS (Heatmap & Pivot)
 # ======================================================
 elif page == "Risk Analysis":
-    st.title(" Risk Analysis Pro")
+    st.title(" Risk Analysis Pro Final")
     st.subheader("OVD vs Scoring Group Heatmap")
     ovd_score = pd.pivot_table(fdf,index='OVD_Flag',columns='Scoring_Group',values='apps_id',aggfunc='nunique',fill_value=0)
     fig3 = px.imshow(ovd_score, text_auto=True, color_continuous_scale='RdYlGn_r', title="OVD vs Scoring Heatmap")
     st.plotly_chart(fig3,use_container_width=True)
     
-    st.subheader("CA vs Scoring Pivot")
-    matrix = pd.pivot_table(fdf,index='Scoring_Group',columns='apps_status',values='apps_id',aggfunc='nunique',fill_value=0)
+    st.subheader("CA vs Apps Status Pivot")
+    matrix = pd.pivot_table(fdf,index=['Branch','Jenis_Kendaraan','user_name'],columns='apps_status',values='apps_id',aggfunc='nunique',fill_value=0)
     st.dataframe(matrix,use_container_width=True)
 
 # ======================================================
 # PERFORMANCE
 # ======================================================
 elif page == "Performance":
-    st.title(" Performance Metrics Pro")
+    st.title(" Performance Metrics Pro Final")
     st.subheader("CA SLA vs Reject Rate Quadrant")
-    ca_perf = fdf.groupby('user_name').agg(
+    ca_perf = fdf.groupby(['Branch','Jenis_Kendaraan','user_name']).agg(
         AvgSLA=('SLA_Hours','mean'),
         RejectRate=('apps_status', lambda x:(x=='NOT RECOMMENDED CA').mean()*100),
         AppCount=('apps_id','nunique')
     ).reset_index()
-    fig4 = px.scatter(ca_perf, x='AvgSLA', y='RejectRate', size='AppCount', color='RejectRate', hover_data=['user_name'], title="SLA vs Reject Rate Quadrant")
+    fig4 = px.scatter(ca_perf, x='AvgSLA', y='RejectRate', size='AppCount', color='RejectRate',
+                      hover_data=['user_name','Branch','Jenis_Kendaraan'], title="SLA vs Reject Rate Quadrant")
     st.plotly_chart(fig4,use_container_width=True)
 
 # ======================================================
 # PIVOT TABLE
 # ======================================================
 elif page == "Pivot Table":
-    st.title(" Pivot Table Pro")
-    pivot_index = st.multiselect("Row Index", options=['Produk','OSPH_Range','Jenis_Kendaraan','Pekerjaan'], default=['Produk','OSPH_Range'])
-    pivot_columns = st.multiselect("Columns", options=['Scoring_Group','apps_status','OVD_Flag'], default=['Scoring_Group'])
+    st.title(" Pivot Table Pro Final")
+    pivot_index = st.multiselect("Row Index", options=['Branch','Jenis_Kendaraan','Produk','Pekerjaan'], default=['Branch','Jenis_Kendaraan'])
+    pivot_columns = st.multiselect("Columns", options=['Scoring_Group','apps_status','OVD_Flag'], default=['Scoring_Group','apps_status'])
     pivot_values = st.multiselect("Values", options=['apps_id','SLA_Hours','Outstanding_PH','LastOD','max_OD'], default=['apps_id'])
     
     if pivot_index and pivot_columns and pivot_values:
@@ -240,6 +247,6 @@ elif page == "Pivot Table":
 # RAW DATA
 # ======================================================
 elif page == "Raw Data":
-    st.title(" Raw Data Pro")
+    st.title(" Raw Data Pro Final")
     st.dataframe(fdf,use_container_width=True)
-    st.download_button("Export Excel", fdf.to_excel(index=False), file_name="RawData_Pro.xlsx")
+    st.download_button("Export Excel", fdf.to_excel(index=False), file_name="RawData_Pro_Final.xlsx")
