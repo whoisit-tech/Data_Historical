@@ -272,6 +272,146 @@ st.dataframe(
     use_container_width=True
 )
 
+
+## TAMBAHAN
+df['YearMonth'] = df['action_on'].dt.to_period('M').astype(str)
+
+## TREND VOLUME DAN QUALITY 
+st.subheader(" Monthly Trend – Volume & Quality")
+
+monthly = (
+    fdf
+    .groupby('YearMonth')
+    .agg(
+        AppID=('apps_id','nunique'),
+        Avg_SLA=('SLA_Hours','mean'),
+        Avg_OSPH=('Outstanding_PH','mean'),
+        Approve_Rate=('apps_status',
+            lambda x: (x.str.contains("RECOMMENDED", case=False)).mean()*100
+        ),
+        Reject_Rate=('apps_status',
+            lambda x: (x=="NOT RECOMMENDED CA").mean()*100
+        )
+    )
+    .reset_index()
+    .sort_values('YearMonth')
+)
+
+st.line_chart(
+    monthly.set_index('YearMonth')[['AppID','Approve_Rate','Reject_Rate']]
+)
+
+## RISK DRIFT
+st.subheader(" Risk Drift – OSPH Mix")
+
+osph_mix = (
+    fdf
+    .groupby(['YearMonth','OSPH_Range'])['apps_id']
+    .nunique()
+    .reset_index()
+)
+
+st.area_chart(
+    osph_mix.pivot(
+        index='YearMonth',
+        columns='OSPH_Range',
+        values='apps_id'
+    ).fillna(0)
+)
+
+## SCORING VC CA GAP
+st.subheader(" CA vs Scoring Gap Trend")
+
+gap = (
+    fdf
+    .assign(
+        Gap=lambda x:
+        np.where(
+            (x['Scoring_Group'].isin(['APPROVE','REGULER'])) &
+            (x['apps_status']=='NOT RECOMMENDED CA'),
+            'Scoring Good - CA Reject',
+            np.where(
+                (x['Scoring_Group']=='REJECT') &
+                (x['apps_status'].str.contains('RECOMMENDED')),
+                'Scoring Reject - CA Approve',
+                'Aligned'
+            )
+        )
+    )
+    .groupby(['YearMonth','Gap'])['apps_id']
+    .nunique()
+    .reset_index()
+)
+
+st.bar_chart(
+    gap.pivot(
+        index='YearMonth',
+        columns='Gap',
+        values='apps_id'
+    ).fillna(0)
+)
+
+## PRODUCT RISK SIGNAL
+st.subheader(" Product Risk Signal")
+
+product_signal = (
+    fdf
+    .groupby('Produk')
+    .agg(
+        AppID=('apps_id','nunique'),
+        Reject_Rate=('apps_status',
+            lambda x: (x=='NOT RECOMMENDED CA').mean()*100
+        ),
+        Avg_SLA=('SLA_Hours','mean'),
+        Avg_OSPH=('Outstanding_PH','mean')
+    )
+    .reset_index()
+)
+
+st.dataframe(
+    product_signal
+    .sort_values('Reject_Rate', ascending=False),
+    use_container_width=True
+)
+
+## CA PERFORMANCE
+st.subheader(" CA Performance – Speed vs Quality")
+
+ca_perf = (
+    fdf
+    .groupby('user_name')
+    .agg(
+        AppID=('apps_id','nunique'),
+        Avg_SLA=('SLA_Hours','mean'),
+        Reject_Rate=('apps_status',
+            lambda x: (x=='NOT RECOMMENDED CA').mean()*100
+        )
+    )
+    .reset_index()
+)
+
+st.scatter_chart(
+    ca_perf,
+    x='Avg_SLA',
+    y='Reject_Rate',
+    size='AppID'
+)
+
+## INSIGHT
+st.subheader(" Key Insights (Auto)")
+
+latest = monthly.iloc[-1]
+prev = monthly.iloc[-2] if len(monthly)>1 else None
+
+if prev is not None:
+    if latest['Reject_Rate'] > prev['Reject_Rate'] + 3:
+        st.warning("Reject rate naik signifikan bulan ini → cek policy / risk intake")
+    if latest['Avg_SLA'] > prev['Avg_SLA'] + 1:
+        st.warning("SLA memburuk → potensi overload CA")
+    if latest['Avg_OSPH'] > prev['Avg_OSPH']:
+        st.info("Average OSPH meningkat → risk exposure naik")
+
+
 # ======================================================
 # FOOTER
 # ======================================================
