@@ -4,15 +4,15 @@ import numpy as np
 from datetime import datetime, time, timedelta
 
 # ======================================================
-# CONFIG
+# STREAMLIT CONFIG
 # ======================================================
 st.set_page_config(
-    page_title="Dashboard Divisi CA",
+    page_title="Dashboard Divisi Credit Analyst",
     layout="wide"
 )
 
 # ======================================================
-# HOLIDAY CALENDAR (FIXED)
+# HOLIDAY CALENDAR (FIXED & SAFE)
 # ======================================================
 HOLIDAYS = pd.to_datetime([
     "01-01-2025","27-01-2025","28-01-2025","29-01-2025",
@@ -27,24 +27,40 @@ HOLIDAYS = pd.to_datetime([
     "25-12-2026","31-12-2026"
 ], dayfirst=True)
 
+HOLIDAYS = set(HOLIDAYS.date)
+
 # ======================================================
 # LOAD DATA
 # ======================================================
 @st.cache_data
 def load_data():
-    df = pd.read_excel("HistoricalCA.xlsx")
-    return df
+    return pd.read_excel("HistoricalCA.xlsx")
 
 df = load_data()
 
 # ======================================================
-# DATA PREPARATION
+# SAFE DATE PARSING (ANTI ERROR)
 # ======================================================
-df['Initiation'] = pd.to_datetime(df['Initiation'])
-df['action_on'] = pd.to_datetime(df['action_on'])
+df['Initiation'] = pd.to_datetime(
+    df['Initiation'],
+    errors='coerce',
+    dayfirst=True
+)
+
+df['action_on'] = pd.to_datetime(
+    df['action_on'],
+    errors='coerce',
+    dayfirst=True
+)
+
+# DROP BROKEN RECORDS
+df = df.dropna(subset=['Initiation', 'action_on'])
+
 df['Action_Date'] = df['action_on'].dt.date
 
-# ---- OSPH RANGE
+# ======================================================
+# OSPH RANGE
+# ======================================================
 df['OSPH_Range'] = np.select(
     [
         df['Outstanding_PH'] <= 250_000_000,
@@ -54,40 +70,39 @@ df['OSPH_Range'] = np.select(
     default='500 Juta+'
 )
 
-# ---- NORMALIZE SCORING
-def normalize_scoring(x):
-    if pd.isna(x) or x == "-":
+# ======================================================
+# NORMALIZE SCORING (SESUIAI DEFINISI USER)
+# ======================================================
+def normalize_scoring(val):
+    if pd.isna(val) or val == "-":
         return "-"
-    x = x.lower()
-    if "approve" in x:
+    v = val.lower()
+    if "approve" in v:
         return "APPROVE"
-    if "reguler" in x:
+    if "reguler" in v:
         return "REGULER"
-    if "reject" in x:
+    if "reject" in v:
         return "REJECT"
-    if "progress" in x:
+    if "progress" in v:
         return "SCORING IN PROGRESS"
     return "OTHER"
 
 df['Scoring_Group'] = df['Hasil_Scoring_1'].apply(normalize_scoring)
 
 # ======================================================
-# SLA FUNCTIONS
+# SLA LOGIC (DIVISI RULE – FULL)
 # ======================================================
 WORK_START = time(8, 30)
 WORK_END = time(15, 30)
 
 def is_workday(d):
-    return (
-        d.weekday() < 5 and
-        pd.to_datetime(d) not in HOLIDAYS
-    )
+    return d.weekday() < 5 and d not in HOLIDAYS
 
 def next_workday(dt):
     nxt = dt + timedelta(days=1)
     while not is_workday(nxt.date()):
         nxt += timedelta(days=1)
-    return nxt.replace(hour=8, minute=30)
+    return nxt.replace(hour=8, minute=30, second=0)
 
 def adjust_start(dt):
     if not is_workday(dt.date()):
@@ -95,30 +110,30 @@ def adjust_start(dt):
     if dt.time() > WORK_END:
         return next_workday(dt)
     if dt.time() < WORK_START:
-        return dt.replace(hour=8, minute=30)
+        return dt.replace(hour=8, minute=30, second=0)
     return dt
 
 def calculate_sla(start, end):
     if end <= start:
-        return 0
+        return 0.0
 
     total_minutes = 0
-    current = start
+    cur = start
 
-    while current < end:
-        if is_workday(current.date()):
-            work_start = current.replace(hour=8, minute=30)
-            work_end = current.replace(hour=15, minute=30)
+    while cur < end:
+        if is_workday(cur.date()):
+            day_start = cur.replace(hour=8, minute=30)
+            day_end = cur.replace(hour=15, minute=30)
 
-            period_start = max(current, work_start)
-            period_end = min(end, work_end)
+            s = max(cur, day_start)
+            e = min(end, day_end)
 
-            if period_start < period_end:
-                total_minutes += (period_end - period_start).seconds / 60
+            if s < e:
+                total_minutes += (e - s).total_seconds() / 60
 
-        current = (current + timedelta(days=1)).replace(hour=0, minute=0)
+        cur = (cur + timedelta(days=1)).replace(hour=0, minute=0)
 
-    return total_minutes / 60
+    return round(total_minutes / 60, 2)
 
 df['SLA_Start'] = df['Initiation'].apply(adjust_start)
 df['SLA_Hours'] = df.apply(
@@ -129,7 +144,7 @@ df['SLA_Hours'] = df.apply(
 # ======================================================
 # SIDEBAR FILTER
 # ======================================================
-st.sidebar.title(" Filter")
+st.sidebar.title(" Filter Dashboard")
 
 produk = st.sidebar.multiselect("Produk", sorted(df['Produk'].dropna().unique()))
 ca = st.sidebar.multiselect("Nama CA", sorted(df['user_name'].dropna().unique()))
@@ -143,6 +158,7 @@ date_range = st.sidebar.date_input(
 )
 
 fdf = df.copy()
+
 if produk:
     fdf = fdf[fdf['Produk'].isin(produk)]
 if ca:
@@ -163,23 +179,25 @@ fdf = fdf[
 # HEADER
 # ======================================================
 st.title(" Dashboard Historical Divisi Credit Analyst")
-st.caption("SLA exclude weekend & tanggal merah | Jam kerja 08.30–15.30")
+st.caption("Jam kerja 08.30–15.30 | Exclude weekend & tanggal merah")
 
 # ======================================================
 # KPI
 # ======================================================
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5 = st.columns(5)
+
 c1.metric("Distinct AppID", fdf['apps_id'].nunique())
 c2.metric("Total Records", len(fdf))
 c3.metric("Total CA", fdf['user_name'].nunique())
 c4.metric("Avg SLA (Hours)", f"{fdf['SLA_Hours'].mean():.2f}")
+c5.metric("Median SLA (Hours)", f"{fdf['SLA_Hours'].median():.2f}")
 
 st.divider()
 
 # ======================================================
 # CA vs SCORING
 # ======================================================
-st.subheader(" CA vs Scoring")
+st.subheader(" CA vs Scoring (History)")
 
 matrix = pd.pivot_table(
     fdf,
@@ -195,7 +213,7 @@ st.dataframe(matrix, use_container_width=True)
 # ======================================================
 # RISK PATTERN
 # ======================================================
-st.subheader(" Risk Pattern")
+st.subheader(" Risk Pattern (Produk → OSPH → Kendaraan → Pekerjaan)")
 
 risk = (
     fdf
@@ -208,7 +226,21 @@ risk = (
 st.dataframe(risk, use_container_width=True)
 
 # ======================================================
-# SLA BY CA
+# DISTRIBUSI STATUS CA
+# ======================================================
+st.subheader(" Distribusi Keputusan CA")
+
+status_dist = (
+    fdf
+    .groupby('apps_status')['apps_id']
+    .nunique()
+    .reset_index(name='Distinct AppID')
+)
+
+st.bar_chart(status_dist.set_index('apps_status'))
+
+# ======================================================
+# SLA PER CA
 # ======================================================
 st.subheader("⏱ SLA per CA")
 
@@ -223,9 +255,9 @@ sla_ca = (
 st.dataframe(sla_ca, use_container_width=True)
 
 # ======================================================
-# ANOMALY
+# ANOMALY CHECK
 # ======================================================
-st.subheader(" Scoring Approve/Reguler tapi NOT Recommended")
+st.subheader(" Scoring Approve / Reguler tapi NOT RECOMMENDED CA")
 
 anom = fdf[
     (fdf['Scoring_Group'].isin(['APPROVE','REGULER'])) &
@@ -233,11 +265,14 @@ anom = fdf[
 ]
 
 st.dataframe(
-    anom[['apps_id','Produk','OSPH_Range','Hasil_Scoring_1','apps_status','user_name']],
+    anom[[
+        'apps_id','Produk','OSPH_Range',
+        'Hasil_Scoring_1','apps_status','user_name'
+    ]],
     use_container_width=True
 )
 
 # ======================================================
 # FOOTER
 # ======================================================
-st.caption("Dashboard Divisi CA | HistoricalCA.xlsx | Streamlit")
+st.caption("Dashboard Divisi CA | HistoricalCA.xlsx | Streamlit Production")
