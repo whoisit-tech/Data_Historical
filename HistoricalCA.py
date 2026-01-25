@@ -483,12 +483,27 @@ def main():
                            color='Count', color_continuous_scale='Blues')
                 st.plotly_chart(fig, use_container_width=True)
         
+        # Correlation heatmap
         if all(col in df_filtered.columns for col in ['OSPH_clean', 'SLA_Days', 'LastOD', 'max_OD']):
             st.subheader("🔗 Correlation Matrix")
-            corr_df = df_filtered[['OSPH_clean', 'SLA_Days', 'LastOD', 'max_OD']].corr()
-            fig = px.imshow(corr_df, text_auto=True, aspect="auto",
-                          title="Correlation Heatmap", color_continuous_scale='RdBu_r')
-            st.plotly_chart(fig, use_container_width=True)
+            
+            # Filter hanya data numerik dan bersih
+            corr_cols = ['OSPH_clean', 'SLA_Days', 'LastOD', 'max_OD']
+            df_corr = df_filtered[corr_cols].copy()
+            
+            # Convert semua ke numeric dan drop NA
+            for col in corr_cols:
+                df_corr[col] = pd.to_numeric(df_corr[col], errors='coerce')
+            
+            df_corr = df_corr.dropna()
+            
+            if len(df_corr) > 0:
+                corr_df = df_corr.corr()
+                fig = px.imshow(corr_df, text_auto=True, aspect="auto",
+                              title="Correlation Heatmap", color_continuous_scale='RdBu_r')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("⚠️ Not enough valid data for correlation analysis")
     
     # TAB 2: Conversion Analysis
     with tabs[1]:
@@ -543,27 +558,34 @@ def main():
         if 'SLA_Days' in df_filtered.columns:
             df_sla = df_filtered[df_filtered['SLA_Days'].notna()].copy()
             
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Min SLA", f"{df_sla['SLA_Days'].min():.1f}d")
-            with col2:
-                st.metric("Median SLA", f"{df_sla['SLA_Days'].median():.1f}d")
-            with col3:
-                st.metric("Mean SLA", f"{df_sla['SLA_Days'].mean():.1f}d")
-            with col4:
-                st.metric("Max SLA", f"{df_sla['SLA_Days'].max():.1f}d")
+            # Pastikan SLA_Days numerik
+            df_sla['SLA_Days'] = pd.to_numeric(df_sla['SLA_Days'], errors='coerce')
+            df_sla = df_sla[df_sla['SLA_Days'].notna()]
             
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                fig = px.histogram(df_sla, x='SLA_Days', nbins=30, title="SLA Distribution")
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                if 'OSPH_Category' in df_sla.columns:
-                    fig = px.box(df_sla, x='OSPH_Category', y='SLA_Days',
-                               title="SLA by OSPH Category")
+            if len(df_sla) > 0:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Min SLA", f"{df_sla['SLA_Days'].min():.1f}d")
+                with col2:
+                    st.metric("Median SLA", f"{df_sla['SLA_Days'].median():.1f}d")
+                with col3:
+                    st.metric("Mean SLA", f"{df_sla['SLA_Days'].mean():.1f}d")
+                with col4:
+                    st.metric("Max SLA", f"{df_sla['SLA_Days'].max():.1f}d")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig = px.histogram(df_sla, x='SLA_Days', nbins=30, title="SLA Distribution")
                     st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    if 'OSPH_Category' in df_sla.columns:
+                        fig = px.box(df_sla, x='OSPH_Category', y='SLA_Days',
+                                   title="SLA by OSPH Category")
+                        st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("⚠️ No valid SLA data available")
     
     # TAB 4: Segmentation
     with tabs[3]:
@@ -647,24 +669,24 @@ def main():
             stats_data = {
                 'Metric': ['OSPH (Rp)', 'SLA (Days)'],
                 'Mean': [
-                    f"{df_filtered['OSPH_clean'].mean()/1e6:.1f}M",
-                    f"{df_filtered['SLA_Days'].mean():.2f}"
+                    f"{df_filtered['OSPH_clean'].mean()/1e6:.1f}M" if df_filtered['OSPH_clean'].notna().any() else "N/A",
+                    f"{df_filtered['SLA_Days'].mean():.2f}" if df_filtered['SLA_Days'].notna().any() else "N/A"
                 ],
                 'Median': [
-                    f"{df_filtered['OSPH_clean'].median()/1e6:.1f}M",
-                    f"{df_filtered['SLA_Days'].median():.2f}"
+                    f"{df_filtered['OSPH_clean'].median()/1e6:.1f}M" if df_filtered['OSPH_clean'].notna().any() else "N/A",
+                    f"{df_filtered['SLA_Days'].median():.2f}" if df_filtered['SLA_Days'].notna().any() else "N/A"
                 ],
                 'Std Dev': [
-                    f"{df_filtered['OSPH_clean'].std()/1e6:.1f}M",
-                    f"{df_filtered['SLA_Days'].std():.2f}"
+                    f"{df_filtered['OSPH_clean'].std()/1e6:.1f}M" if df_filtered['OSPH_clean'].notna().any() else "N/A",
+                    f"{df_filtered['SLA_Days'].std():.2f}" if df_filtered['SLA_Days'].notna().any() else "N/A"
                 ],
                 'Min': [
-                    f"{df_filtered['OSPH_clean'].min()/1e6:.1f}M",
-                    f"{df_filtered['SLA_Days'].min():.2f}"
+                    f"{df_filtered['OSPH_clean'].min()/1e6:.1f}M" if df_filtered['OSPH_clean'].notna().any() else "N/A",
+                    f"{df_filtered['SLA_Days'].min():.2f}" if df_filtered['SLA_Days'].notna().any() else "N/A"
                 ],
                 'Max': [
-                    f"{df_filtered['OSPH_clean'].max()/1e6:.1f}M",
-                    f"{df_filtered['SLA_Days'].max():.2f}"
+                    f"{df_filtered['OSPH_clean'].max()/1e6:.1f}M" if df_filtered['OSPH_clean'].notna().any() else "N/A",
+                    f"{df_filtered['SLA_Days'].max():.2f}" if df_filtered['SLA_Days'].notna().any() else "N/A"
                 ]
             }
             stats_df = pd.DataFrame(stats_data)
