@@ -465,18 +465,6 @@ def main():
     
     col1, col2 = st.columns(2)
     
-    with col1:
-        st.markdown(
-            '<div class="success-card"><h3>Strategic Insights</h3>',
-            unsafe_allow_html=True
-        )
-        if insights:
-            for insight in insights:
-                st.markdown(f"**{insight}**")
-        else:
-            st.markdown("No significant patterns detected")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
     with col2:
         st.markdown(
             '<div class="warning-card"><h3>Risk Alerts</h3>',
