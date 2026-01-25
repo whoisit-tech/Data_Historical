@@ -336,6 +336,7 @@ def main():
         st.subheader("Analysis by OSPH Range")
         
         if 'OSPH_Category' in df_filtered.columns and 'Scoring_Group' in df_filtered.columns:
+            # Hitung basic stats per range
             range_analysis = df_filtered.groupby('OSPH_Category').agg({
                 'apps_id': 'nunique',
                 'OSPH_clean': ['min', 'max']
@@ -343,17 +344,28 @@ def main():
             
             range_analysis.columns = ['Range Harga', 'Total Apps ID', 'Harga Min', 'Harga Max']
             
-            # Add scoring counts
-            scoring_counts = df_filtered.groupby('OSPH_Category')['Scoring_Group'].apply(
-                lambda x: pd.Series({
-                    'Approve 2': (x == 'APPROVE').sum(),
-                    'Reguler 1': (x == 'REGULER').sum(),
-                    'Reject 1': (x == 'REJECT').sum(),
-                    'Scoring in Progress': (x == 'IN PROGRESS').sum()
-                })
-            ).reset_index()
+            # Add scoring counts per range
+            scoring_counts = df_filtered.groupby(['OSPH_Category', 'Scoring_Group']).size().unstack(fill_value=0).reset_index()
             
-            range_analysis = range_analysis.merge(scoring_counts, left_on='Range Harga', right_on='OSPH_Category').drop('OSPH_Category', axis=1)
+            # Merge dengan range_analysis
+            range_analysis = range_analysis.merge(scoring_counts, left_on='Range Harga', right_on='OSPH_Category', how='left')
+            
+            # Hapus kolom duplikat
+            if 'OSPH_Category' in range_analysis.columns:
+                range_analysis = range_analysis.drop('OSPH_Category', axis=1)
+            
+            # Isi kolom scoring yang tidak ada dengan 0
+            for col in ['APPROVE', 'REGULER', 'REJECT', 'IN PROGRESS', 'OTHER']:
+                if col not in range_analysis.columns:
+                    range_analysis[col] = 0
+            
+            # Rename untuk display
+            range_analysis = range_analysis.rename(columns={
+                'APPROVE': 'Approve 2',
+                'REGULER': 'Reguler 1', 
+                'REJECT': 'Reject 1',
+                'IN PROGRESS': 'Scoring in Progress'
+            })
             
             range_analysis['% dari Total'] = (range_analysis['Total Apps ID'] / total_apps * 100).round(1)
             range_analysis['Harga Min'] = range_analysis['Harga Min'].apply(lambda x: f"Rp {x/1e6:,.1f}M" if pd.notna(x) else "-")
@@ -369,8 +381,13 @@ def main():
                 st.plotly_chart(fig, use_container_width=True)
             
             with col2:
-                fig = px.bar(range_analysis, x='Range Harga', y=['Approve 2', 'Reguler 1', 'Reject 1'],
-                           title="Scoring Results by OSPH Range", barmode='group')
+                # Buat dataframe untuk bar chart
+                bar_data = df_filtered.groupby(['OSPH_Category', 'Scoring_Group']).size().reset_index(name='Count')
+                bar_data = bar_data[bar_data['Scoring_Group'].isin(['APPROVE', 'REGULER', 'REJECT'])]
+                
+                fig = px.bar(bar_data, x='OSPH_Category', y='Count', color='Scoring_Group',
+                           title="Scoring Results by OSPH Range", barmode='group',
+                           labels={'OSPH_Category': 'Range Harga', 'Count': 'Jumlah'})
                 st.plotly_chart(fig, use_container_width=True)
     
     # TAB 2: Pekerjaan Analysis
