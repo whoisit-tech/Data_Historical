@@ -91,13 +91,6 @@ def get_osph_category(osph_value):
     except:
         return "Unknown"
 
-def standardize_case(value_str):
-    """Standardize case: convert to proper format, keep original variations"""
-    if pd.isna(value_str):
-        return "Unknown"
-    value_str = str(value_str).strip()
-    return value_str
-
 def calculate_risk_score(row):
     score = 0
     if pd.notna(row.get('OSPH_clean')):
@@ -245,7 +238,7 @@ def main():
         selected_status = []
     
     if 'Scoring_Detail' in df.columns:
-        all_scoring = sorted([x for x in df['Scoring_Detail'].unique() if x not in ['', 'nan', '-']])
+        all_scoring = sorted([x for x in df['Scoring_Detail'].unique() if x not in ['', 'nan']])
         selected_scoring = st.sidebar.multiselect("Scoring Result", all_scoring, default=all_scoring)
     else:
         selected_scoring = []
@@ -312,7 +305,7 @@ def main():
     
     with kpi3:
         if 'Scoring_Detail' in df_filtered.columns:
-            approve = df_filtered['Scoring_Detail'].str.contains('Approve', case=False, na=False).sum()
+            approve = df_filtered['Scoring_Detail'].str.lower().str.contains('approve', na=False).sum()
             total = len(df_filtered[df_filtered['Scoring_Detail'] != '-'])
             rate = approve / total * 100 if total > 0 else 0
             st.metric("Approval Rate", f"{rate:.1f}%")
@@ -369,7 +362,7 @@ def main():
                     'Total Records': len(df_o)
                 }
                 
-                for scoring in ['-', 'APPROVE', 'REGULER', 'REJECT', 'Scoring in Progress', 'data historical']:
+                for scoring in ['-', 'APPROVE', 'Approve 1', 'Approve 2', 'Reguler', 'Reguler 1', 'Reguler 2', 'Reject', 'Reject 1', 'Reject 2', 'Scoring in Progress']:
                     count = len(df_o[df_o['Scoring_Detail'] == scoring])
                     if count > 0:
                         row[scoring] = count
@@ -400,11 +393,10 @@ def main():
                 df_o = df_filtered[df_filtered['OSPH_Category'] == osph]
                 row = {'Range': osph, 'Total Apps': df_o['apps_id'].nunique()}
                 
-                for status in df_filtered['apps_status_clean'].unique():
-                    if status != 'Unknown':
-                        count = len(df_o[df_o['apps_status_clean'] == status])
-                        if count > 0:
-                            row[status] = count
+                for status in ['NOT RECOMMENDED CA', 'PENDING CA', 'Pending CA Completed', 'RECOMMENDED CA', 'RECOMMENDED CA WITH COND']:
+                    count = len(df_o[df_o['apps_status_clean'] == status])
+                    if count > 0:
+                        row[status] = count
                 
                 status_data.append(row)
             
@@ -424,11 +416,11 @@ def main():
         
         # Dimension 3: OSPH vs Job Type
         st.subheader("Dimension 3: Outstanding PH vs Job Type")
-        st.markdown("**Purpose**: Occupation profile and approval patterns by Outstanding PH range")
+        st.markdown("**Purpose**: Occupation profile across Outstanding PH ranges")
         
         if 'OSPH_Category' in df_filtered.columns and 'Pekerjaan_clean' in df_filtered.columns:
             dim3_data = []
-            all_pekerjaan = sorted(df_filtered['Pekerjaan_clean'].unique())
+            all_pekerjaan = sorted([x for x in df_filtered['Pekerjaan_clean'].unique() if x != 'Unknown'])
             
             for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
                 df_o = df_filtered[df_filtered['OSPH_Category'] == osph]
@@ -444,10 +436,9 @@ def main():
                 }
                 
                 for pekerjaan in all_pekerjaan:
-                    if pekerjaan != 'Unknown':
-                        count = len(df_o[df_o['Pekerjaan_clean'] == pekerjaan])
-                        if count > 0:
-                            row[pekerjaan] = count
+                    count = len(df_o[df_o['Pekerjaan_clean'] == pekerjaan])
+                    if count > 0:
+                        row[pekerjaan] = count
                 
                 dim3_data.append(row)
             
@@ -460,6 +451,43 @@ def main():
                            title="Top 10 Job Types by Outstanding PH Range",
                            barmode='stack')
                 st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # Dimension 4: OSPH vs Vehicle Type
+        st.subheader("Dimension 4: Outstanding PH vs Vehicle Type")
+        st.markdown("**Purpose**: Vehicle preference and risk profile by Outstanding PH range")
+        
+        if 'OSPH_Category' in df_filtered.columns and 'JenisKendaraan_clean' in df_filtered.columns:
+            dim4_data = []
+            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
+                df_o = df_filtered[df_filtered['OSPH_Category'] == osph]
+                
+                beban = len(df_o[df_o['JenisKendaraan_clean'].str.contains('BEBAN|PICK', case=False, na=False)])
+                penumpang = len(df_o[df_o['JenisKendaraan_clean'].str.contains('PENUMPANG|SEDAN|MPV|SUV', case=False, na=False)])
+                lainnya = len(df_o) - beban - penumpang
+                
+                risk_beban = df_o[df_o['JenisKendaraan_clean'].str.contains('BEBAN|PICK', case=False, na=False)]['Risk_Score'].mean()
+                risk_penumpang = df_o[df_o['JenisKendaraan_clean'].str.contains('PENUMPANG|SEDAN|MPV|SUV', case=False, na=False)]['Risk_Score'].mean()
+                
+                dim4_data.append({
+                    'Range': osph,
+                    'Total Apps': df_o['apps_id'].nunique(),
+                    'Commercial Vehicle': beban,
+                    'Passenger Vehicle': penumpang,
+                    'Other': lainnya,
+                    'Avg Risk Commercial': f"{risk_beban:.1f}" if pd.notna(risk_beban) else "-",
+                    'Avg Risk Passenger': f"{risk_penumpang:.1f}" if pd.notna(risk_penumpang) else "-"
+                })
+            
+            dim4_df = pd.DataFrame(dim4_data)
+            st.dataframe(dim4_df, use_container_width=True, hide_index=True)
+            
+            fig = px.bar(dim4_df, x='Range',
+                        y=['Commercial Vehicle', 'Passenger Vehicle', 'Other'],
+                        title="Vehicle Type Distribution by Outstanding PH Range",
+                        barmode='group')
+            st.plotly_chart(fig, use_container_width=True)
     
     with tab2:
         st.header("OD Impact Analysis - LastOD & max_OD")
@@ -478,8 +506,8 @@ def main():
                 for cat in ['0 (No OD)', '1-10 days', '11-30 days', '>30 days']:
                     df_od = df_filtered[df_filtered['LastOD_Category'] == cat]
                     if len(df_od) > 0:
-                        approve = df_od['Scoring_Detail'].str.contains('Approve', case=False, na=False).sum()
-                        reject = df_od['Scoring_Detail'].str.contains('Reject', case=False, na=False).sum()
+                        approve = df_od['Scoring_Detail'].str.lower().str.contains('approve', na=False).sum()
+                        reject = df_od['Scoring_Detail'].str.lower().str.contains('reject', na=False).sum()
                         total = len(df_od[df_od['Scoring_Detail'] != '-'])
                         
                         lastod_analysis.append({
@@ -505,8 +533,8 @@ def main():
                 for cat in ['0', '1-15 days', '16-45 days', '>45 days']:
                     df_od = df_filtered[df_filtered['maxOD_Category'] == cat]
                     if len(df_od) > 0:
-                        approve = df_od['Scoring_Detail'].str.contains('Approve', case=False, na=False).sum()
-                        reject = df_od['Scoring_Detail'].str.contains('Reject', case=False, na=False).sum()
+                        approve = df_od['Scoring_Detail'].str.lower().str.contains('approve', na=False).sum()
+                        reject = df_od['Scoring_Detail'].str.lower().str.contains('reject', na=False).sum()
                         total = len(df_od[df_od['Scoring_Detail'] != '-'])
                         
                         maxod_analysis.append({
@@ -531,7 +559,7 @@ def main():
             
             trend_analysis = df_filtered.groupby('OD_Trend_Category').agg({
                 'apps_id': 'nunique',
-                'Scoring_Detail': lambda x: (x.str.contains('Approve', case=False, na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0,
+                'Scoring_Detail': lambda x: (x.str.lower().str.contains('approve', na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0,
                 'Risk_Score': 'mean'
             }).reset_index()
             trend_analysis.columns = ['OD Trend', 'Total Apps', 'Approval %', 'Avg Risk']
@@ -678,14 +706,12 @@ def main():
         st.markdown("**Historical Data Context**: This dataset may contain multiple records for the same application ID due to historical tracking, status updates, or data consolidation processes. This analysis identifies applications appearing more than once.")
         
         if 'apps_id' in df.columns:
-            # Count duplicates in original data
             app_counts = df['apps_id'].value_counts()
             duplicates = app_counts[app_counts > 1]
             
             if len(duplicates) > 0:
                 st.info(f"Found {len(duplicates)} duplicate application IDs with {duplicates.sum()} total duplicate records")
                 
-                # Create detailed duplicate table
                 duplicate_ids = duplicates.index.tolist()
                 dup_records = df[df['apps_id'].isin(duplicate_ids)].sort_values('apps_id')
                 
@@ -695,7 +721,6 @@ def main():
                 st.subheader("Duplicate Application Records")
                 st.dataframe(dup_records[available_cols].sort_values('apps_id'), use_container_width=True, height=600)
                 
-                # Summary statistics
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("Total Duplicate IDs", len(duplicates))
@@ -704,7 +729,6 @@ def main():
                 with col3:
                     st.metric("Total Duplicate Records", duplicates.sum())
                 
-                # Distribution chart
                 st.subheader("Distribution of Duplicate Counts")
                 dup_dist = duplicates.value_counts().sort_index()
                 fig = px.bar(x=dup_dist.index, y=dup_dist.values,
