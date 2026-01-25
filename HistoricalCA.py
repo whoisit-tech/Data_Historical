@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from pathlib import Path
 
-st.set_page_config(page_title="CA Analytics Ultimate", layout="wide", page_icon="📊")
+st.set_page_config(page_title="CA Analytics", layout="wide", page_icon="📊")
 
 FILE_NAME = "HistoricalCA.xlsx"
 
