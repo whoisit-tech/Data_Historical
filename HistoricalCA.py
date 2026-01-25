@@ -165,16 +165,11 @@ def preprocess_data(df):
         except Exception as e:
             st.warning(f"⚠️ Error processing OSPH: {str(e)}")
     
-    # Standardize scoring
+    # Standardize scoring - JANGAN di-group, tetap detail!
     if 'Hasil_Scoring_1' in df.columns:
         try:
             df['Scoring_Clean'] = df['Hasil_Scoring_1'].fillna('-')
-            df['Scoring_Group'] = df['Scoring_Clean'].apply(lambda x: 
-                'APPROVE' if 'APPROVE' in str(x).upper() or 'Approve' in str(x) else
-                'REGULER' if 'REGULER' in str(x).upper() or 'Reguler' in str(x) else
-                'REJECT' if 'REJECT' in str(x).upper() or 'Reject' in str(x) else
-                'IN PROGRESS' if 'PROGRESS' in str(x).upper() else 'OTHER'
-            )
+            # TIDAK perlu Scoring_Group, langsung pakai Hasil_Scoring_1 yang detail
         except Exception as e:
             st.warning(f"⚠️ Error processing scoring: {str(e)}")
     
@@ -241,6 +236,13 @@ def main():
     # Sidebar filters
     st.sidebar.header("🔍 Filters")
     
+    # Filter Posisi CA (user_name)
+    if 'user_name' in df.columns:
+        ca_positions = ['All'] + sorted(df['user_name'].dropna().unique().tolist())
+        selected_ca = st.sidebar.selectbox("Posisi CA", ca_positions)
+    else:
+        selected_ca = 'All'
+    
     products = ['All'] + sorted(df['Produk'].unique().tolist()) if 'Produk' in df.columns else ['All']
     selected_product = st.sidebar.selectbox("Produk", products)
     
@@ -270,6 +272,9 @@ def main():
     # Apply filters
     df_filtered = df.copy()
     
+    if selected_ca != 'All' and 'user_name' in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered['user_name'] == selected_ca]
+    
     if selected_product != 'All' and 'Produk' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['Produk'] == selected_product]
     
@@ -294,35 +299,71 @@ def main():
     
     with kpi_col1:
         total_apps = df_filtered['apps_id'].nunique() if 'apps_id' in df_filtered.columns else len(df_filtered)
-        st.metric("📝 Total Apps", f"{total_apps:,}")
+        st.metric("📝 Total Apps (Distinct)", f"{total_apps:,}")
     
     with kpi_col2:
         if 'SLA_Days' in df_filtered.columns:
             avg_sla = df_filtered['SLA_Days'].mean()
-            st.metric("⏱️ Avg SLA", f"{avg_sla:.1f}d" if not pd.isna(avg_sla) else "N/A")
+            st.metric("⏱️ Avg SLA (Hari Kerja)", f"{avg_sla:.1f}d" if not pd.isna(avg_sla) else "N/A")
         else:
             st.metric("⏱️ Avg SLA", "N/A")
     
     with kpi_col3:
-        if 'Scoring_Group' in df_filtered.columns:
-            approve_pct = (df_filtered['Scoring_Group'] == 'APPROVE').sum() / len(df_filtered) * 100
-            st.metric("✅ Approval", f"{approve_pct:.1f}%")
+        if 'Hasil_Scoring_1' in df_filtered.columns:
+            total_scored = len(df_filtered[df_filtered['Hasil_Scoring_1'] != '-'])
+            st.metric("✅ Total Scored", f"{total_scored:,}")
         else:
-            st.metric("✅ Approval", "N/A")
+            st.metric("✅ Total Scored", "N/A")
     
     with kpi_col4:
-        if 'Scoring_Group' in df_filtered.columns:
-            reguler_pct = (df_filtered['Scoring_Group'] == 'REGULER').sum() / len(df_filtered) * 100
-            st.metric("⚡ Reguler", f"{reguler_pct:.1f}%")
+        if 'apps_status' in df_filtered.columns:
+            recommended = len(df_filtered[df_filtered['apps_status'].str.contains('RECOMMENDED CA', case=False, na=False)])
+            st.metric("👍 Recommended CA", f"{recommended:,}")
         else:
-            st.metric("⚡ Reguler", "N/A")
+            st.metric("👍 Recommended", "N/A")
     
     with kpi_col5:
-        if 'Scoring_Group' in df_filtered.columns:
-            reject_pct = (df_filtered['Scoring_Group'] == 'REJECT').sum() / len(df_filtered) * 100
-            st.metric("❌ Reject", f"{reject_pct:.1f}%")
+        if 'apps_status' in df_filtered.columns:
+            not_recommended = len(df_filtered[df_filtered['apps_status'].str.contains('NOT RECOMMENDED', case=False, na=False)])
+            st.metric("❌ Not Recommended", f"{not_recommended:,}")
         else:
-            st.metric("❌ Reject", "N/A")
+            st.metric("❌ Not Recommended", "N/A")
+    
+    # Additional KPIs Row
+    st.markdown("### 📌 Additional Metrics")
+    kpi_col6, kpi_col7, kpi_col8, kpi_col9 = st.columns(4)
+    
+    with kpi_col6:
+        if 'user_name' in df_filtered.columns:
+            # Hitung apps per CA (1 appid bisa dikerjakan banyak CA)
+            apps_per_ca = df_filtered.groupby('apps_id')['user_name'].nunique().mean()
+            st.metric("👥 Avg CA per AppID", f"{apps_per_ca:.2f}")
+        else:
+            st.metric("👥 Avg CA per AppID", "N/A")
+    
+    with kpi_col7:
+        if 'position_name' in df_filtered.columns:
+            total_ca_positions = df_filtered['user_name'].nunique() if 'user_name' in df_filtered.columns else 0
+            st.metric("🎯 Total CA Positions", f"{total_ca_positions:,}")
+        else:
+            st.metric("🎯 Total CA", "N/A")
+    
+    with kpi_col8:
+        if 'Produk' in df_filtered.columns:
+            cs_new = len(df_filtered[df_filtered['Produk'] == 'CS NEW'])
+            cs_used = len(df_filtered[df_filtered['Produk'] == 'CS USED'])
+            st.metric("🚗 CS NEW / USED", f"{cs_new:,} / {cs_used:,}")
+        else:
+            st.metric("🚗 Products", "N/A")
+    
+    with kpi_col9:
+        # Working hours compliance
+        if 'Hour' in df_filtered.columns:
+            working_hours = df_filtered[(df_filtered['Hour'] >= 8) & (df_filtered['Hour'] <= 15)]
+            compliance = len(working_hours) / len(df_filtered) * 100 if len(df_filtered) > 0 else 0
+            st.metric("⏰ Work Hours Compliance", f"{compliance:.1f}%")
+        else:
+            st.metric("⏰ Work Hours", "N/A")
     
     st.markdown("---")
     
