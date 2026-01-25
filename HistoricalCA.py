@@ -49,92 +49,154 @@ TANGGAL_MERAH_DT = [datetime.strptime(d, "%d-%m-%Y").date() for d in TANGGAL_MER
 # ========== FUNGSI HELPER ==========
 
 def parse_date(date_str):
-    if pd.isna(date_str) or date_str == '-':
+    if pd.isna(date_str) or date_str == '-' or date_str == '':
         return None
-    formats = ["%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y"]
-    for fmt in formats:
-        try:
-            return datetime.strptime(str(date_str).split('.')[0], fmt)
-        except:
-            continue
-    return None
+    
+    try:
+        # Jika sudah datetime, return langsung
+        if isinstance(date_str, datetime):
+            return date_str
+        
+        # Coba berbagai format
+        formats = ["%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y"]
+        for fmt in formats:
+            try:
+                return datetime.strptime(str(date_str).split('.')[0], fmt)
+            except:
+                continue
+        
+        # Jika semua format gagal, coba pandas
+        result = pd.to_datetime(date_str, errors='coerce')
+        if pd.isna(result):
+            return None
+        return result.to_pydatetime()
+    except:
+        return None
 
 def is_working_day(date):
-    if date.weekday() >= 5 or date.date() in TANGGAL_MERAH_DT:
+    try:
+        if pd.isna(date):
+            return False
+        if not isinstance(date, datetime):
+            date = pd.to_datetime(date)
+        if date.weekday() >= 5 or date.date() in TANGGAL_MERAH_DT:
+            return False
+        return True
+    except:
         return False
-    return True
 
 def calculate_sla_days(start_dt, end_dt):
-    if not start_dt or not end_dt:
+    # Return None jika salah satu tanggal kosong/invalid
+    if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
-    start_adjusted = start_dt
-    if start_dt.time() >= datetime.strptime("15:30", "%H:%M").time():
-        start_adjusted = start_dt + timedelta(days=1)
-        start_adjusted = start_adjusted.replace(hour=8, minute=30, second=0)
-        while not is_working_day(start_adjusted):
-            start_adjusted += timedelta(days=1)
-    working_days = 0
-    current = start_adjusted.date()
-    end_date = end_dt.date()
-    while current <= end_date:
-        if is_working_day(datetime.combine(current, datetime.min.time())):
-            working_days += 1
-        current += timedelta(days=1)
-    return working_days
+    
+    try:
+        # Pastikan keduanya datetime object
+        if not isinstance(start_dt, datetime):
+            start_dt = pd.to_datetime(start_dt)
+        if not isinstance(end_dt, datetime):
+            end_dt = pd.to_datetime(end_dt)
+        
+        # Jika masih NaT setelah konversi, return None
+        if pd.isna(start_dt) or pd.isna(end_dt):
+            return None
+        
+        start_adjusted = start_dt
+        if start_dt.time() >= datetime.strptime("15:30", "%H:%M").time():
+            start_adjusted = start_dt + timedelta(days=1)
+            start_adjusted = start_adjusted.replace(hour=8, minute=30, second=0)
+            while not is_working_day(start_adjusted):
+                start_adjusted += timedelta(days=1)
+        
+        working_days = 0
+        current = start_adjusted.date()
+        end_date = end_dt.date()
+        
+        while current <= end_date:
+            if is_working_day(datetime.combine(current, datetime.min.time())):
+                working_days += 1
+            current += timedelta(days=1)
+        
+        return working_days
+    except Exception as e:
+        return None
 
 def get_osph_category(osph_value):
-    if pd.isna(osph_value):
+    try:
+        if pd.isna(osph_value) or osph_value is None:
+            return "Unknown"
+        osph_value = float(osph_value)
+        if osph_value <= 250000000:
+            return "0 - 250 Juta"
+        elif osph_value <= 500000000:
+            return "250 - 500 Juta"
+        else:
+            return "500 Juta+"
+    except:
         return "Unknown"
-    osph_value = float(osph_value)
-    if osph_value <= 250000000:
-        return "0 - 250 Juta"
-    elif osph_value <= 500000000:
-        return "250 - 500 Juta"
-    else:
-        return "500 Juta+"
 
 def preprocess_data(df):
     df = df.copy()
     
-    # Parse dates
+    # Parse dates dengan error handling
     for col in ['action_on', 'Initiation', 'RealisasiDate']:
         if col in df.columns:
-            df[f'{col}_parsed'] = df[col].apply(parse_date)
+            try:
+                df[f'{col}_parsed'] = df[col].apply(parse_date)
+            except Exception as e:
+                st.warning(f"⚠️ Error parsing {col}: {str(e)}")
+                df[f'{col}_parsed'] = None
     
     # Calculate SLA
     if 'action_on_parsed' in df.columns and 'RealisasiDate_parsed' in df.columns:
-        df['SLA_Days'] = df.apply(
-            lambda row: calculate_sla_days(row['action_on_parsed'], row['RealisasiDate_parsed']), axis=1
-        )
+        try:
+            df['SLA_Days'] = df.apply(
+                lambda row: calculate_sla_days(row['action_on_parsed'], row['RealisasiDate_parsed']), axis=1
+            )
+        except Exception as e:
+            st.warning(f"⚠️ Error calculating SLA: {str(e)}")
+            df['SLA_Days'] = None
     
     # Process OSPH
     if 'Outstanding_PH' in df.columns:
-        df['OSPH_clean'] = pd.to_numeric(df['Outstanding_PH'].astype(str).str.replace(',', ''), errors='coerce')
-        df['OSPH_Category'] = df['OSPH_clean'].apply(get_osph_category)
+        try:
+            df['OSPH_clean'] = pd.to_numeric(df['Outstanding_PH'].astype(str).str.replace(',', ''), errors='coerce')
+            df['OSPH_Category'] = df['OSPH_clean'].apply(get_osph_category)
+        except Exception as e:
+            st.warning(f"⚠️ Error processing OSPH: {str(e)}")
     
     # Standardize scoring
     if 'Hasil_Scoring_1' in df.columns:
-        df['Scoring_Clean'] = df['Hasil_Scoring_1'].fillna('-')
-        df['Scoring_Group'] = df['Scoring_Clean'].apply(lambda x: 
-            'APPROVE' if 'APPROVE' in str(x).upper() or 'Approve' in str(x) else
-            'REGULER' if 'REGULER' in str(x).upper() or 'Reguler' in str(x) else
-            'REJECT' if 'REJECT' in str(x).upper() or 'Reject' in str(x) else
-            'IN PROGRESS' if 'PROGRESS' in str(x).upper() else 'OTHER'
-        )
+        try:
+            df['Scoring_Clean'] = df['Hasil_Scoring_1'].fillna('-')
+            df['Scoring_Group'] = df['Scoring_Clean'].apply(lambda x: 
+                'APPROVE' if 'APPROVE' in str(x).upper() or 'Approve' in str(x) else
+                'REGULER' if 'REGULER' in str(x).upper() or 'Reguler' in str(x) else
+                'REJECT' if 'REJECT' in str(x).upper() or 'Reject' in str(x) else
+                'IN PROGRESS' if 'PROGRESS' in str(x).upper() else 'OTHER'
+            )
+        except Exception as e:
+            st.warning(f"⚠️ Error processing scoring: {str(e)}")
     
     # Time features
     if 'action_on_parsed' in df.columns:
-        df['Hour'] = df['action_on_parsed'].dt.hour
-        df['DayOfWeek'] = df['action_on_parsed'].dt.dayofweek
-        df['Month'] = df['action_on_parsed'].dt.month
-        df['Week'] = df['action_on_parsed'].dt.isocalendar().week
-        df['YearMonth'] = df['action_on_parsed'].dt.to_period('M').astype(str)
+        try:
+            df['Hour'] = df['action_on_parsed'].dt.hour
+            df['DayOfWeek'] = df['action_on_parsed'].dt.dayofweek
+            df['Month'] = df['action_on_parsed'].dt.month
+            df['Week'] = df['action_on_parsed'].dt.isocalendar().week
+            df['YearMonth'] = df['action_on_parsed'].dt.to_period('M').astype(str)
+        except Exception as e:
+            st.warning(f"⚠️ Error creating time features: {str(e)}")
     
     # Risk score
     if 'OSPH_clean' in df.columns and 'SLA_Days' in df.columns:
-        osph_norm = (df['OSPH_clean'] - df['OSPH_clean'].min()) / (df['OSPH_clean'].max() - df['OSPH_clean'].min() + 1)
-        sla_norm = (df['SLA_Days'] - df['SLA_Days'].min()) / (df['SLA_Days'].max() - df['SLA_Days'].min() + 1)
-        df['Risk_Score'] = (osph_norm * 0.6 + sla_norm * 0.4) * 100
+        try:
+            osph_norm = (df['OSPH_clean'] - df['OSPH_clean'].min()) / (df['OSPH_clean'].max() - df['OSPH_clean'].min() + 1)
+            sla_norm = (df['SLA_Days'] - df['SLA_Days'].min()) / (df['SLA_Days'].max() - df['SLA_Days'].min() + 1)
+            df['Risk_Score'] = (osph_norm * 0.6 + sla_norm * 0.4) * 100
+        except Exception as e:
+            st.warning(f"⚠️ Error calculating risk score: {str(e)}")
     
     return df
 
@@ -146,9 +208,17 @@ def load_data():
     
     try:
         df = pd.read_excel(FILE_NAME)
-        return preprocess_data(df)
+        st.info(f"📊 Raw data loaded: {len(df)} rows")
+        
+        # Preprocess dengan error handling
+        df_processed = preprocess_data(df)
+        st.info(f"✅ Data preprocessing completed")
+        
+        return df_processed
     except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+        st.error(f"❌ Error loading data: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
         return None
 
 # ========== MAIN APP ==========
@@ -177,37 +247,45 @@ def main():
     branches = ['All'] + sorted(df['branch_name'].dropna().unique().tolist()) if 'branch_name' in df.columns else ['All']
     selected_branch = st.sidebar.selectbox("Branch", branches)
     
+    # Date filter dengan handling NaT yang lebih baik
+    date_range = None
     if 'action_on_parsed' in df.columns:
-        # Filter data yang punya tanggal valid
         df_with_dates = df[df['action_on_parsed'].notna()].copy()
-        if not df_with_dates.empty:
-            min_date = df_with_dates['action_on_parsed'].min()
-            max_date = df_with_dates['action_on_parsed'].max()
-            
-            # Konversi ke date untuk date_input
-            if pd.notna(min_date) and pd.notna(max_date):
-                min_date = min_date.date() if hasattr(min_date, 'date') else min_date
-                max_date = max_date.date() if hasattr(max_date, 'date') else max_date
-                date_range = st.sidebar.date_input("Periode", value=(min_date, max_date), min_value=min_date, max_value=max_date)
-            else:
+        if len(df_with_dates) > 0:
+            try:
+                min_date = pd.to_datetime(df_with_dates['action_on_parsed'].min())
+                max_date = pd.to_datetime(df_with_dates['action_on_parsed'].max())
+                
+                if pd.notna(min_date) and pd.notna(max_date):
+                    date_range = st.sidebar.date_input(
+                        "Periode", 
+                        value=(min_date.date(), max_date.date()),
+                        min_value=min_date.date(),
+                        max_value=max_date.date()
+                    )
+            except Exception as e:
+                st.sidebar.warning("⚠️ Date filter tidak tersedia")
                 date_range = None
-        else:
-            date_range = None
-    else:
-        date_range = None
     
     # Apply filters
     df_filtered = df.copy()
-    if selected_product != 'All':
+    
+    if selected_product != 'All' and 'Produk' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['Produk'] == selected_product]
-    if selected_branch != 'All':
+    
+    if selected_branch != 'All' and 'branch_name' in df_filtered.columns:
         df_filtered = df_filtered[df_filtered['branch_name'] == selected_branch]
-    if 'action_on_parsed' in df.columns and date_range is not None and len(date_range) == 2:
-        df_filtered = df_filtered[
-            (df_filtered['action_on_parsed'].notna()) &
-            (df_filtered['action_on_parsed'].dt.date >= date_range[0]) &
-            (df_filtered['action_on_parsed'].dt.date <= date_range[1])
-        ]
+    
+    if date_range is not None and len(date_range) == 2 and 'action_on_parsed' in df_filtered.columns:
+        try:
+            df_filtered = df_filtered[
+                (df_filtered['action_on_parsed'].notna()) &
+                (df_filtered['action_on_parsed'].dt.date >= date_range[0]) &
+                (df_filtered['action_on_parsed'].dt.date <= date_range[1])
+            ]
+        except Exception as e:
+            st.warning(f"⚠️ Date filter error: {str(e)}")
+            pass
     
     # ========== KPI SECTION ==========
     st.header("📊 Key Performance Indicators")
