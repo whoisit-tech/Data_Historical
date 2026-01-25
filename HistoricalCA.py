@@ -741,52 +741,78 @@ def main():
         st.subheader("📈 Approval Rate Trends")
         
         if all(col in df_filtered.columns for col in ['YearMonth', 'Scoring_Group']):
-            monthly_approval = df_filtered.groupby('YearMonth')['Scoring_Group'].apply(
-                lambda x: pd.Series({
-                    'Approval_Rate': (x == 'APPROVE').sum() / len(x) * 100,
-                    'Reject_Rate': (x == 'REJECT').sum() / len(x) * 100,
-                    'Reguler_Rate': (x == 'REGULER').sum() / len(x) * 100
-                })
-            ).reset_index()
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=monthly_approval['YearMonth'], y=monthly_approval['Approval_Rate'],
-                                   mode='lines+markers', name='Approval', line=dict(color='#10b981', width=3)))
-            fig.add_trace(go.Scatter(x=monthly_approval['YearMonth'], y=monthly_approval['Reguler_Rate'],
-                                   mode='lines+markers', name='Reguler', line=dict(color='#f59e0b', width=3)))
-            fig.add_trace(go.Scatter(x=monthly_approval['YearMonth'], y=monthly_approval['Reject_Rate'],
-                                   mode='lines+markers', name='Reject', line=dict(color='#ef4444', width=3)))
-            
-            fig.update_layout(title="Monthly Approval/Reguler/Reject Rate Trends",
-                            xaxis_title="Month", yaxis_title="Rate (%)", hovermode='x unified')
-            st.plotly_chart(fig, use_container_width=True)
+            try:
+                monthly_approval = df_filtered.groupby('YearMonth')['Scoring_Group'].apply(
+                    lambda x: pd.Series({
+                        'Approval_Rate': (x == 'APPROVE').sum() / len(x) * 100 if len(x) > 0 else 0,
+                        'Reject_Rate': (x == 'REJECT').sum() / len(x) * 100 if len(x) > 0 else 0,
+                        'Reguler_Rate': (x == 'REGULER').sum() / len(x) * 100 if len(x) > 0 else 0
+                    })
+                ).reset_index()
+                
+                if len(monthly_approval) > 0:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=monthly_approval['YearMonth'], y=monthly_approval['Approval_Rate'],
+                                           mode='lines+markers', name='Approval', line=dict(color='#10b981', width=3)))
+                    fig.add_trace(go.Scatter(x=monthly_approval['YearMonth'], y=monthly_approval['Reguler_Rate'],
+                                           mode='lines+markers', name='Reguler', line=dict(color='#f59e0b', width=3)))
+                    fig.add_trace(go.Scatter(x=monthly_approval['YearMonth'], y=monthly_approval['Reject_Rate'],
+                                           mode='lines+markers', name='Reject', line=dict(color='#ef4444', width=3)))
+                    
+                    fig.update_layout(title="Monthly Approval/Reguler/Reject Rate Trends",
+                                    xaxis_title="Month", yaxis_title="Rate (%)", hovermode='x unified')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("⚠️ No data available for trend analysis")
+            except Exception as e:
+                st.error(f"Error creating trend chart: {str(e)}")
     
     with adv_col2:
         st.subheader("🎯 User Performance")
         
         if all(col in df_filtered.columns for col in ['user_name', 'Scoring_Group']):
-            user_perf = df_filtered.groupby('user_name').agg({
-                'apps_id': 'count',
-            }).reset_index()
-            user_perf['Approval_Rate'] = df_filtered.groupby('user_name')['Scoring_Group'].apply(
-                lambda x: (x == 'APPROVE').sum() / len(x) * 100
-            ).values
-            user_perf['Avg_SLA'] = df_filtered.groupby('user_name')['SLA_Days'].mean().values if 'SLA_Days' in df_filtered.columns else 0
-            user_perf.columns = ['User', 'Total_Apps', 'Approval_Rate', 'Avg_SLA']
-            user_perf = user_perf.sort_values('Total_Apps', ascending=False)
-            
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(go.Bar(x=user_perf['User'], y=user_perf['Total_Apps'], 
-                               name="Total Apps", marker_color='#667eea'), secondary_y=False)
-            fig.add_trace(go.Scatter(x=user_perf['User'], y=user_perf['Approval_Rate'],
-                                   name="Approval %", mode='lines+markers', 
-                                   line=dict(color='#10b981', width=3)), secondary_y=True)
-            
-            fig.update_layout(title="CA Performance: Volume vs Approval Rate")
-            fig.update_xaxes(tickangle=-45)
-            fig.update_yaxes(title_text="Total Applications", secondary_y=False)
-            fig.update_yaxes(title_text="Approval Rate (%)", secondary_y=True)
-            st.plotly_chart(fig, use_container_width=True)
+            try:
+                user_perf = df_filtered.groupby('user_name').agg({
+                    'apps_id': 'count',
+                }).reset_index()
+                
+                # Hitung approval rate per user
+                approval_rates = df_filtered.groupby('user_name')['Scoring_Group'].apply(
+                    lambda x: (x == 'APPROVE').sum() / len(x) * 100 if len(x) > 0 else 0
+                ).reset_index()
+                approval_rates.columns = ['user_name', 'Approval_Rate']
+                
+                # Merge
+                user_perf = user_perf.merge(approval_rates, on='user_name')
+                
+                # Hitung avg SLA jika ada
+                if 'SLA_Days' in df_filtered.columns:
+                    avg_sla = df_filtered.groupby('user_name')['SLA_Days'].mean().reset_index()
+                    avg_sla.columns = ['user_name', 'Avg_SLA']
+                    user_perf = user_perf.merge(avg_sla, on='user_name', how='left')
+                else:
+                    user_perf['Avg_SLA'] = 0
+                
+                user_perf.columns = ['User', 'Total_Apps', 'Approval_Rate', 'Avg_SLA']
+                user_perf = user_perf.sort_values('Total_Apps', ascending=False)
+                
+                if len(user_perf) > 0:
+                    fig = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig.add_trace(go.Bar(x=user_perf['User'], y=user_perf['Total_Apps'], 
+                                       name="Total Apps", marker_color='#667eea'), secondary_y=False)
+                    fig.add_trace(go.Scatter(x=user_perf['User'], y=user_perf['Approval_Rate'],
+                                           name="Approval %", mode='lines+markers', 
+                                           line=dict(color='#10b981', width=3)), secondary_y=True)
+                    
+                    fig.update_layout(title="CA Performance: Volume vs Approval Rate")
+                    fig.update_xaxes(tickangle=-45)
+                    fig.update_yaxes(title_text="Total Applications", secondary_y=False)
+                    fig.update_yaxes(title_text="Approval Rate (%)", secondary_y=True)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("⚠️ No user performance data available")
+            except Exception as e:
+                st.error(f"Error creating user performance chart: {str(e)}")
     
     st.markdown("---")
     st.header("⚖️ Comparative Analysis")
