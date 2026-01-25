@@ -1617,27 +1617,71 @@ def main():
                 st.metric("Worst Month (Approval)", f"{worst_month['Month']}: {worst_month['Approval Rate (%)']:.1f}%")
     
     # TAB 9: Predictive Patterns
-    with tab9:
+   with tab9:
         st.header("Predictive Pattern Recognition")
         st.info("Identification of patterns that predict approval or rejection outcomes")
         
-        st.subheader("High-Impact Combinations: Outstanding PH + OD Segment + Job Type")
-        st.markdown("**Purpose**: Find best and worst segment combinations")
+        if all(c in df_filtered.columns for c in ['OSPH_Category', 'Pekerjaan_clean', 'Scoring_Detail']):
+            st.subheader("Outstanding PH + Job Type Combination Analysis")
+            pattern = pd.crosstab(df_filtered['OSPH_Category'], df_filtered['Pekerjaan_clean'])
+            st.dataframe(pattern, use_container_width=True)
+    
+    with tab10:
+        st.header("Trends & Forecasting")
+        st.info("Monthly trends in volume, SLA, and approval rates")
         
-        if all(c in df_filtered.columns for c in [
-            'OSPH_Category', 'Pekerjaan_clean', 'Scoring_Detail'
-        ]):
-            try:
-                df_temp = df_filtered.copy()
+        if 'YearMonth' in df_filtered.columns:
+            monthly = df_filtered.groupby('YearMonth').agg({
+                'apps_id': 'nunique',
+                'SLA_Days': 'mean'
+            }).reset_index()
+            monthly.columns = ['Month', 'Volume', 'Avg SLA']
+            st.dataframe(monthly, use_container_width=True, hide_index=True)
+            
+            fig = px.line(monthly, x='Month', y='Volume', markers=True, title="Monthly Volume Trend")
+            fig.update_layout(xaxis_tickangle=-45)
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with tab11:
+        st.header("Duplicate Applications Analysis")
+        st.info("Historical data context: This dataset contains multiple records for same application ID")
+        
+        if 'apps_id' in df.columns:
+            app_counts = df['apps_id'].value_counts()
+            duplicates = app_counts[app_counts > 1]
+            
+            if len(duplicates) > 0:
+                st.info(f"Found {len(duplicates)} duplicate application IDs with {duplicates.sum()} total records")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Duplicate IDs", len(duplicates))
+                with col2:
+                    st.metric("Max Records per ID", duplicates.max())
+                with col3:
+                    st.metric("Total Duplicate Records", duplicates.sum())
                 
-                if 'LastOD_clean' in df_temp.columns:
-                    df_temp['LastOD_Segment'] = pd.cut(
-                        df_temp['LastOD_clean'],
-                        bins=[-np.inf, 0, 30, np.inf],
-                        labels=['No OD', 'OD 1-30', 'OD >30']
-                    )
-                    
-                    pattern_analysis = df_temp.groupby([
-                        'OSPH_Category',
-                        'LastOD_Segment',
-                        'Pekerjaan_clean'
+                dup_dist = duplicates.value_counts().sort_index()
+                fig = px.bar(x=dup_dist.index, y=dup_dist.values, labels={'x': 'Number of Records', 'y': 'Count'}, title="Duplicate Distribution")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.success("No duplicate application IDs found")
+    
+    with tab12:
+        st.header("Raw Data Export")
+        st.info("Complete filtered dataset with all processed fields")
+        
+        display_cols = [c for c in ['apps_id', 'user_name', 'apps_status', 'Scoring_Detail', 'Outstanding_PH', 'SLA_Days', 'Risk_Score'] if c in df_filtered.columns]
+        st.dataframe(df_filtered[display_cols], use_container_width=True, height=500)
+        
+        csv = df_filtered[display_cols].to_csv(index=False).encode('utf-8')
+        st.download_button("Download CSV", csv, f"CA_Analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", "text/csv")
+    
+    st.markdown("---")
+    st.markdown(f"<div style='text-align:center;color:#666'>CA Analytics Dashboard | Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>", unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        st.error(f"Application error: {str(e)}")
+        st.stop()
