@@ -6,8 +6,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import numpy as np
 from scipy import stats
-import warnings
-warnings.filterwarnings('ignore')
+from pathlib import Path
 
 # ========== KONFIGURASI ==========
 st.set_page_config(page_title="CA Analytics Dashboard", layout="wide", page_icon="📊")
@@ -138,10 +137,12 @@ def preprocess_data(df):
 
 @st.cache_data
 def load_data():
+    if not Path(FILE_NAME).exists():
+        st.error(f"❌ File '{FILE_NAME}' tidak ditemukan di folder yang sama dengan script")
+        st.stop()
+    
     try:
-        # URL file Excel di GitHub (raw)
-        url = "https://raw.githubusercontent.com/whoisit-tech/Historical-CA/main/HistoricalCA.xlsx"
-        df = pd.read_excel(url)
+        df = pd.read_excel(FILE_NAME)
         return preprocess_data(df)
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
@@ -154,12 +155,12 @@ def main():
     st.markdown("**Comprehensive Analytics for Historical CA Performance**")
     st.markdown("---")
     
-    # Load data langsung dari GitHub
-    with st.spinner("Loading data from GitHub..."):
+    # Load data langsung dari file Excel
+    with st.spinner("Loading data from HistoricalCA.xlsx..."):
         df = load_data()
     
     if df is None or df.empty:
-        st.error("❌ Failed to load data from GitHub. Please check the URL.")
+        st.error("❌ Failed to load data.")
         st.stop()
     
     st.success(f"✅ Data loaded successfully! Total records: {len(df):,}")
@@ -174,9 +175,23 @@ def main():
     selected_branch = st.sidebar.selectbox("Branch", branches)
     
     if 'action_on_parsed' in df.columns:
-        min_date = df['action_on_parsed'].min().date()
-        max_date = df['action_on_parsed'].max().date()
-        date_range = st.sidebar.date_input("Periode", value=(min_date, max_date), min_value=min_date, max_value=max_date)
+        # Filter data yang punya tanggal valid
+        df_with_dates = df[df['action_on_parsed'].notna()].copy()
+        if not df_with_dates.empty:
+            min_date = df_with_dates['action_on_parsed'].min()
+            max_date = df_with_dates['action_on_parsed'].max()
+            
+            # Konversi ke date untuk date_input
+            if pd.notna(min_date) and pd.notna(max_date):
+                min_date = min_date.date() if hasattr(min_date, 'date') else min_date
+                max_date = max_date.date() if hasattr(max_date, 'date') else max_date
+                date_range = st.sidebar.date_input("Periode", value=(min_date, max_date), min_value=min_date, max_value=max_date)
+            else:
+                date_range = None
+        else:
+            date_range = None
+    else:
+        date_range = None
     
     # Apply filters
     df_filtered = df.copy()
@@ -184,8 +199,9 @@ def main():
         df_filtered = df_filtered[df_filtered['Produk'] == selected_product]
     if selected_branch != 'All':
         df_filtered = df_filtered[df_filtered['branch_name'] == selected_branch]
-    if 'action_on_parsed' in df.columns and len(date_range) == 2:
+    if 'action_on_parsed' in df.columns and date_range is not None and len(date_range) == 2:
         df_filtered = df_filtered[
+            (df_filtered['action_on_parsed'].notna()) &
             (df_filtered['action_on_parsed'].dt.date >= date_range[0]) &
             (df_filtered['action_on_parsed'].dt.date <= date_range[1])
         ]
