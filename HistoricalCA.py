@@ -91,43 +91,12 @@ def get_osph_category(osph_value):
     except:
         return "Unknown"
 
-def normalize_status(status_str):
-    """Normalize apps_status to standard format"""
-    if pd.isna(status_str):
+def standardize_case(value_str):
+    """Standardize case: convert to proper format, keep original variations"""
+    if pd.isna(value_str):
         return "Unknown"
-    status_str = str(status_str).strip().upper()
-    
-    # Map variants to standard names
-    if 'REJECT' in status_str:
-        return "REJECT"
-    elif 'APPROVE' in status_str:
-        return "APPROVE"
-    elif 'RECOMMENDED' in status_str:
-        if 'NOT' in status_str:
-            return "NOT RECOMMENDED CA"
-        elif 'COND' in status_str:
-            return "RECOMMENDED CA WITH COND"
-        else:
-            return "RECOMMENDED CA"
-    elif 'PENDING' in status_str:
-        return "PENDING CA"
-    else:
-        return status_str
-
-def normalize_scoring(scoring_str):
-    """Normalize Hasil_Scoring_1 to standard format"""
-    if pd.isna(scoring_str) or scoring_str == '-':
-        return "-"
-    scoring_str = str(scoring_str).strip()
-    
-    if 'Reject' in scoring_str or 'REJECT' in scoring_str:
-        return "REJECT"
-    elif 'Approve' in scoring_str or 'APPROVE' in scoring_str:
-        return "APPROVE"
-    elif 'Reguler' in scoring_str or 'REGULER' in scoring_str:
-        return "REGULER"
-    else:
-        return scoring_str
+    value_str = str(value_str).strip()
+    return value_str
 
 def calculate_risk_score(row):
     score = 0
@@ -171,10 +140,10 @@ def preprocess_data(df):
             df[f'{col}_clean'] = pd.to_numeric(df[col], errors='coerce')
     
     if 'apps_status' in df.columns:
-        df['apps_status_clean'] = df['apps_status'].apply(normalize_status)
+        df['apps_status_clean'] = df['apps_status'].fillna('Unknown').astype(str).str.strip()
     
     if 'Hasil_Scoring_1' in df.columns:
-        df['Scoring_Detail'] = df['Hasil_Scoring_1'].apply(normalize_scoring)
+        df['Scoring_Detail'] = df['Hasil_Scoring_1'].fillna('-').astype(str).str.strip()
     
     if 'action_on_parsed' in df.columns:
         df['Hour'] = df['action_on_parsed'].dt.hour
@@ -221,17 +190,17 @@ def generate_analytical_insights(df):
     insights = []
     warnings = []
     
-    # 1. ANALYTICAL: Korelasi OSPH vs Approval Rate
+    # 1. ANALYTICAL: OSPH vs Approval Rate
     if 'OSPH_Category' in df.columns and 'Scoring_Detail' in df.columns:
         for osph in ['0 - 250 Juta', '250 - 500 Juta', '500 Juta+']:
             df_osph = df[df['OSPH_Category'] == osph]
             if len(df_osph) > 0:
-                approve = df_osph['Scoring_Detail'].str.contains('Approve', case=False, na=False).sum()
+                approve = df_osph['Scoring_Detail'].str.lower().str.contains('approve', na=False).sum()
                 total = len(df_osph[df_osph['Scoring_Detail'] != '-'])
                 if total > 0:
                     rate = approve / total * 100
                     if rate < 30:
-                        warnings.append(f"Low approval rate {rate:.1f}% in {osph} segment - Review scoring criteria")
+                        warnings.append(f"Low approval rate {rate:.1f}% in {osph} segment")
                     elif rate > 60:
                         insights.append(f"Strong approval rate {rate:.1f}% in {osph} segment")
     
@@ -239,7 +208,7 @@ def generate_analytical_insights(df):
     if 'LastOD_clean' in df.columns and 'Scoring_Detail' in df.columns:
         high_od = df[df['LastOD_clean'] > 30]
         if len(high_od) > 0:
-            reject_rate = high_od['Scoring_Detail'].str.contains('Reject', case=False, na=False).sum() / len(high_od) * 100
+            reject_rate = high_od['Scoring_Detail'].str.lower().str.contains('reject', na=False).sum() / len(high_od) * 100
             warnings.append(f"High LastOD (>30): {reject_rate:.1f}% rejection rate")
     
     # 3. ANALYTICAL: SLA Monitoring
@@ -623,8 +592,8 @@ def main():
                     continue
                 df_ca = df_filtered[df_filtered['user_name_clean'] == ca]
                 
-                approve = df_ca['Scoring_Detail'].str.contains('Approve', case=False, na=False).sum()
-                reject = df_ca['Scoring_Detail'].str.contains('Reject', case=False, na=False).sum()
+                approve = df_ca['Scoring_Detail'].str.lower().str.contains('approve', na=False).sum()
+                reject = df_ca['Scoring_Detail'].str.lower().str.contains('reject', na=False).sum()
                 total_scored = len(df_ca[df_ca['Scoring_Detail'] != '-'])
                 
                 ca_perf.append({
@@ -669,7 +638,7 @@ def main():
             
             pattern_analysis = df_filtered.groupby(['OSPH_Category', 'LastOD_Segment', 'Pekerjaan_clean']).agg({
                 'apps_id': 'nunique',
-                'Scoring_Detail': lambda x: (x.str.contains('Approve', case=False, na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0,
+                'Scoring_Detail': lambda x: (x.str.lower().str.contains('approve', na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0,
                 'SLA_Days': 'mean'
             }).reset_index()
             pattern_analysis.columns = ['Outstanding PH', 'OD Segment', 'Job Type', 'Total Apps', 'Approval %', 'Avg SLA']
@@ -694,7 +663,7 @@ def main():
             monthly = df_filtered.groupby('YearMonth').agg({
                 'apps_id': 'nunique',
                 'SLA_Days': 'mean',
-                'Scoring_Detail': lambda x: (x.str.contains('Approve', case=False, na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0
+                'Scoring_Detail': lambda x: (x.str.lower().str.contains('approve', na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0
             }).reset_index()
             monthly.columns = ['Month', 'Volume', 'Avg SLA', 'Approval %']
             
