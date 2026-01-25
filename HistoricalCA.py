@@ -548,17 +548,30 @@ def main():
     
     # Tabs
     (
+        (
         tab1, tab2, tab3, tab4, tab5, 
-        tab6, tab7, tab8
+        tab6, tab7, tab8, tab9, tab10,
+        tab11, tab12, tab13, tab14, tab15,
+        tab16, tab17, tab18
     ) = st.tabs([
         "Outstanding PH Analysis",
         "OD Impact Analysis",
         "Status & Scoring Matrix",
         "CA Performance",
+        "Product Performance",
+        "Branch Performance",
+        "Position/Role Impact",
+        "Job Type Analysis",
+        "Credit Purpose",
+        "Spouse Job Impact",
+        "Time Pattern Analysis",
+        "SLA vs Quality",
+        "Vehicle Type Performance",
+        "Status + Job Type",
+        "Branch + Product",
         "Predictive Patterns",
         "Trends & Forecasting",
-        "Duplicate Applications",
-        "Raw Data"
+        "Complete Analysis"
     ])
     
     # Tab 1: Outstanding PH Analysis
@@ -821,8 +834,496 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
-    # Tab 2: OD Impact Analysis
-    with tab2:
+    # Tab 8: Product Performance
+    with tab5:
+        st.header("Product Performance Analytics")
+        st.info("Performance metrics by product")
+        
+        if 'Produk_clean' in df_filtered.columns:
+            product_perf = []
+            
+            for product in sorted(df_filtered['Produk_clean'].unique()):
+                if product == 'Unknown':
+                    continue
+                
+                df_prod = df_filtered[df_filtered['Produk_clean'] == product]
+                
+                approve = df_prod['Scoring_Detail'].isin(
+                    ['APPROVE', 'Approve 1', 'Approve 2']
+                ).sum()
+                
+                total_scored = len(
+                    df_prod[df_prod['Scoring_Detail'] != '(Pilih Semua)']
+                )
+                
+                approval_pct = (
+                    f"{approve/total_scored*100:.1f}%" 
+                    if total_scored > 0 
+                    else "-"
+                )
+                
+                avg_osph = df_prod['OSPH_clean'].mean()
+                avg_risk = df_prod['Risk_Score'].mean()
+                avg_sla = df_prod['SLA_Days'].mean()
+                
+                product_perf.append({
+                    'Product': product,
+                    'Total Apps': df_prod['apps_id'].nunique(),
+                    'Approve': approve,
+                    'Approval %': approval_pct,
+                    'Avg Outstanding PH': f"Rp {avg_osph/1e6:.0f}M" if pd.notna(avg_osph) else "-",
+                    'Avg Risk': f"{avg_risk:.0f}" if pd.notna(avg_risk) else "-",
+                    'Avg SLA': f"{avg_sla:.1f}" if pd.notna(avg_sla) else "-"
+                })
+            
+            prod_df = pd.DataFrame(product_perf).sort_values('Total Apps', ascending=False)
+            st.subheader("Product Performance Table")
+            st.dataframe(prod_df, use_container_width=True, hide_index=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.bar(prod_df, x='Product', y='Total Apps', title="Product Volume Distribution")
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                prod_df_p = prod_df.copy()
+                prod_df_p['Approval_n'] = prod_df_p['Approval %'].str.replace('%', '').replace('-', '0').astype(float)
+                fig = px.scatter(prod_df_p, x='Total Apps', y='Approval_n', size='Total Apps', hover_data=['Product'], title="Product: Volume vs Approval Rate")
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 9: Branch Performance
+    with tab6:
+        st.header("Branch Performance Analytics")
+        st.info("Performance metrics by branch")
+        
+        if 'branch_name_clean' in df_filtered.columns:
+            branch_perf = []
+            
+            for branch in sorted(df_filtered['branch_name_clean'].unique()):
+                if branch == 'Unknown':
+                    continue
+                
+                df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
+                
+                approve = df_branch['Scoring_Detail'].isin(
+                    ['APPROVE', 'Approve 1', 'Approve 2']
+                ).sum()
+                
+                total_scored = len(
+                    df_branch[df_branch['Scoring_Detail'] != '(Pilih Semua)']
+                )
+                
+                approval_pct = (
+                    f"{approve/total_scored*100:.1f}%" 
+                    if total_scored > 0 
+                    else "-"
+                )
+                
+                avg_osph = df_branch['OSPH_clean'].mean()
+                avg_risk = df_branch['Risk_Score'].mean()
+                avg_sla = df_branch['SLA_Days'].mean()
+                
+                branch_perf.append({
+                    'Branch': branch,
+                    'Total Apps': df_branch['apps_id'].nunique(),
+                    'Approve': approve,
+                    'Approval %': approval_pct,
+                    'Avg Outstanding PH': f"Rp {avg_osph/1e6:.0f}M" if pd.notna(avg_osph) else "-",
+                    'Avg Risk': f"{avg_risk:.0f}" if pd.notna(avg_risk) else "-",
+                    'Avg SLA': f"{avg_sla:.1f}" if pd.notna(avg_sla) else "-"
+                })
+            
+            branch_df = pd.DataFrame(branch_perf).sort_values('Total Apps', ascending=False)
+            st.subheader("Branch Performance Table")
+            st.dataframe(branch_df, use_container_width=True, hide_index=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.bar(branch_df, x='Branch', y='Total Apps', title="Branch Volume Distribution")
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                branch_df_p = branch_df.copy()
+                branch_df_p['Approval_n'] = branch_df_p['Approval %'].str.replace('%', '').replace('-', '0').astype(float)
+                fig = px.scatter(branch_df_p, x='Total Apps', y='Approval_n', size='Total Apps', hover_data=['Branch'], title="Branch: Volume vs Approval Rate")
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 10: Position/Role Impact
+    with tab7:
+        st.header("Position/Role Impact Analysis")
+        st.info("How position affects approval rate and risk")
+        
+        if 'position_name_clean' in df_filtered.columns:
+            position_perf = []
+            
+            for position in sorted(df_filtered['position_name_clean'].unique()):
+                if position == 'Unknown':
+                    continue
+                
+                df_pos = df_filtered[df_filtered['position_name_clean'] == position]
+                
+                approve = df_pos['Scoring_Detail'].isin(
+                    ['APPROVE', 'Approve 1', 'Approve 2']
+                ).sum()
+                
+                total_scored = len(
+                    df_pos[df_pos['Scoring_Detail'] != '(Pilih Semua)']
+                )
+                
+                approval_pct = (
+                    f"{approve/total_scored*100:.1f}%" 
+                    if total_scored > 0 
+                    else "-"
+                )
+                
+                avg_risk = df_pos['Risk_Score'].mean()
+                
+                position_perf.append({
+                    'Position': position,
+                    'Total Apps': df_pos['apps_id'].nunique(),
+                    'Approve': approve,
+                    'Approval %': approval_pct,
+                    'Avg Risk': f"{avg_risk:.0f}" if pd.notna(avg_risk) else "-"
+                })
+            
+            pos_df = pd.DataFrame(position_perf).sort_values('Total Apps', ascending=False)
+            st.dataframe(pos_df, use_container_width=True, hide_index=True)
+            
+            fig = px.bar(pos_df, x='Position', y='Total Apps', title="Position/Role Distribution")
+            fig.update_layout(xaxis_tickangle=-45)
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 11: Job Type Analysis
+    with tab8:
+        st.header("Job Type (Pekerjaan) Analysis")
+        st.info("Approval rate and risk by occupation")
+        
+        if 'Pekerjaan_clean' in df_filtered.columns:
+            job_perf = []
+            
+            for job in sorted(df_filtered['Pekerjaan_clean'].unique()):
+                if job == 'Unknown':
+                    continue
+                
+                df_job = df_filtered[df_filtered['Pekerjaan_clean'] == job]
+                
+                approve = df_job['Scoring_Detail'].isin(
+                    ['APPROVE', 'Approve 1', 'Approve 2']
+                ).sum()
+                
+                reject = df_job['Scoring_Detail'].isin(
+                    ['Reject', 'Reject 1', 'Reject 2']
+                ).sum()
+                
+                total_scored = len(
+                    df_job[df_job['Scoring_Detail'] != '(Pilih Semua)']
+                )
+                
+                approval_pct = (
+                    f"{approve/total_scored*100:.1f}%" 
+                    if total_scored > 0 
+                    else "-"
+                )
+                
+                avg_risk = df_job['Risk_Score'].mean()
+                avg_osph = df_job['OSPH_clean'].mean()
+                
+                job_perf.append({
+                    'Job Type': job,
+                    'Total Apps': df_job['apps_id'].nunique(),
+                    'Approve': approve,
+                    'Reject': reject,
+                    'Approval %': approval_pct,
+                    'Avg Risk': f"{avg_risk:.0f}" if pd.notna(avg_risk) else "-",
+                    'Avg OSPH': f"Rp {avg_osph/1e6:.0f}M" if pd.notna(avg_osph) else "-"
+                })
+            
+            job_df = pd.DataFrame(job_perf).sort_values('Total Apps', ascending=False)
+            st.subheader("Job Type Performance Table")
+            st.dataframe(job_df, use_container_width=True, hide_index=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.bar(job_df.head(15), x='Job Type', y='Total Apps', title="Top 15 Job Types by Volume")
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                job_df_p = job_df.copy()
+                job_df_p['Approval_n'] = job_df_p['Approval %'].str.replace('%', '').replace('-', '0').astype(float)
+                fig = px.scatter(job_df_p.head(15), x='Total Apps', y='Approval_n', size='Total Apps', hover_data=['Job Type'], title="Job Type: Volume vs Approval")
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 12: Credit Purpose Analysis
+    with tab9:
+        st.header("Credit Purpose (Tujuan Kredit) Analysis")
+        st.info("Analysis by credit purpose")
+        
+        if 'Tujuan_Kredit_clean' in df_filtered.columns:
+            purpose_perf = []
+            
+            for purpose in sorted(df_filtered['Tujuan_Kredit_clean'].unique()):
+                if purpose == 'Unknown':
+                    continue
+                
+                df_purp = df_filtered[df_filtered['Tujuan_Kredit_clean'] == purpose]
+                
+                approve = df_purp['Scoring_Detail'].isin(
+                    ['APPROVE', 'Approve 1', 'Approve 2']
+                ).sum()
+                
+                total_scored = len(
+                    df_purp[df_purp['Scoring_Detail'] != '(Pilih Semua)']
+                )
+                
+                approval_pct = (
+                    f"{approve/total_scored*100:.1f}%" 
+                    if total_scored > 0 
+                    else "-"
+                )
+                
+                avg_risk = df_purp['Risk_Score'].mean()
+                
+                purpose_perf.append({
+                    'Credit Purpose': purpose,
+                    'Total Apps': df_purp['apps_id'].nunique(),
+                    'Approval %': approval_pct,
+                    'Avg Risk': f"{avg_risk:.0f}" if pd.notna(avg_risk) else "-"
+                })
+            
+            purp_df = pd.DataFrame(purpose_perf).sort_values('Total Apps', ascending=False)
+            st.dataframe(purp_df, use_container_width=True, hide_index=True)
+            
+            fig = px.pie(purp_df, values='Total Apps', names='Credit Purpose', title="Distribution by Credit Purpose")
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 13: Spouse Job Impact
+    with tab10:
+        st.header("Spouse Job (Pekerjaan Pasangan) Impact")
+        st.info("Impact of spouse occupation on approval rate")
+        
+        if 'Pekerjaan_Pasangan_clean' in df_filtered.columns:
+            spouse_perf = []
+            
+            for spouse_job in sorted(df_filtered['Pekerjaan_Pasangan_clean'].unique()):
+                if spouse_job == 'Unknown':
+                    continue
+                
+                df_spouse = df_filtered[df_filtered['Pekerjaan_Pasangan_clean'] == spouse_job]
+                
+                approve = df_spouse['Scoring_Detail'].isin(
+                    ['APPROVE', 'Approve 1', 'Approve 2']
+                ).sum()
+                
+                total_scored = len(
+                    df_spouse[df_spouse['Scoring_Detail'] != '(Pilih Semua)']
+                )
+                
+                approval_pct = (
+                    f"{approve/total_scored*100:.1f}%" 
+                    if total_scored > 0 
+                    else "-"
+                )
+                
+                avg_risk = df_spouse['Risk_Score'].mean()
+                
+                spouse_perf.append({
+                    'Spouse Job': spouse_job,
+                    'Total Apps': df_spouse['apps_id'].nunique(),
+                    'Approval %': approval_pct,
+                    'Avg Risk': f"{avg_risk:.0f}" if pd.notna(avg_risk) else "-"
+                })
+            
+            spouse_df = pd.DataFrame(spouse_perf).sort_values('Total Apps', ascending=False)
+            st.dataframe(spouse_df, use_container_width=True, hide_index=True)
+            
+            fig = px.bar(spouse_df, x='Spouse Job', y='Total Apps', title="Spouse Job Distribution")
+            fig.update_layout(xaxis_tickangle=-45)
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 14: Time Pattern Analysis
+    with tab11:
+        st.header("Time Pattern Analysis")
+        st.info("Approval patterns by time dimension")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("By Day of Week")
+            if 'DayName' in df_filtered.columns:
+                day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                day_data = []
+                
+                for day in day_order:
+                    df_day = df_filtered[df_filtered['DayName'] == day]
+                    if len(df_day) > 0:
+                        approve = df_day['Scoring_Detail'].isin(['APPROVE', 'Approve 1', 'Approve 2']).sum()
+                        total = len(df_day[df_day['Scoring_Detail'] != '(Pilih Semua)'])
+                        app_rate = (approve/total*100) if total > 0 else 0
+                        
+                        day_data.append({
+                            'Day': day,
+                            'Total Apps': df_day['apps_id'].nunique(),
+                            'Approval %': f"{app_rate:.1f}%"
+                        })
+                
+                day_df = pd.DataFrame(day_data)
+                st.dataframe(day_df, use_container_width=True, hide_index=True)
+                
+                fig = px.bar(day_df, x='Day', y='Total Apps', title="Applications by Day of Week")
+                st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            st.subheader("By Month")
+            if 'Month' in df_filtered.columns:
+                month_names = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                month_data = []
+                
+                for month in sorted(df_filtered['Month'].dropna().unique()):
+                    df_month = df_filtered[df_filtered['Month'] == month]
+                    if len(df_month) > 0:
+                        approve = df_month['Scoring_Detail'].isin(['APPROVE', 'Approve 1', 'Approve 2']).sum()
+                        total = len(df_month[df_month['Scoring_Detail'] != '(Pilih Semua)'])
+                        app_rate = (approve/total*100) if total > 0 else 0
+                        
+                        month_data.append({
+                            'Month': month_names[int(month)],
+                            'Total Apps': df_month['apps_id'].nunique(),
+                            'Approval %': f"{app_rate:.1f}%"
+                        })
+                
+                month_df = pd.DataFrame(month_data)
+                st.dataframe(month_df, use_container_width=True, hide_index=True)
+                
+                fig = px.bar(month_df, x='Month', y='Total Apps', title="Applications by Month")
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 15: SLA vs Quality
+    with tab12:
+        st.header("SLA vs Quality Correlation")
+        st.info("Relationship between SLA speed and approval quality")
+        
+        if 'SLA_Days' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
+            df_filtered['SLA_Segment'] = pd.cut(
+                df_filtered['SLA_Days'],
+                bins=[-np.inf, 1, 2, 3, 5, np.inf],
+                labels=['<1 day', '1-2 days', '2-3 days', '3-5 days', '>5 days']
+            )
+            
+            sla_quality = []
+            
+            for sla_seg in ['<1 day', '1-2 days', '2-3 days', '3-5 days', '>5 days']:
+                df_sla = df_filtered[df_filtered['SLA_Segment'] == sla_seg]
+                
+                if len(df_sla) > 0:
+                    approve = df_sla['Scoring_Detail'].isin(['APPROVE', 'Approve 1', 'Approve 2']).sum()
+                    total = len(df_sla[df_sla['Scoring_Detail'] != '(Pilih Semua)'])
+                    app_rate = (approve/total*100) if total > 0 else 0
+                    avg_risk = df_sla['Risk_Score'].mean()
+                    
+                    sla_quality.append({
+                        'SLA Range': sla_seg,
+                        'Total Apps': df_sla['apps_id'].nunique(),
+                        'Approval %': f"{app_rate:.1f}%",
+                        'Avg Risk': f"{avg_risk:.0f}" if pd.notna(avg_risk) else "-"
+                    })
+            
+            sla_df = pd.DataFrame(sla_quality)
+            st.dataframe(sla_df, use_container_width=True, hide_index=True)
+            
+            sla_df_p = sla_df.copy()
+            sla_df_p['Approval_n'] = sla_df_p['Approval %'].str.replace('%', '').astype(float)
+            
+            fig = px.scatter(sla_df_p, x='SLA Range', y='Approval_n', size='Total Apps', title="SLA Speed vs Approval Rate")
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 16: Vehicle Type Performance
+    with tab13:
+        st.header("Vehicle Type Performance")
+        st.info("Comparison between Mb. Beban and Mb. Penumpang")
+        
+        if 'JenisKendaraan_clean' in df_filtered.columns:
+            vehicle_perf = []
+            
+            for vehicle in sorted(df_filtered['JenisKendaraan_clean'].unique()):
+                if vehicle == 'Unknown':
+                    continue
+                
+                df_veh = df_filtered[df_filtered['JenisKendaraan_clean'] == vehicle]
+                
+                approve = df_veh['Scoring_Detail'].isin(['APPROVE', 'Approve 1', 'Approve 2']).sum()
+                reject = df_veh['Scoring_Detail'].isin(['Reject', 'Reject 1', 'Reject 2']).sum()
+                total = len(df_veh[df_veh['Scoring_Detail'] != '(Pilih Semua)'])
+                
+                approval_pct = (approve/total*100) if total > 0 else 0
+                avg_risk = df_veh['Risk_Score'].mean()
+                avg_osph = df_veh['OSPH_clean'].mean()
+                
+                vehicle_perf.append({
+                    'Vehicle Type': vehicle,
+                    'Total Apps': df_veh['apps_id'].nunique(),
+                    'Approve': approve,
+                    'Reject': reject,
+                    'Approval %': f"{approval_pct:.1f}%",
+                    'Avg Risk': f"{avg_risk:.0f}" if pd.notna(avg_risk) else "-",
+                    'Avg OSPH': f"Rp {avg_osph/1e6:.0f}M" if pd.notna(avg_osph) else "-"
+                })
+            
+            veh_df = pd.DataFrame(vehicle_perf)
+            st.dataframe(veh_df, use_container_width=True, hide_index=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.bar(veh_df, x='Vehicle Type', y='Total Apps', title="Vehicle Type Volume")
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                fig = px.bar(veh_df, x='Vehicle Type', y=['Approve', 'Reject'], title="Approve vs Reject by Vehicle", barmode='group')
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 17: Status + Job Type
+    with tab14:
+        st.header("Status + Job Type Combination Analysis")
+        st.info("Cross-analysis of application status and job type")
+        
+        if 'apps_status_clean' in df_filtered.columns and 'Pekerjaan_clean' in df_filtered.columns:
+            status_job = pd.crosstab(
+                df_filtered['apps_status_clean'],
+                df_filtered['Pekerjaan_clean'],
+                margins=True,
+                margins_name='TOTAL'
+            )
+            
+            st.subheader("Status vs Job Type Matrix")
+            st.dataframe(status_job, use_container_width=True)
+            
+            status_job_no_total = status_job.drop('TOTAL', errors='ignore').drop('TOTAL', axis=1, errors='ignore')
+            if len(status_job_no_total) > 0:
+                fig = px.imshow(status_job_no_total.iloc[:, :15], text_auto=True, title="Status vs Top 15 Job Types", aspect="auto")
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 18: Branch + Product
+    with tab15:
+        st.header("Branch + Product Combination Analysis")
+        st.info("Cross-analysis of branch and product performance")
+        
+        if 'branch_name_clean' in df_filtered.columns and 'Produk_clean' in df_filtered.columns:
+            branch_prod = pd.crosstab(
+                df_filtered['branch_name_clean'],
+                df_filtered['Produk_clean'],
+                margins=True,
+                margins_name='TOTAL'
+            )
+            
+            st.subheader("Branch vs Product Matrix")
+            st.dataframe(branch_prod, use_container_width=True)
+            
+            branch_prod_no_total = branch_prod.drop('TOTAL', errors='ignore').drop('TOTAL', axis=1, errors='ignore')
+            if len(branch_prod_no_total) > 0:
+                fig = px.imshow(branch_prod_no_total, text_auto=True, title="Branch vs Product Distribution", aspect="auto")
+                st.plotly_chart(fig, use_container_width=True)
         st.header("OD Impact Analysis - LastOD & max_OD")
         st.info(
             "Analysis of how Overdue Days (OD) impact scoring "
@@ -1177,8 +1678,9 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
-    # Tab 5: Predictive Patterns
-    with tab5:
+    
+    # Tab 19: Predictive Patterns
+    with tab16:
         st.header("Predictive Pattern Recognition")
         st.info(
             "Identification of patterns that predict "
@@ -1259,8 +1761,9 @@ def main():
                         unsafe_allow_html=True
                     )
     
-    # Tab 6: Trends & Forecasting
-    with tab6:
+    
+    # Tab 20: Trends & Forecasting
+    with tab17:
         st.header("Trends & Time-Series Analysis")
         st.info(
             "Monthly trends in volume, SLA, and approval rates"
@@ -1316,8 +1819,97 @@ def main():
             
             st.plotly_chart(fig, use_container_width=True)
     
-    # Tab 7: Duplicate Applications
-    with tab7:
+    
+    # Tab 21: Complete Analysis with Duplicates and Raw Data
+    with tab18:
+        st.header("Complete Analysis & Data Export")
+        st.info("Duplicate applications tracking and complete raw data")
+        
+        st.subheader("Duplicate Applications Analysis")
+        st.markdown(
+            "**Historical Data Context**: This dataset contains multiple "
+            "records for the same application ID, representing historical "
+            "tracking, status updates, and workflow progression through "
+            "the CA evaluation process."
+        )
+        
+        if 'apps_id' in df.columns:
+            app_counts = df['apps_id'].value_counts()
+            duplicates = app_counts[app_counts > 1]
+            
+            if len(duplicates) > 0:
+                st.info(
+                    f"Found {len(duplicates)} duplicate application IDs with "
+                    f"{duplicates.sum()} total duplicate records"
+                )
+                
+                duplicate_ids = duplicates.index.tolist()
+                dup_records = df[df['apps_id'].isin(duplicate_ids)].sort_values('apps_id')
+                
+                display_cols = [
+                    'apps_id', 'user_name', 'apps_status', 'Scoring_Detail',
+                    'action_on', 'RealisasiDate', 'Outstanding_PH', 'SLA_Days'
+                ]
+                
+                avail_cols = [c for c in display_cols if c in dup_records.columns]
+                
+                st.subheader("Duplicate Application Records Sample")
+                st.dataframe(
+                    dup_records[avail_cols].sort_values('apps_id').head(50),
+                    use_container_width=True,
+                    height=400
+                )
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Duplicate IDs", len(duplicates))
+                with col2:
+                    st.metric("Max Records per ID", duplicates.max())
+                with col3:
+                    st.metric("Total Duplicate Records", duplicates.sum())
+                
+                dup_dist = duplicates.value_counts().sort_index()
+                fig = px.bar(
+                    x=dup_dist.index,
+                    y=dup_dist.values,
+                    labels={'x': 'Records per App', 'y': 'Count of Apps'},
+                    title="Duplicate Frequency Distribution"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.success("No duplicate application IDs found")
+        
+        st.markdown("---")
+        st.subheader("Complete Raw Data Export")
+        
+        display_cols = [
+            'apps_id', 'position_name', 'user_name', 'apps_status',
+            'desc_status_apps', 'Produk', 'action_on', 'Initiation',
+            'RealisasiDate', 'Outstanding_PH', 'Pekerjaan', 'Jabatan',
+            'Pekerjaan_Pasangan', 'Hasil_Scoring_1', 'JenisKendaraan',
+            'branch_name', 'Tujuan_Kredit', 'LastOD', 'max_OD',
+            'OSPH_clean', 'OSPH_Category', 'Scoring_Detail',
+            'SLA_Days', 'Risk_Score', 'Risk_Category'
+        ]
+        
+        avail_cols = [c for c in display_cols if c in df_filtered.columns]
+        
+        st.dataframe(
+            df_filtered[avail_cols],
+            use_container_width=True,
+            height=500
+        )
+        
+        csv = df_filtered[avail_cols].to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Dataset (CSV)",
+            data=csv,
+            file_name=f"CA_Analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+    
+    # Tab 2: OD Impact Analysis (moved after all new tabs are created)
+    with tab2:
         st.header("Duplicate Applications Analysis")
         st.markdown(
             "**Historical Data Context**: This dataset contains multiple "
