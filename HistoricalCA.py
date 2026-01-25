@@ -8,34 +8,35 @@ import numpy as np
 from pathlib import Path
 
 # ========== KONFIGURASI ==========
-st.set_page_config(page_title="CA Analytics Dashboard", layout="wide", page_icon="📊")
+st.set_page_config(page_title="CA Analytics Dashboard",
+                   layout="wide",
+                   page_icon="📊")
 
-# File Excel
 FILE_NAME = "HistoricalCA.xlsx"
 
 # Custom CSS
 st.markdown(
     """
 <style>
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
-        border-radius: 10px;
-        color: white;
-    }
-    .insight-box {
-        background-color: #f0f2f6;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #667eea;
-        margin: 10px 0;
-    }
+.metric-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    border-radius: 10px;
+    color: white;
+}
+.insight-box {
+    background-color: #f0f2f6;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+    margin: 10px 0;
+}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Tanggal merah (libur nasional & cuti bersama)
+# ========= TANGGAL MERAH (LIBUR NASIONAL + CUTI BERSAMA) =========
 TANGGAL_MERAH = [
     "01-01-2025", "27-01-2025", "28-01-2025", "29-01-2025", "28-03-2025", "31-03-2025",
     "01-04-2025", "02-04-2025", "03-04-2025", "04-04-2025", "07-04-2025", "18-04-2025",
@@ -49,15 +50,16 @@ TANGGAL_MERAH = [
 ]
 TANGGAL_MERAH_DT = [datetime.strptime(d, "%d-%m-%Y").date() for d in TANGGAL_MERAH]
 
-# ========== FUNGSI HELPER ==========
 
+# ========== FUNGSI HELPER ==========
 def parse_date(date_str):
     if pd.isna(date_str) or date_str == "-" or date_str == "":
         return None
     try:
         if isinstance(date_str, datetime):
             return date_str
-        formats = ["%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y"]
+        formats = ["%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S",
+                   "%Y-%m-%d", "%d-%m-%Y"]
         for fmt in formats:
             try:
                 return datetime.strptime(str(date_str).split(".")[0], fmt)
@@ -69,6 +71,7 @@ def parse_date(date_str):
         return result.to_pydatetime()
     except Exception:
         return None
+
 
 def is_working_day(date):
     try:
@@ -82,6 +85,7 @@ def is_working_day(date):
     except Exception:
         return False
 
+
 def calculate_sla_days(start_dt, end_dt):
     # None jika salah satu tanggal kosong/invalid
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
@@ -94,11 +98,14 @@ def calculate_sla_days(start_dt, end_dt):
         if pd.isna(start_dt) or pd.isna(end_dt):
             return None
 
-        # Logika SLA: jika masuk > 15:30, dianggap besok jam 08:30 (JQM)
+        # Jika action_on > 15:30 → hitung mulai besok 08:30 (JQM)
         start_adjusted = start_dt
-        if start_dt.time() >= datetime.strptime("15:30", "%H:%M").time():
+        cutoff = datetime.strptime("15:30", "%H:%M").time()
+        if start_dt.time() >= cutoff:
             start_adjusted = start_dt + timedelta(days=1)
-            start_adjusted = start_adjusted.replace(hour=8, minute=30, second=0)
+            start_adjusted = start_adjusted.replace(
+                hour=8, minute=30, second=0
+            )
             while not is_working_day(start_adjusted):
                 start_adjusted += timedelta(days=1)
 
@@ -110,9 +117,11 @@ def calculate_sla_days(start_dt, end_dt):
             if is_working_day(datetime.combine(current, datetime.min.time())):
                 working_days += 1
             current += timedelta(days=1)
+
         return working_days
     except Exception:
         return None
+
 
 def get_osph_category(osph_value):
     try:
@@ -128,6 +137,23 @@ def get_osph_category(osph_value):
     except Exception:
         return "Unknown"
 
+
+def map_scoring_group(x):
+    """Mapping scoring detail ke group besar untuk analitik, tanpa mengubah raw-nya."""
+    if pd.isna(x):
+        return "OTHER"
+    s = str(x).strip().upper()
+    if "APPROVE" in s and "REJECT" not in s:
+        return "APPROVE"
+    if "REGULER" in s or "REGULAR" in s:
+        return "REGULER"
+    if "REJECT" in s or "NOT RECOMMENDED" in s:
+        return "REJECT"
+    if "IN PROGRESS" in s:
+        return "IN PROGRESS"
+    return "OTHER"
+
+
 def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
@@ -140,12 +166,12 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
                 st.warning(f"⚠️ Error parsing {col}: {str(e)}")
                 df[f"{col}_parsed"] = None
 
-    # SLA days (hari kerja, exclude weekend & tanggal merah)
+    # SLA
     if "action_on_parsed" in df.columns and "RealisasiDate_parsed" in df.columns:
         try:
             df["SLA_Days"] = df.apply(
-                lambda row: calculate_sla_days(
-                    row["action_on_parsed"], row["RealisasiDate_parsed"]
+                lambda r: calculate_sla_days(
+                    r["action_on_parsed"], r["RealisasiDate_parsed"]
                 ),
                 axis=1,
             )
@@ -153,7 +179,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
             st.warning(f"⚠️ Error calculating SLA: {str(e)}")
             df["SLA_Days"] = None
 
-    # OSPH (Outstanding_PH)
+    # OSPH
     if "Outstanding_PH" in df.columns:
         try:
             df["OSPH_clean"] = pd.to_numeric(
@@ -164,23 +190,13 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
         except Exception as e:
             st.warning(f"⚠️ Error processing OSPH: {str(e)}")
 
-    # Scoring detail (tidak di-group kasar)
+    # Scoring detail + group analitik
     if "Hasil_Scoring_1" in df.columns:
         try:
             df["Scoring_Clean"] = df["Hasil_Scoring_1"].fillna("-")
+            df["Scoring_Group"] = df["Hasil_Scoring_1"].apply(map_scoring_group)
         except Exception as e:
             st.warning(f"⚠️ Error processing scoring: {str(e)}")
-
-    # Scoring_Group untuk analitik (APPROVE/REGULER/REJECT/OTHER)
-    if "Hasil_Scoring_1" in df.columns:
-        s = df["Hasil_Scoring_1"].fillna("-").astype(str).str.upper()
-        cond_approve = s.str.contains("APPROVE")
-        cond_reg = s.str.contains("REGULER")
-        cond_rej = s.str.contains("REJECT") | s.str.contains("NOT RECOMMENDED")
-        df["Scoring_Group"] = "OTHER"
-        df.loc[cond_approve, "Scoring_Group"] = "APPROVE"
-        df.loc[cond_reg, "Scoring_Group"] = "REGULER"
-        df.loc[cond_rej, "Scoring_Group"] = "REJECT"
 
     # Time features
     if "action_on_parsed" in df.columns:
@@ -193,7 +209,7 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
         except Exception as e:
             st.warning(f"⚠️ Error creating time features: {str(e)}")
 
-    # Risk score (simple combine OSPH & SLA)
+    # Risk score sederhana
     if "OSPH_clean" in df.columns and "SLA_Days" in df.columns:
         try:
             osph_norm = (df["OSPH_clean"] - df["OSPH_clean"].min()) / (
@@ -208,10 +224,11 @@ def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 @st.cache_data
 def load_data():
     if not Path(FILE_NAME).exists():
-        st.error(f"❌ File '{FILE_NAME}' tidak ditemukan di folder yang sama dengan script")
+        st.error(f"❌ File '{FILE_NAME}' tidak ditemukan di folder script.")
         st.stop()
     try:
         df = pd.read_excel(FILE_NAME)
@@ -225,14 +242,13 @@ def load_data():
         st.error(traceback.format_exc())
         return None
 
-# ========== MAIN APP ==========
 
+# ========== MAIN APP ==========
 def main():
     st.title("🎯 Credit Analyst Analytics Dashboard")
-    st.markdown("**Comprehensive Analytics for Historical CA Performance**")
+    st.markdown("**Performance & Risk Insight untuk Portfolio Historical CA**")
     st.markdown("---")
 
-    # Load data
     with st.spinner("Loading data from HistoricalCA.xlsx..."):
         df = load_data()
     if df is None or df.empty:
@@ -240,20 +256,35 @@ def main():
         st.stop()
     st.success(f"✅ Data loaded successfully! Total records: {len(df):,}")
 
-    # Sidebar filters
+    # ------------ SIDEBAR FILTER ------------
     st.sidebar.header("🔍 Filters")
 
-    # Filter Posisi CA (user_name)
+    # Filter CA (untuk analisa per analis)
     if "user_name" in df.columns:
-        ca_positions = ["All"] + sorted(df["user_name"].dropna().unique().tolist())
-        selected_ca = st.sidebar.selectbox("Posisi CA", ca_positions)
+        ca_list = ["All"] + sorted(df["user_name"].dropna().unique().tolist())
+        selected_ca = st.sidebar.selectbox("Credit Analyst (user_name)", ca_list)
     else:
         selected_ca = "All"
 
-    products = ["All"] + sorted(df["Produk"].unique().tolist()) if "Produk" in df.columns else ["All"]
+    # Filter status aplikasi (hasil CA)
+    if "apps_status" in df.columns:
+        status_list = ["All"] + sorted(df["apps_status"].dropna().unique().tolist())
+        selected_status = st.sidebar.selectbox("Status CA (apps_status)", status_list)
+    else:
+        selected_status = "All"
+
+    products = (
+        ["All"] + sorted(df["Produk"].dropna().unique().tolist())
+        if "Produk" in df.columns
+        else ["All"]
+    )
     selected_product = st.sidebar.selectbox("Produk", products)
 
-    branches = ["All"] + sorted(df["branch_name"].dropna().unique().tolist()) if "branch_name" in df.columns else ["All"]
+    branches = (
+        ["All"] + sorted(df["branch_name"].dropna().unique().tolist())
+        if "branch_name" in df.columns
+        else ["All"]
+    )
     selected_branch = st.sidebar.selectbox("Branch", branches)
 
     # Date filter
@@ -266,7 +297,7 @@ def main():
                 max_date = pd.to_datetime(df_with_dates["action_on_parsed"].max())
                 if pd.notna(min_date) and pd.notna(max_date):
                     date_range = st.sidebar.date_input(
-                        "Periode",
+                        "Periode Action_on",
                         value=(min_date.date(), max_date.date()),
                         min_value=min_date.date(),
                         max_value=max_date.date(),
@@ -275,15 +306,21 @@ def main():
                 st.sidebar.warning("⚠️ Date filter tidak tersedia")
                 date_range = None
 
-    # Apply filters
+    # Terapkan filter
     df_filtered = df.copy()
     if selected_ca != "All" and "user_name" in df_filtered.columns:
         df_filtered = df_filtered[df_filtered["user_name"] == selected_ca]
+    if selected_status != "All" and "apps_status" in df_filtered.columns:
+        df_filtered = df_filtered[df_filtered["apps_status"] == selected_status]
     if selected_product != "All" and "Produk" in df_filtered.columns:
         df_filtered = df_filtered[df_filtered["Produk"] == selected_product]
     if selected_branch != "All" and "branch_name" in df_filtered.columns:
         df_filtered = df_filtered[df_filtered["branch_name"] == selected_branch]
-    if date_range is not None and len(date_range) == 2 and "action_on_parsed" in df_filtered.columns:
+    if (
+        date_range is not None
+        and len(date_range) == 2
+        and "action_on_parsed" in df_filtered.columns
+    ):
         try:
             df_filtered = df_filtered[
                 (df_filtered["action_on_parsed"].notna())
@@ -310,8 +347,8 @@ def main():
         if "SLA_Days" in df_filtered.columns:
             avg_sla = df_filtered["SLA_Days"].mean()
             st.metric(
-                "⏱️ Avg SLA (Hari Kerja)",
-                f"{avg_sla:.1f}d" if not pd.isna(avg_sla) else "N/A",
+                "⏱️ Avg SLA (hari kerja)",
+                f"{avg_sla:.1f} d" if not pd.isna(avg_sla) else "N/A",
             )
         else:
             st.metric("⏱️ Avg SLA", "N/A")
@@ -334,7 +371,7 @@ def main():
             )
             st.metric("👍 Recommended CA", f"{recommended:,}")
         else:
-            st.metric("👍 Recommended", "N/A")
+            st.metric("👍 Recommended CA", "N/A")
 
     with kpi_col5:
         if "apps_status" in df_filtered.columns:
@@ -345,9 +382,9 @@ def main():
                     )
                 ]
             )
-            st.metric("❌ Not Recommended", f"{not_recommended:,}")
+            st.metric("❌ Not Recommended CA", f"{not_recommended:,}")
         else:
-            st.metric("❌ Not Recommended", "N/A")
+            st.metric("❌ Not Recommended CA", "N/A")
 
     # Additional KPIs
     st.markdown("### 📌 Additional Metrics")
@@ -355,17 +392,19 @@ def main():
 
     with kpi_col6:
         if "user_name" in df_filtered.columns and "apps_id" in df_filtered.columns:
-            apps_per_ca = df_filtered.groupby("apps_id")["user_name"].nunique().mean()
+            apps_per_ca = (
+                df_filtered.groupby("apps_id")["user_name"].nunique().mean()
+            )
             st.metric("👥 Avg CA per AppID", f"{apps_per_ca:.2f}")
         else:
             st.metric("👥 Avg CA per AppID", "N/A")
 
     with kpi_col7:
         if "user_name" in df_filtered.columns:
-            total_ca_positions = df_filtered["user_name"].nunique()
-            st.metric("🎯 Total CA Positions", f"{total_ca_positions:,}")
+            total_ca = df_filtered["user_name"].nunique()
+            st.metric("🎯 Total CA Active", f"{total_ca:,}")
         else:
-            st.metric("🎯 Total CA", "N/A")
+            st.metric("🎯 Total CA Active", "N/A")
 
     with kpi_col8:
         if "Produk" in df_filtered.columns:
@@ -376,16 +415,11 @@ def main():
             st.metric("🚗 Products", "N/A")
 
     with kpi_col9:
-        if "Hour" in df_filtered.columns:
-            # bisa ganti ke >=8.5 & <=15.5 kalau mau 08:30–15:30 persis
+        if "Hour" in df_filtered.columns and len(df_filtered) > 0:
             working_hours = df_filtered[
                 (df_filtered["Hour"] >= 8) & (df_filtered["Hour"] <= 15)
             ]
-            compliance = (
-                len(working_hours) / len(df_filtered) * 100
-                if len(df_filtered) > 0
-                else 0
-            )
+            compliance = len(working_hours) / len(df_filtered) * 100
             st.metric("⏰ Work Hours Compliance", f"{compliance:.1f}%")
         else:
             st.metric("⏰ Work Hours", "N/A")
@@ -413,31 +447,41 @@ def main():
                 "Harga Min",
                 "Harga Max",
             ]
+
             scoring_counts = (
                 df_filtered.groupby(["OSPH_Category", "Scoring_Group"])
                 .size()
                 .unstack(fill_value=0)
                 .reset_index()
             )
+
             range_analysis = range_analysis.merge(
-                scoring_counts, left_on="Range Harga", right_on="OSPH_Category", how="left"
+                scoring_counts,
+                left_on="Range Harga",
+                right_on="OSPH_Category",
+                how="left",
             )
             if "OSPH_Category" in range_analysis.columns:
                 range_analysis = range_analysis.drop("OSPH_Category", axis=1)
-            for col in ["APPROVE", "REGULER", "REJECT", "OTHER"]:
+
+            for col in ["APPROVE", "REGULER", "REJECT", "IN PROGRESS", "OTHER"]:
                 if col not in range_analysis.columns:
                     range_analysis[col] = 0
 
+            # Label yang lebih jelas untuk Division Head
             range_analysis = range_analysis.rename(
                 columns={
                     "APPROVE": "Approve",
                     "REGULER": "Reguler",
                     "REJECT": "Reject",
+                    "IN PROGRESS": "Scoring in Progress",
                 }
             )
+
             range_analysis["% dari Total"] = (
                 range_analysis["Total Apps ID"] / total_apps * 100
             ).round(1)
+
             range_analysis["Harga Min"] = range_analysis["Harga Min"].apply(
                 lambda x: f"Rp {x/1e6:,.1f}M" if pd.notna(x) else "-"
             )
@@ -453,7 +497,7 @@ def main():
                     range_analysis,
                     values="Total Apps ID",
                     names="Range Harga",
-                    title="Distribution by OSPH Range",
+                    title="Share Volume per OSPH Range",
                 )
                 st.plotly_chart(fig, use_container_width=True)
             with col2:
@@ -470,7 +514,7 @@ def main():
                     x="OSPH_Category",
                     y="Count",
                     color="Scoring_Group",
-                    title="Scoring Results by OSPH Range",
+                    title="Hasil Scoring per Range OSPH",
                     barmode="group",
                     labels={"OSPH_Category": "Range Harga", "Count": "Jumlah"},
                 )
@@ -480,8 +524,8 @@ def main():
     with highlight_tabs[1]:
         st.subheader("Analysis by Pekerjaan & OSPH Range")
         if all(
-            col in df_filtered.columns
-            for col in ["OSPH_Category", "Pekerjaan", "Scoring_Group"]
+            c in df_filtered.columns
+            for c in ["OSPH_Category", "Pekerjaan", "Scoring_Group"]
         ):
             job_pivot = df_filtered.pivot_table(
                 index="OSPH_Category",
@@ -491,6 +535,7 @@ def main():
                 fill_value=0,
             )
             st.dataframe(job_pivot, use_container_width=True)
+
             fig = px.imshow(
                 job_pivot,
                 text_auto=True,
@@ -510,7 +555,7 @@ def main():
                 x="OSPH_Category",
                 y="Count",
                 color="Pekerjaan",
-                title="Distribution: OSPH Range by Pekerjaan",
+                title="Distribusi OSPH Range per Pekerjaan",
                 barmode="stack",
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -518,10 +563,7 @@ def main():
     # TAB 3: Jenis Kendaraan
     with highlight_tabs[2]:
         st.subheader("Analysis by Jenis Kendaraan & OSPH Range")
-        if all(
-            col in df_filtered.columns
-            for col in ["OSPH_Category", "JenisKendaraan"]
-        ):
+        if all(c in df_filtered.columns for c in ["OSPH_Category", "JenisKendaraan"]):
             vehicle_pivot = df_filtered.pivot_table(
                 index="OSPH_Category",
                 columns="JenisKendaraan",
@@ -552,14 +594,14 @@ def main():
                     x="OSPH_Category",
                     y="Count",
                     color="JenisKendaraan",
-                    title="Distribution by Vehicle Type",
+                    title="Distribusi Volume per Jenis Kendaraan",
                     barmode="group",
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
 
-    # ========== DETAILED TABS ==========
+    # ========== DETAIL TABS ==========
     tabs = st.tabs(
         [
             "📈 Trend & Pattern",
@@ -574,42 +616,38 @@ def main():
     # TAB 1: Trend & Pattern
     with tabs[0]:
         st.header("📈 Trend Analysis & Patterns")
-        col1, col2 = st.columns(2)
+        c1, c2 = st.columns(2)
 
-        with col1:
+        with c1:
             if "YearMonth" in df_filtered.columns and "Scoring_Group" in df_filtered.columns:
                 try:
                     monthly_data = []
-                    for month in sorted(df_filtered["YearMonth"].unique()):
-                        month_df = df_filtered[df_filtered["YearMonth"] == month]
+                    for m in sorted(df_filtered["YearMonth"].unique()):
+                        m_df = df_filtered[df_filtered["YearMonth"] == m]
                         volume = (
-                            month_df["apps_id"].nunique()
-                            if "apps_id" in month_df.columns
-                            else len(month_df)
+                            m_df["apps_id"].nunique()
+                            if "apps_id" in m_df.columns
+                            else len(m_df)
                         )
-                        total = len(month_df)
+                        total = len(m_df)
                         approval_rate = (
-                            (month_df["Scoring_Group"] == "APPROVE").sum()
+                            (m_df["Scoring_Group"] == "APPROVE").sum()
                             / total
                             * 100
                             if total > 0
                             else 0
                         )
                         monthly_data.append(
-                            {
-                                "Month": month,
-                                "Volume": volume,
-                                "Approval_Rate": approval_rate,
-                            }
+                            {"Month": m, "Volume": volume, "Approval_Rate": approval_rate}
                         )
-                    if len(monthly_data) > 0:
+                    if monthly_data:
                         monthly_trend = pd.DataFrame(monthly_data)
                         fig = make_subplots(specs=[[{"secondary_y": True}]])
                         fig.add_trace(
                             go.Bar(
                                 x=monthly_trend["Month"],
                                 y=monthly_trend["Volume"],
-                                name="Volume",
+                                name="Volume Apps",
                             ),
                             secondary_y=False,
                         )
@@ -623,7 +661,11 @@ def main():
                             secondary_y=True,
                         )
                         fig.update_layout(
-                            title="Monthly Volume & Approval Rate Trend"
+                            title="Trend Bulanan: Volume & Approval Rate"
+                        )
+                        fig.update_yaxes(title_text="Volume Apps", secondary_y=False)
+                        fig.update_yaxes(
+                            title_text="Approval Rate (%)", secondary_y=True
                         )
                         st.plotly_chart(fig, use_container_width=True)
                     else:
@@ -631,7 +673,7 @@ def main():
                 except Exception as e:
                     st.error(f"Error creating monthly trend: {str(e)}")
 
-        with col2:
+        with c2:
             if "DayOfWeek" in df_filtered.columns:
                 dow_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                 dow_data = (
@@ -639,28 +681,24 @@ def main():
                     .size()
                     .reset_index(name="Count")
                 )
-                dow_data["Day"] = dow_data["DayOfWeek"].apply(
-                    lambda x: dow_names[x]
-                )
+                dow_data["Day"] = dow_data["DayOfWeek"].apply(lambda x: dow_names[x])
                 fig = px.bar(
                     dow_data,
                     x="Day",
                     y="Count",
-                    title="Weekly Pattern",
+                    title="Pola Harian (Senin–Minggu)",
                     color="Count",
                     color_continuous_scale="Blues",
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-        if all(
-            col in df_filtered.columns
-            for col in ["OSPH_clean", "SLA_Days", "LastOD", "max_OD"]
-        ):
-            st.subheader("🔗 Correlation Matrix")
+        # Correlation
+        if all(c in df_filtered.columns for c in ["OSPH_clean", "SLA_Days", "LastOD", "max_OD"]):
+            st.subheader("🔗 Korelasi OSPH, SLA & OD")
             corr_cols = ["OSPH_clean", "SLA_Days", "LastOD", "max_OD"]
             df_corr = df_filtered[corr_cols].copy()
-            for col in corr_cols:
-                df_corr[col] = pd.to_numeric(df_corr[col], errors="coerce")
+            for c in corr_cols:
+                df_corr[c] = pd.to_numeric(df_corr[c], errors="coerce")
             df_corr = df_corr.dropna()
             if len(df_corr) > 0:
                 corr_df = df_corr.corr()
@@ -673,24 +711,16 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.warning(
-                    "⚠️ Not enough valid data for correlation analysis"
-                )
+                st.warning("⚠️ Not enough valid data for correlation analysis")
 
-    # TAB 2: Conversion
+    # TAB 2: Conversion Analysis
     with tabs[1]:
         st.header("🎯 Conversion Funnel & Rate Analysis")
         if "Scoring_Group" in df_filtered.columns:
             funnel_data = [
                 ("Total Applications", len(df_filtered)),
-                (
-                    "Scored",
-                    len(df_filtered[df_filtered["Scoring_Group"] != "OTHER"]),
-                ),
-                (
-                    "Approved",
-                    len(df_filtered[df_filtered["Scoring_Group"] == "APPROVE"]),
-                ),
+                ("Scored", len(df_filtered[df_filtered["Scoring_Group"] != "OTHER"])),
+                ("Approved", len(df_filtered[df_filtered["Scoring_Group"] == "APPROVE"])),
             ]
             funnel_df = pd.DataFrame(funnel_data, columns=["Stage", "Count"])
             fig = go.Figure(
@@ -700,61 +730,55 @@ def main():
                     textinfo="value+percent total",
                 )
             )
-            fig.update_layout(title="Conversion Funnel")
+            fig.update_layout(title="Conversion Funnel CA")
             st.plotly_chart(fig, use_container_width=True)
 
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
+            c1, c2, c3 = st.columns(3)
+            with c1:
                 if "OSPH_Category" in df_filtered.columns:
                     osph_conv = (
                         df_filtered.groupby("OSPH_Category")["Scoring_Group"]
-                        .apply(
-                            lambda x: (x == "APPROVE").sum() / len(x) * 100
-                        )
+                        .apply(lambda x: (x == "APPROVE").sum() / len(x) * 100)
                         .reset_index(name="Approval_Rate")
                     )
                     fig = px.bar(
                         osph_conv,
                         x="OSPH_Category",
                         y="Approval_Rate",
-                        title="Approval Rate by OSPH",
+                        title="Approval Rate per Range OSPH",
                         color="Approval_Rate",
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
-            with col2:
+            with c2:
                 if "Pekerjaan" in df_filtered.columns:
                     job_conv = (
                         df_filtered.groupby("Pekerjaan")["Scoring_Group"]
-                        .apply(
-                            lambda x: (x == "APPROVE").sum() / len(x) * 100
-                        )
+                        .apply(lambda x: (x == "APPROVE").sum() / len(x) * 100)
                         .reset_index(name="Approval_Rate")
                     )
                     fig = px.bar(
                         job_conv,
                         x="Pekerjaan",
                         y="Approval_Rate",
-                        title="Approval Rate by Pekerjaan",
+                        title="Approval Rate per Pekerjaan",
                         color="Approval_Rate",
                     )
+                    fig.update_xaxes(tickangle=-45)
                     st.plotly_chart(fig, use_container_width=True)
 
-            with col3:
+            with c3:
                 if "JenisKendaraan" in df_filtered.columns:
                     vehicle_conv = (
                         df_filtered.groupby("JenisKendaraan")["Scoring_Group"]
-                        .apply(
-                            lambda x: (x == "APPROVE").sum() / len(x) * 100
-                        )
+                        .apply(lambda x: (x == "APPROVE").sum() / len(x) * 100)
                         .reset_index(name="Approval_Rate")
                     )
                     fig = px.bar(
                         vehicle_conv,
                         x="JenisKendaraan",
                         y="Approval_Rate",
-                        title="Approval Rate by Vehicle",
+                        title="Approval Rate per Jenis Kendaraan",
                         color="Approval_Rate",
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -764,28 +788,23 @@ def main():
         st.header("⏱️ SLA Performance Deep Dive")
         if "SLA_Days" in df_filtered.columns:
             df_sla = df_filtered[df_filtered["SLA_Days"].notna()].copy()
-            df_sla["SLA_Days"] = pd.to_numeric(
-                df_sla["SLA_Days"], errors="coerce"
-            )
+            df_sla["SLA_Days"] = pd.to_numeric(df_sla["SLA_Days"], errors="coerce")
             df_sla = df_sla[df_sla["SLA_Days"].notna()]
             if len(df_sla) > 0:
                 c1, c2, c3, c4 = st.columns(4)
                 with c1:
-                    st.metric("Min SLA", f"{df_sla['SLA_Days'].min():.1f}d")
+                    st.metric("Min SLA", f"{df_sla['SLA_Days'].min():.1f} d")
                 with c2:
-                    st.metric("Median SLA", f"{df_sla['SLA_Days'].median():.1f}d")
+                    st.metric("Median SLA", f"{df_sla['SLA_Days'].median():.1f} d")
                 with c3:
-                    st.metric("Mean SLA", f"{df_sla['SLA_Days'].mean():.1f}d")
+                    st.metric("Mean SLA", f"{df_sla['SLA_Days'].mean():.1f} d")
                 with c4:
-                    st.metric("Max SLA", f"{df_sla['SLA_Days'].max():.1f}d")
+                    st.metric("Max SLA", f"{df_sla['SLA_Days'].max():.1f} d")
 
                 c1, c2 = st.columns(2)
                 with c1:
                     fig = px.histogram(
-                        df_sla,
-                        x="SLA_Days",
-                        nbins=30,
-                        title="SLA Distribution",
+                        df_sla, x="SLA_Days", nbins=30, title="Distribusi SLA (hari kerja)"
                     )
                     st.plotly_chart(fig, use_container_width=True)
                 with c2:
@@ -794,7 +813,7 @@ def main():
                             df_sla,
                             x="OSPH_Category",
                             y="SLA_Days",
-                            title="SLA by OSPH Category",
+                            title="SLA per Range OSPH",
                         )
                         st.plotly_chart(fig, use_container_width=True)
             else:
@@ -804,13 +823,11 @@ def main():
     with tabs[3]:
         st.header("🔍 Customer Segmentation Analysis")
         if all(
-            col in df_filtered.columns
-            for col in ["OSPH_Category", "Pekerjaan", "JenisKendaraan"]
+            c in df_filtered.columns
+            for c in ["OSPH_Category", "Pekerjaan", "JenisKendaraan"]
         ):
             segment_data = (
-                df_filtered.groupby(
-                    ["OSPH_Category", "Pekerjaan", "JenisKendaraan"]
-                )
+                df_filtered.groupby(["OSPH_Category", "Pekerjaan", "JenisKendaraan"])
                 .size()
                 .reset_index(name="Count")
             )
@@ -818,105 +835,121 @@ def main():
                 segment_data,
                 path=["OSPH_Category", "Pekerjaan", "JenisKendaraan"],
                 values="Count",
-                title="Hierarchical Segmentation",
+                title="Segmentasi 3 Level: OSPH – Pekerjaan – Kendaraan",
             )
             st.plotly_chart(fig, use_container_width=True)
             top_segments = segment_data.nlargest(10, "Count")
             st.dataframe(top_segments, use_container_width=True)
 
-    # TAB 5: Insights
+    # TAB 5: Insights (bahasa bisnis)
     with tabs[4]:
         st.header("💡 Key Insights & Recommendations")
+
         insights = []
 
+        # 1. Segment OSPH terbaik
         if "OSPH_Category" in df_filtered.columns and "Scoring_Group" in df_filtered.columns:
             osph_approval = (
                 df_filtered.groupby("OSPH_Category")["Scoring_Group"]
                 .apply(lambda x: (x == "APPROVE").sum() / len(x) * 100)
                 .to_dict()
             )
-            if len(osph_approval) > 0:
+            if osph_approval:
                 best_osph = max(osph_approval, key=osph_approval.get)
+                worst_osph = min(osph_approval, key=osph_approval.get)
                 insights.append(
-                    f"🎯 **Best OSPH Segment**: {best_osph} with {osph_approval[best_osph]:.1f}% approval rate"
+                    f"🎯 **Range OSPH dengan kualitas terbaik**: {best_osph} "
+                    f"dengan approval rate sekitar {osph_approval[best_osph]:.1f}%. "
+                    f"Range {worst_osph} memiliki approval rate paling rendah, sehingga perlu risk appetite dan mitigasi tambahan."
                 )
 
+        # 2. SLA
         if "SLA_Days" in df_filtered.columns:
             target_sla = 3
-            within_sla = (df_filtered["SLA_Days"] <= target_sla).sum()
-            denom = len(df_filtered[df_filtered["SLA_Days"].notna()])
-            if denom > 0:
-                within_sla_pct = within_sla / denom * 100
+            valid_sla = df_filtered[df_filtered["SLA_Days"].notna()]
+            if len(valid_sla) > 0:
+                within_sla = (valid_sla["SLA_Days"] <= target_sla).sum()
+                within_sla_pct = within_sla / len(valid_sla) * 100
                 insights.append(
-                    f"⏱️ **SLA Performance**: {within_sla_pct:.1f}% applications processed within {target_sla} days"
+                    f"⏱️ **Kecepatan proses CA**: sekitar {within_sla_pct:.1f}% aplikasi "
+                    f"selesai dalam ≤ {target_sla} hari kerja. Outlier di atas target dapat "
+                    f"difokuskan pada cabang/segmen tertentu untuk perbaikan proses."
                 )
 
-        if "Hour" in df_filtered.columns and len(df_filtered) > 0:
-            peak_hour = df_filtered["Hour"].mode()[0]
-            peak_count = len(df_filtered[df_filtered["Hour"] == peak_hour])
-            insights.append(
-                f"🕐 **Peak Hour**: {peak_hour}:00 with {peak_count} applications ({peak_count/len(df_filtered)*100:.1f}%)"
-            )
-
+        # 3. Pekerjaan
         if "Pekerjaan" in df_filtered.columns and "Scoring_Group" in df_filtered.columns:
             job_approval = (
                 df_filtered.groupby("Pekerjaan")["Scoring_Group"]
                 .apply(lambda x: (x == "APPROVE").sum() / len(x) * 100)
                 .to_dict()
             )
-            if len(job_approval) > 0:
+            if job_approval:
                 best_job = max(job_approval, key=job_approval.get)
                 insights.append(
-                    f"👔 **Best Job Type**: {best_job} with {job_approval[best_job]:.1f}% approval rate"
+                    f"👔 **Profil pekerjaan relatif aman**: segmen {best_job} menunjukkan approval rate tertinggi, "
+                    f"sehingga dapat dipertimbangkan sebagai core target untuk akuisisi berkualitas."
                 )
 
+        # 4. Jenis kendaraan
         if "JenisKendaraan" in df_filtered.columns and "Scoring_Group" in df_filtered.columns:
             vehicle_approval = (
                 df_filtered.groupby("JenisKendaraan")["Scoring_Group"]
                 .apply(lambda x: (x == "APPROVE").sum() / len(x) * 100)
                 .to_dict()
             )
-            if len(vehicle_approval) > 0:
+            if vehicle_approval:
                 best_vehicle = max(vehicle_approval, key=vehicle_approval.get)
                 insights.append(
-                    f"🚗 **Best Vehicle Type**: {best_vehicle} with {vehicle_approval[best_vehicle]:.1f}% approval rate"
+                    f"🚗 **Jenis kendaraan dengan risiko lebih rendah**: {best_vehicle} "
+                    f"memiliki approval rate tertinggi dibanding jenis lain, sehingga dapat "
+                    f"dioptimalkan untuk volume tanpa banyak menambah risiko."
                 )
 
+        # 5. Branch performance
         if "branch_name" in df_filtered.columns and "Scoring_Group" in df_filtered.columns:
             branch_approval = (
                 df_filtered.groupby("branch_name")["Scoring_Group"]
                 .apply(lambda x: (x == "APPROVE").sum() / len(x) * 100)
                 .to_dict()
             )
-            if len(branch_approval) > 0:
+            if branch_approval:
                 best_branch = max(branch_approval, key=branch_approval.get)
                 worst_branch = min(branch_approval, key=branch_approval.get)
                 insights.append(
-                    f"🏢 **Top Branch**: {best_branch} ({branch_approval[best_branch]:.1f}% approval)"
-                )
-                insights.append(
-                    f"⚠️ **Focus Branch**: {worst_branch} ({branch_approval[worst_branch]:.1f}% approval) - needs improvement"
+                    f"🏢 **Performa cabang**: cabang dengan kualitas terbaik saat ini adalah {best_branch} "
+                    f"(approval rate tertinggi), sedangkan cabang {worst_branch} berada di level terendah "
+                    f"dan menjadi kandidat prioritas untuk coaching dan review proses."
                 )
 
-        for insight in insights:
+        # 6. Peak working hour
+        if "Hour" in df_filtered.columns and len(df_filtered) > 0:
+            peak_hour = df_filtered["Hour"].mode()[0]
+            peak_count = len(df_filtered[df_filtered["Hour"] == peak_hour])
+            insights.append(
+                f"🕐 **Pola beban kerja**: volume permohonan tertinggi terjadi sekitar jam {peak_hour}:00 "
+                f"(~{peak_count/len(df_filtered)*100:.1f}% dari total). Penjadwalan CA dan support di jam ini "
+                f"akan membantu menurunkan SLA dan backlog."
+            )
+
+        for txt in insights:
             st.markdown(
-                f'<div class="insight-box">{insight}</div>',
+                f'<div class="insight-box">{txt}</div>',
                 unsafe_allow_html=True,
             )
 
         st.subheader("📋 Actionable Recommendations")
-        recommendations = [
-            "1. **Optimize Resources**: Fokus alokasi CA di peak hour untuk turunkan SLA.",
-            "2. **Segment Strategy**: Terapkan kriteria approval berbeda untuk segmen OSPH dengan approval tinggi.",
-            "3. **Branch Support**: Tambah training/support ke cabang dengan approval rendah.",
-            "4. **Risk-Based Pricing**: Pertimbangkan Risk_Score untuk skema pricing dan limit.",
-            "5. **Process Automation**: Otomatiskan segmen low-risk high-approval untuk efisiensi.",
+        recs = [
+            "1. Fokuskan ekspansi ke range OSPH dan segmen pekerjaan dengan approval tinggi sebagai **low-risk growth**.",
+            "2. Untuk range OSPH tinggi dengan approval rendah, terapkan mitigasi (DP lebih besar, dokumen cashflow lebih ketat).",
+            "3. Lakukan coaching dan sharing best practice dari cabang top-performer ke cabang dengan approval paling rendah.",
+            "4. Review kapasitas tim pada peak hour untuk menjaga SLA tetap dalam target dan mencegah penumpukan PENDING CA.",
+            "5. Manfaatkan Risk_Score untuk diferensiasi pricing/limit sehingga return sejalan dengan risiko.",
         ]
-        for rec in recommendations:
-            st.markdown(rec)
+        for r in recs:
+            st.markdown(r)
 
         st.subheader("📊 Statistical Summary")
-        if all(col in df_filtered.columns for col in ["OSPH_clean", "SLA_Days"]):
+        if all(c in df_filtered.columns for c in ["OSPH_clean", "SLA_Days"]):
             stats_data = {
                 "Metric": ["OSPH (Rp)", "SLA (Days)"],
                 "Mean": [
@@ -969,13 +1002,16 @@ def main():
         all_columns = df_filtered.columns.tolist()
         default_cols = [
             "apps_id",
+            "apps_status",
             "Produk",
             "OSPH_Category",
+            "Outstanding_PH",
             "Pekerjaan",
             "JenisKendaraan",
-            "Scoring_Group",
+            "Hasil_Scoring_1",
             "SLA_Days",
             "branch_name",
+            "user_name",
         ]
         display_cols = [c for c in default_cols if c in all_columns]
         selected_cols = st.multiselect(
@@ -1010,48 +1046,34 @@ def main():
                     else "N/A",
                 )
 
-    # Advanced analytics
+    # ========== ADVANCED & COMPARATIVE ==========
     st.markdown("---")
-    st.header("🔬 Advanced Analytics")
+    st.header("🔬 Advanced & Comparative Analytics")
 
     adv_col1, adv_col2 = st.columns(2)
 
     with adv_col1:
         st.subheader("📈 Approval Rate Trends")
-        if all(col in df_filtered.columns for col in ["YearMonth", "Scoring_Group"]):
+        if all(c in df_filtered.columns for c in ["YearMonth", "Scoring_Group"]):
             try:
                 monthly_data = []
-                for month in df_filtered["YearMonth"].unique():
-                    month_df = df_filtered[df_filtered["YearMonth"] == month]
-                    total = len(month_df)
+                for m in df_filtered["YearMonth"].unique():
+                    m_df = df_filtered[df_filtered["YearMonth"] == m]
+                    total = len(m_df)
                     if total > 0:
-                        approval = (
-                            (month_df["Scoring_Group"] == "APPROVE").sum()
-                            / total
-                            * 100
-                        )
-                        reguler = (
-                            (month_df["Scoring_Group"] == "REGULER").sum()
-                            / total
-                            * 100
-                        )
-                        reject = (
-                            (month_df["Scoring_Group"] == "REJECT").sum()
-                            / total
-                            * 100
-                        )
+                        approval = (m_df["Scoring_Group"] == "APPROVE").sum() / total * 100
+                        reguler = (m_df["Scoring_Group"] == "REGULER").sum() / total * 100
+                        reject = (m_df["Scoring_Group"] == "REJECT").sum() / total * 100
                         monthly_data.append(
                             {
-                                "YearMonth": month,
+                                "YearMonth": m,
                                 "Approval_Rate": approval,
                                 "Reguler_Rate": reguler,
                                 "Reject_Rate": reject,
                             }
                         )
-                if len(monthly_data) > 0:
-                    monthly_approval = pd.DataFrame(monthly_data).sort_values(
-                        "YearMonth"
-                    )
+                if monthly_data:
+                    monthly_approval = pd.DataFrame(monthly_data).sort_values("YearMonth")
                     fig = go.Figure()
                     fig.add_trace(
                         go.Scatter(
@@ -1081,7 +1103,7 @@ def main():
                         )
                     )
                     fig.update_layout(
-                        title="Monthly Approval/Reguler/Reject Rate Trends",
+                        title="Trend Approval / Reguler / Reject per Bulan",
                         xaxis_title="Month",
                         yaxis_title="Rate (%)",
                         hovermode="x unified",
@@ -1093,8 +1115,8 @@ def main():
                 st.error(f"Error creating trend chart: {str(e)}")
 
     with adv_col2:
-        st.subheader("🎯 User Performance")
-        if all(col in df_filtered.columns for col in ["user_name", "Scoring_Group"]):
+        st.subheader("🎯 User (CA) Performance")
+        if all(c in df_filtered.columns for c in ["user_name", "Scoring_Group"]):
             try:
                 user_perf = (
                     df_filtered.groupby("user_name")
@@ -1122,12 +1144,7 @@ def main():
                     user_perf = user_perf.merge(avg_sla, on="user_name", how="left")
                 else:
                     user_perf["Avg_SLA"] = 0
-                user_perf.columns = [
-                    "User",
-                    "Total_Apps",
-                    "Approval_Rate",
-                    "Avg_SLA",
-                ]
+                user_perf.columns = ["User", "Total_Apps", "Approval_Rate", "Avg_SLA"]
                 user_perf = user_perf.sort_values("Total_Apps", ascending=False)
                 if len(user_perf) > 0:
                     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -1151,7 +1168,7 @@ def main():
                         secondary_y=True,
                     )
                     fig.update_layout(
-                        title="CA Performance: Volume vs Approval Rate"
+                        title="Performa CA: Volume vs Approval Rate"
                     )
                     fig.update_xaxes(tickangle=-45)
                     fig.update_yaxes(
@@ -1170,13 +1187,18 @@ def main():
     st.header("⚖️ Comparative Analysis")
 
     comp_tabs = st.tabs(
-        ["OSPH vs Pekerjaan", "OSPH vs Vehicle", "Product vs Branch", "Time Series Comparison"]
+        [
+            "OSPH vs Pekerjaan",
+            "OSPH vs Vehicle",
+            "Product vs Branch",
+            "Time Series Comparison",
+        ]
     )
 
     with comp_tabs[0]:
         if all(
-            col in df_filtered.columns
-            for col in ["OSPH_Category", "Pekerjaan", "Scoring_Group"]
+            c in df_filtered.columns
+            for c in ["OSPH_Category", "Pekerjaan", "Scoring_Group"]
         ):
             comparison_df = (
                 df_filtered.groupby(["OSPH_Category", "Pekerjaan"])
@@ -1205,8 +1227,8 @@ def main():
 
     with comp_tabs[1]:
         if all(
-            col in df_filtered.columns
-            for col in ["OSPH_Category", "JenisKendaraan", "Scoring_Group"]
+            c in df_filtered.columns
+            for c in ["OSPH_Category", "JenisKendaraan", "Scoring_Group"]
         ):
             vehicle_comp = (
                 df_filtered.groupby(["OSPH_Category", "JenisKendaraan"])
@@ -1234,8 +1256,8 @@ def main():
 
     with comp_tabs[2]:
         if all(
-            col in df_filtered.columns
-            for col in ["Produk", "branch_name", "Scoring_Group"]
+            c in df_filtered.columns
+            for c in ["Produk", "branch_name", "Scoring_Group"]
         ):
             prod_branch = (
                 df_filtered.groupby(["Produk", "branch_name"])["Scoring_Group"]
@@ -1248,15 +1270,15 @@ def main():
                 y="Approval_Rate",
                 color="Produk",
                 barmode="group",
-                title="Approval Rate by Product & Branch",
+                title="Approval Rate per Produk & Branch",
             )
             fig.update_xaxes(tickangle=-45)
             st.plotly_chart(fig, use_container_width=True)
 
     with comp_tabs[3]:
         if all(
-            col in df_filtered.columns
-            for col in ["YearMonth", "Produk", "Scoring_Group"]
+            c in df_filtered.columns
+            for c in ["YearMonth", "Produk", "Scoring_Group"]
         ):
             time_comp = (
                 df_filtered.groupby(["YearMonth", "Produk"])["Scoring_Group"]
@@ -1269,20 +1291,21 @@ def main():
                 y="Approval_Rate",
                 color="Produk",
                 markers=True,
-                title="Time Series: Approval Rate by Product",
+                title="Time Series: Approval Rate per Produk",
             )
             st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
     st.markdown(
         f"""
-    <div style='text-align: center; color: #666;'>
-        <p>📊 Credit Analyst Analytics Dashboard | Built with Streamlit & Plotly</p>
-        <p>Last Updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
-    </div>
-    """,
+<div style='text-align: center; color: #666;'>
+    <p>📊 Credit Analyst Analytics Dashboard | Built with Streamlit & Plotly</p>
+    <p>Last Updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+</div>
+""",
         unsafe_allow_html=True,
     )
+
 
 if __name__ == "__main__":
     main()
