@@ -458,20 +458,33 @@ def main():
         
         with col1:
             if 'YearMonth' in df_filtered.columns and 'Scoring_Group' in df_filtered.columns:
-                monthly_trend = df_filtered.groupby('YearMonth').agg({
-                    'apps_id': 'nunique',
-                }).reset_index()
-                monthly_trend['Approval_Rate'] = df_filtered.groupby('YearMonth')['Scoring_Group'].apply(
-                    lambda x: (x == 'APPROVE').sum() / len(x) * 100
-                ).values
-                monthly_trend.columns = ['Month', 'Volume', 'Approval_Rate']
-                
-                fig = make_subplots(specs=[[{"secondary_y": True}]])
-                fig.add_trace(go.Bar(x=monthly_trend['Month'], y=monthly_trend['Volume'], name="Volume"), secondary_y=False)
-                fig.add_trace(go.Scatter(x=monthly_trend['Month'], y=monthly_trend['Approval_Rate'], 
-                                       name="Approval %", mode='lines+markers'), secondary_y=True)
-                fig.update_layout(title="Monthly Volume & Approval Rate Trend")
-                st.plotly_chart(fig, use_container_width=True)
+                try:
+                    # Hitung volume dan approval rate per bulan
+                    monthly_data = []
+                    for month in sorted(df_filtered['YearMonth'].unique()):
+                        month_df = df_filtered[df_filtered['YearMonth'] == month]
+                        volume = month_df['apps_id'].nunique() if 'apps_id' in month_df.columns else len(month_df)
+                        total = len(month_df)
+                        approval_rate = (month_df['Scoring_Group'] == 'APPROVE').sum() / total * 100 if total > 0 else 0
+                        monthly_data.append({
+                            'Month': month,
+                            'Volume': volume,
+                            'Approval_Rate': approval_rate
+                        })
+                    
+                    if len(monthly_data) > 0:
+                        monthly_trend = pd.DataFrame(monthly_data)
+                        
+                        fig = make_subplots(specs=[[{"secondary_y": True}]])
+                        fig.add_trace(go.Bar(x=monthly_trend['Month'], y=monthly_trend['Volume'], name="Volume"), secondary_y=False)
+                        fig.add_trace(go.Scatter(x=monthly_trend['Month'], y=monthly_trend['Approval_Rate'], 
+                                               name="Approval %", mode='lines+markers'), secondary_y=True)
+                        fig.update_layout(title="Monthly Volume & Approval Rate Trend")
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.warning("⚠️ No monthly trend data available")
+                except Exception as e:
+                    st.error(f"Error creating monthly trend: {str(e)}")
         
         with col2:
             if 'DayOfWeek' in df_filtered.columns:
