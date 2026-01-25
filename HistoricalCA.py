@@ -11,6 +11,9 @@ from pathlib import Path
 # ========== KONFIGURASI ==========
 st.set_page_config(page_title="CA Analytics Dashboard", layout="wide", page_icon="📊")
 
+# File Excel
+FILE_NAME = "HistoricalCA.xlsx"
+
 # Custom CSS
 st.markdown("""
 <style>
