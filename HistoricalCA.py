@@ -387,87 +387,129 @@ def main():
         st.header("💰 OSPH Analysis - 3 Analytical Dimensions")
         st.info("**Analytical Insight**: Analisis OSPH dari 3 sudut pandang berbeda untuk menemukan pola tersembunyi")
         
-        # Dimension 1: OSPH vs apps_status
-        st.subheader("📊 Dimension 1: OSPH vs apps_status")
-        st.markdown("**Insight Goal**: Identifikasi status mana yang paling efektif per range OSPH")
+        # Dimension 1: OSPH vs Hasil_Scoring_1
+        st.subheader("📊 Dimension 1: OSPH vs Hasil_Scoring_1")
+        st.markdown("**Insight Goal**: Pola scoring decision per range OSPH")
         
-        if 'OSPH_Category' in df_filtered.columns and 'apps_status_clean' in df_filtered.columns:
+        if 'OSPH_Category' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
             dim1_data = []
             for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
                 df_o = df_filtered[df_filtered['OSPH_Category'] == osph]
-                row = {'Range OSPH': osph, 'Total Apps': df_o['apps_id'].nunique()}
+                harga_min = df_o['OSPH_clean'].min() if 'OSPH_clean' in df_o.columns else 0
+                harga_max = df_o['OSPH_clean'].max() if 'OSPH_clean' in df_o.columns else 0
                 
-                # Hitung semua apps_status
-                for status in df_filtered['apps_status_clean'].unique():
-                    if status != 'Unknown':
-                        count = len(df_o[df_o['apps_status_clean'] == status])
-                        row[status] = count
+                row = {
+                    'Range Harga': osph,
+                    'Harga Min': f"Rp {harga_min:,.0f}",
+                    'Harga Max': f"Rp {harga_max:,.0f}",
+                    'Total Apps ID': df_o['apps_id'].nunique(),
+                    '% dari Total': f"{df_o['apps_id'].nunique()/df_filtered['apps_id'].nunique()*100:.1f}%",
+                    'Total Records': len(df_o)
+                }
                 
-                # Hitung semua Hasil_Scoring_1
-                for scoring in ['-', 'APPROVE', 'Approve 1', 'Approve 2', 'Reguler', 'Reguler 1', 
-                               'Reguler 2', 'Reject', 'Reject 1', 'Reject 2', 'Scoring in Progress']:
+                # Hitung SEMUA Hasil_Scoring_1 (tidak digrouping)
+                for scoring in ['-', 'APPROVE', 'Approve 1', 'Approve 2', 'REGULER', 'Reguler', 'Reguler 1',
+                               'Reguler 2', 'REJECT', 'Reject', 'Reject 1', 'Reject 2', 'Scoring in Progress', 'data historical']:
                     count = len(df_o[df_o['Scoring_Detail'] == scoring])
-                    row[f'Scoring: {scoring}'] = count
+                    if count > 0:  # Hanya tampilkan yang ada
+                        row[scoring] = count
                 
                 dim1_data.append(row)
             
             dim1_df = pd.DataFrame(dim1_data)
             st.dataframe(dim1_df, use_container_width=True, hide_index=True)
             
-            # Heatmap apps_status
-            status_cols = [c for c in dim1_df.columns if c not in ['Range OSPH', 'Total Apps'] and not c.startswith('Scoring:')]
+            # Heatmap Hasil_Scoring_1
+            scoring_cols = [c for c in dim1_df.columns if c not in ['Range Harga', 'Harga Min', 'Harga Max', 'Total Apps ID', '% dari Total', 'Total Records']]
+            if scoring_cols:
+                heatmap_data = dim1_df[['Range Harga'] + scoring_cols].set_index('Range Harga')
+                fig = px.imshow(heatmap_data.T,
+                              text_auto=True,
+                              title="Heatmap: OSPH vs Hasil_Scoring_1",
+                              labels=dict(x="OSPH Range", y="Hasil Scoring", color="Count"),
+                              aspect="auto")
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Tabel Tambahan: OSPH vs apps_status
+        st.markdown("---")
+        st.subheader("📋 Tabel Tambahan: OSPH vs apps_status")
+        st.markdown("**Insight Goal**: Distribusi status aplikasi per range OSPH")
+        
+        if 'OSPH_Category' in df_filtered.columns and 'apps_status_clean' in df_filtered.columns:
+            status_data = []
+            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
+                df_o = df_filtered[df_filtered['OSPH_Category'] == osph]
+                row = {'Range OSPH': osph, 'Total Apps': df_o['apps_id'].nunique()}
+                
+                # Hitung SEMUA apps_status (tidak digrouping)
+                for status in ['NOT RECOMMENDED CA', 'PENDING CA', 'Pending CA Completed', 'RECOMMENDED CA', 'RECOMMENDED CA WITH COND']:
+                    count = len(df_o[df_o['apps_status_clean'] == status])
+                    if count > 0:
+                        row[status] = count
+                
+                status_data.append(row)
+            
+            status_df = pd.DataFrame(status_data)
+            st.dataframe(status_df, use_container_width=True, hide_index=True)
+            
+            # Heatmap
+            status_cols = [c for c in status_df.columns if c not in ['Range OSPH', 'Total Apps']]
             if status_cols:
-                fig = px.imshow(dim1_df[status_cols].T, 
-                              x=dim1_df['Range OSPH'],
-                              y=status_cols,
+                heatmap_status = status_df[['Range OSPH'] + status_cols].set_index('Range OSPH')
+                fig = px.imshow(heatmap_status.T,
                               text_auto=True,
                               title="Heatmap: OSPH vs apps_status",
-                              labels=dict(x="OSPH Range", y="apps_status", color="Count"))
+                              labels=dict(x="OSPH Range", y="apps_status", color="Count"),
+                              aspect="auto")
                 st.plotly_chart(fig, use_container_width=True)
         
         st.markdown("---")
         
-        # Dimension 2: OSPH vs Pekerjaan
+        # Dimension 2: OSPH vs Pekerjaan (LENGKAP sesuai Excel)
         st.subheader("💼 Dimension 2: OSPH vs Pekerjaan")
-        st.markdown("**Insight Goal**: Profil pekerjaan mana yang dominan dan approval rate-nya per OSPH")
+        st.markdown("**Insight Goal**: Profil pekerjaan lengkap dan approval rate per OSPH")
         
         if 'OSPH_Category' in df_filtered.columns and 'Pekerjaan_clean' in df_filtered.columns:
             dim2_data = []
+            
+            # Ambil semua unique pekerjaan dari data
+            all_pekerjaan = sorted(df_filtered['Pekerjaan_clean'].unique())
+            
             for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
                 df_o = df_filtered[df_filtered['OSPH_Category'] == osph]
+                harga_min = df_o['OSPH_clean'].min() if 'OSPH_clean' in df_o.columns else 0
+                harga_max = df_o['OSPH_clean'].max() if 'OSPH_clean' in df_o.columns else 0
                 
-                # Kategorisasi pekerjaan
-                karyawan = len(df_o[df_o['Pekerjaan_clean'].str.contains('KARYAWAN|PEGAWAI', case=False, na=False)])
-                wiraswasta = len(df_o[df_o['Pekerjaan_clean'].str.contains('WIRASWASTA|WIRAUSAHA', case=False, na=False)])
-                irt = len(df_o[df_o['Pekerjaan_clean'].str.contains('IBU|RUMAH|TANGGA', case=False, na=False)])
-                profesional = len(df_o[df_o['Pekerjaan_clean'].str.contains('DOKTER|GURU|DOSEN|ARSITEK', case=False, na=False)])
-                lainnya = len(df_o) - karyawan - wiraswasta - irt - profesional
+                row = {
+                    'Range Harga': osph,
+                    'Harga Min': f"Rp {harga_min:,.0f}",
+                    'Harga Max': f"Rp {harga_max:,.0f}",
+                    'Total Apps ID': df_o['apps_id'].nunique(),
+                    '% dari Total': f"{df_o['apps_id'].nunique()/df_filtered['apps_id'].nunique()*100:.1f}%",
+                    'Total Records': len(df_o)
+                }
                 
-                # Approval rate per kategori
-                approve_karyawan = df_o[df_o['Pekerjaan_clean'].str.contains('KARYAWAN|PEGAWAI', case=False, na=False)]['Scoring_Detail'].str.contains('Approve', case=False, na=False).sum()
-                approve_wiraswasta = df_o[df_o['Pekerjaan_clean'].str.contains('WIRASWASTA|WIRAUSAHA', case=False, na=False)]['Scoring_Detail'].str.contains('Approve', case=False, na=False).sum()
+                # Hitung SEMUA jenis pekerjaan yang ada
+                for pekerjaan in all_pekerjaan:
+                    if pekerjaan != 'Unknown':
+                        count = len(df_o[df_o['Pekerjaan_clean'] == pekerjaan])
+                        if count > 0:
+                            row[pekerjaan] = count
                 
-                dim2_data.append({
-                    'Range OSPH': osph,
-                    'Total Apps': df_o['apps_id'].nunique(),
-                    'Karyawan': karyawan,
-                    'Wiraswasta': wiraswasta,
-                    'Ibu Rumah Tangga': irt,
-                    'Profesional': profesional,
-                    'Lainnya': lainnya,
-                    'Approval_Karyawan%': f"{approve_karyawan/karyawan*100:.1f}%" if karyawan > 0 else "-",
-                    'Approval_Wiraswasta%': f"{approve_wiraswasta/wiraswasta*100:.1f}%" if wiraswasta > 0 else "-"
-                })
+                dim2_data.append(row)
             
             dim2_df = pd.DataFrame(dim2_data)
             st.dataframe(dim2_df, use_container_width=True, hide_index=True)
             
-            # Stacked bar chart
-            fig = px.bar(dim2_df, x='Range OSPH',
-                        y=['Karyawan', 'Wiraswasta', 'Ibu Rumah Tangga', 'Profesional', 'Lainnya'],
-                        title="Distribusi Pekerjaan per OSPH Range",
-                        barmode='stack')
-            st.plotly_chart(fig, use_container_width=True)
+            # Visualization
+            pekerjaan_cols = [c for c in dim2_df.columns if c not in ['Range Harga', 'Harga Min', 'Harga Max', 'Total Apps ID', '% dari Total', 'Total Records']]
+            if pekerjaan_cols:
+                # Stacked bar
+                fig = px.bar(dim2_df, x='Range Harga',
+                           y=pekerjaan_cols[:10],  # Top 10 untuk readability
+                           title="Top 10 Pekerjaan per OSPH Range",
+                           barmode='stack')
+                st.plotly_chart(fig, use_container_width=True)
         
         st.markdown("---")
         
@@ -749,11 +791,11 @@ def main():
     with tab7:
         st.header("📋 Complete Raw Data Export")
         
-        display_cols = ['apps_id', 'user_name', 'position_name', 'apps_status', 'desc_status_apps',
-                       'Produk', 'action_on_parsed', 'Initiation_parsed', 'RealisasiDate_parsed',
-                       'Outstanding_PH', 'OSPH_clean', 'OSPH_Category', 'Pekerjaan', 'Jabatan',
-                       'Pekerjaan_Pasangan', 'Hasil_Scoring_1', 'Scoring_Detail', 'JenisKendaraan',
-                       'branch_name', 'Tujuan_Kredit', 'LastOD', 'LastOD_clean', 'max_OD', 'max_OD_clean',
+        display_cols = ['apps_id', 'position_name', 'user_name', 'apps_status', 'desc_status_apps',
+                       'Produk', 'action_on', 'Initiation', 'RealisasiDate',
+                       'Outstanding_PH', 'Pekerjaan', 'Jabatan', 'Pekerjaan_Pasangan', 
+                       'Hasil_Scoring_1', 'JenisKendaraan', 'branch_name', 'Tujuan_Kredit', 
+                       'LastOD', 'max_OD', 'OSPH_clean', 'OSPH_Category', 'Scoring_Detail', 
                        'SLA_Days', 'Risk_Score', 'Risk_Category']
         
         available_cols = [c for c in display_cols if c in df_filtered.columns]
