@@ -315,11 +315,11 @@ def main():
             st.warning(f"⚠️ Date filter error: {str(e)}")
             pass
     
-    # ========== KPI SECTION ==========
+      # ========== KPI SECTION ==========
     st.header("📊 Key Performance Indicators")
     
     kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5 = st.columns(5)
-    
+
     with kpi_col1:
         total_apps = df_filtered['apps_id'].nunique() if 'apps_id' in df_filtered.columns else len(df_filtered)
         st.metric("📝 Total Apps (Distinct)", f"{total_apps:,}")
@@ -331,16 +331,15 @@ def main():
         else:
             st.metric("⏱️ Avg SLA", "N/A")
     
-with kpi_col3:
-    if 'Is_Scored' in df_filtered.columns:
-        if 'apps_id' in df_filtered.columns:
-            total_scored = df_filtered[df_filtered['Is_Scored'] == True]['apps_id'].nunique()
+    with kpi_col3:
+        if 'Is_Scored' in df_filtered.columns:
+            if 'apps_id' in df_filtered.columns:
+                total_scored = df_filtered[df_filtered['Is_Scored'] == True]['apps_id'].nunique()
+            else:
+                total_scored = len(df_filtered[df_filtered['Is_Scored'] == True])
+            st.metric("📝 Total Scored (sudah ada hasil scoring CA)", f"{total_scored:,}")
         else:
-            total_scored = len(df_filtered[df_filtered['Is_Scored'] == True])
-        st.metric("📝 Total Scored (sudah ada hasil scoring CA)", f"{total_scored:,}")
-    else:
-        st.metric("📝 Total Scored", "N/A")
-
+            st.metric("📝 Total Scored", "N/A")
     
     with kpi_col4:
         if 'apps_status' in df_filtered.columns:
@@ -355,6 +354,7 @@ with kpi_col3:
             st.metric("❌ Not Recommended", f"{not_recommended:,}")
         else:
             st.metric("❌ Not Recommended", "N/A")
+
     
     # Additional KPIs Row
     st.markdown("### 📌 Additional Metrics")
