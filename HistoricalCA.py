@@ -463,7 +463,7 @@ def main():
             st.subheader("Hierarchy: Product → OSPH → Vehicle → Pekerjaan")
             
             if all(col in df_filtered.columns for col in ['Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean']):
-                hierarchy = df_filtered.groupby([' Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean']).size().reset_index(name='Count')
+                hierarchy = df_filtered.groupby(['Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean']).size().reset_index(name='Count')
                 
                 fig = px.sunburst(hierarchy, 
                                 path=['Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean'],
