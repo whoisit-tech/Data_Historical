@@ -742,15 +742,25 @@ def main():
         
         if all(col in df_filtered.columns for col in ['YearMonth', 'Scoring_Group']):
             try:
-                monthly_approval = df_filtered.groupby('YearMonth')['Scoring_Group'].apply(
-                    lambda x: pd.Series({
-                        'Approval_Rate': (x == 'APPROVE').sum() / len(x) * 100 if len(x) > 0 else 0,
-                        'Reject_Rate': (x == 'REJECT').sum() / len(x) * 100 if len(x) > 0 else 0,
-                        'Reguler_Rate': (x == 'REGULER').sum() / len(x) * 100 if len(x) > 0 else 0
-                    })
-                ).reset_index()
+                # Hitung rate per bulan dengan cara yang lebih simple
+                monthly_data = []
+                for month in df_filtered['YearMonth'].unique():
+                    month_df = df_filtered[df_filtered['YearMonth'] == month]
+                    total = len(month_df)
+                    if total > 0:
+                        approval = (month_df['Scoring_Group'] == 'APPROVE').sum() / total * 100
+                        reguler = (month_df['Scoring_Group'] == 'REGULER').sum() / total * 100
+                        reject = (month_df['Scoring_Group'] == 'REJECT').sum() / total * 100
+                        monthly_data.append({
+                            'YearMonth': month,
+                            'Approval_Rate': approval,
+                            'Reguler_Rate': reguler,
+                            'Reject_Rate': reject
+                        })
                 
-                if len(monthly_approval) > 0:
+                if len(monthly_data) > 0:
+                    monthly_approval = pd.DataFrame(monthly_data).sort_values('YearMonth')
+                    
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=monthly_approval['YearMonth'], y=monthly_approval['Approval_Rate'],
                                            mode='lines+markers', name='Approval', line=dict(color='#10b981', width=3)))
