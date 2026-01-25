@@ -463,16 +463,20 @@ def main():
             st.subheader("Hierarchy: Product → OSPH → Vehicle → Pekerjaan")
             
             if all(col in df_filtered.columns for col in ['Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean']):
-                hierarchy = df_filtered.groupby(['Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean']).size().reset_index(name='Count')
-                
-                fig = px.sunburst(hierarchy, 
-                                path=['Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean'],
-                                values='Count',
-                                title="Complete Hierarchy View")
-                st.plotly_chart(fig, use_container_width=True)
-                
-                st.dataframe(hierarchy.sort_values('Count', ascending=False).head(50), 
-                           use_container_width=True, hide_index=True)
+                try:
+                    hierarchy = df_filtered.groupby(['Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean']).size().reset_index(name='Count')
+                    
+                    fig = px.sunburst(hierarchy, 
+                                    path=['Produk_clean', 'OSPH_Category', 'JenisKendaraan_clean', 'Pekerjaan_clean'],
+                                    values='Count',
+                                    title="Complete Hierarchy View")
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.dataframe(hierarchy.sort_values('Count', ascending=False).head(50), 
+                               use_container_width=True, hide_index=True)
+                except Exception as e:
+                    st.error(f"Error creating hierarchy: {str(e)}")
+                    st.info("Available columns: " + ", ".join(df_filtered.columns.tolist()))
     
     # TAB 4: CA Performance
     with tabs[3]:
