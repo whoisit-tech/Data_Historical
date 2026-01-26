@@ -198,9 +198,9 @@ def preprocess_data(df):
     if 'apps_status' in df.columns:
         df['apps_status_clean'] = df['apps_status'].fillna('Unknown').astype(str).str.strip()
     
-    # Clean Hasil_Scoring_1
-    if 'Hasil_Scoring_1' in df.columns:
-        df['Scoring_Detail'] = df['Hasil_Scoring_1'].fillna('(Pilih Semua)').astype(str).str.strip()
+    # Clean Hasil_Scoring
+    if 'Hasil_Scoring' in df.columns:
+        df['Scoring_Detail'] = df['Hasil_Scoring'].fillna('(Pilih Semua)').astype(str).str.strip()
     
     # Extract time features
     if 'action_on_parsed' in df.columns:
@@ -245,7 +245,7 @@ def load_data():
         required_cols = [
             'apps_id', 'position_name', 'user_name', 'apps_status', 'desc_status_apps',
             'Produk', 'action_on', 'Initiation', 'RealisasiDate', 'Outstanding_PH',
-            'Pekerjaan', 'Jabatan', 'Pekerjaan_Pasangan', 'Hasil_Scoring_1',
+            'Pekerjaan', 'Jabatan', 'Pekerjaan_Pasangan', 'Hasil_Scoring',
             'JenisKendaraan', 'branch_name', 'Tujuan_Kredit', 'LastOD', 'max_OD'
         ]
         
@@ -1385,7 +1385,7 @@ def main():
             'apps_id', 'position_name', 'user_name', 'apps_status',
             'desc_status_apps', 'Produk', 'action_on', 'Initiation',
             'RealisasiDate', 'Outstanding_PH', 'Pekerjaan', 'Jabatan',
-            'Pekerjaan_Pasangan', 'Hasil_Scoring_1', 'JenisKendaraan',
+            'Pekerjaan_Pasangan', 'Hasil_Scoring', 'JenisKendaraan',
             'branch_name', 'Tujuan_Kredit', 'LastOD', 'max_OD',
             'OSPH_clean', 'OSPH_Category', 'Scoring_Detail',
             'SLA_Days', 'Risk_Score', 'Risk_Category'
