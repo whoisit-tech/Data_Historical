@@ -101,6 +101,7 @@ def calculate_sla_days(start_dt, end_dt):
         
         start_adjusted = start_dt
         
+        # If start time is after 3:30 PM, move to next working day at 8:30 AM
         if start_dt.time() >= datetime.strptime("15:30", "%H:%M").time():
             start_adjusted = start_dt + timedelta(days=1)
             start_adjusted = start_adjusted.replace(hour=8, minute=30, second=0)
@@ -178,6 +179,7 @@ def calculate_risk_score(row):
     """Calculate risk score based on multiple factors"""
     score = 0
     
+    # OSPH risk contribution
     if pd.notna(row.get('OSPH_clean')):
         if row['OSPH_clean'] > 500000000:
             score += 30
@@ -186,6 +188,7 @@ def calculate_risk_score(row):
         else:
             score += 10
     
+    # LastOD risk contribution
     if pd.notna(row.get('LastOD_clean')):
         if row['LastOD_clean'] > 30:
             score += 40
@@ -194,16 +197,32 @@ def calculate_risk_score(row):
         elif row['LastOD_clean'] > 0:
             score += 15
     
+    # SLA risk contribution
+    if pd.notna(row.get('SLA_Days')):
+        if row['SLA_Days'] > 5:
+            score += 20
+        elif row['SLA_Days'] > 3:
+            score += 10
+    
     return min(score, 100)
 
 def preprocess_data(df):
     """Clean and prepare data for analysis"""
     df = df.copy()
     
+    # Parse dates
     for col in ['action_on', 'Initiation', 'RealisasiDate']:
         if col in df.columns:
             df[f'{col}_parsed'] = df[col].apply(parse_date)
     
+    # Calculate SLA days
+    if all(c in df.columns for c in ['action_on_parsed', 'RealisasiDate_parsed']):
+        df['SLA_Days'] = df.apply(
+            lambda r: calculate_sla_days(r['action_on_parsed'], r['RealisasiDate_parsed']), 
+            axis=1
+        )
+    
+    # Clean Outstanding PH
     if 'Outstanding_PH' in df.columns:
         df['OSPH_clean'] = pd.to_numeric(
             df['Outstanding_PH'].astype(str).str.replace(',', ''), 
@@ -211,16 +230,20 @@ def preprocess_data(df):
         )
         df['OSPH_Category'] = df['OSPH_clean'].apply(get_osph_category)
     
+    # Clean OD columns
     for col in ['LastOD', 'max_OD']:
         if col in df.columns:
             df[f'{col}_clean'] = pd.to_numeric(df[col], errors='coerce')
     
+    # Clean apps_status
     if 'apps_status' in df.columns:
         df['apps_status_clean'] = df['apps_status'].fillna('Unknown').astype(str).str.strip()
     
+    # Clean Hasil_Scoring
     if 'Hasil_Scoring' in df.columns:
         df['Scoring_Detail'] = df['Hasil_Scoring'].fillna('(Pilih Semua)').astype(str).str.strip()
     
+    # Extract time features
     if 'action_on_parsed' in df.columns:
         df['Hour'] = df['action_on_parsed'].dt.hour
         df['DayOfWeek'] = df['action_on_parsed'].dt.dayofweek
@@ -229,6 +252,7 @@ def preprocess_data(df):
         df['YearMonth'] = df['action_on_parsed'].dt.to_period('M').astype(str)
         df['Quarter'] = df['action_on_parsed'].dt.quarter
     
+    # Clean categorical columns
     categorical_fields = [
         'desc_status_apps', 'Produk', 'Pekerjaan', 'Jabatan',
         'Pekerjaan_Pasangan', 'JenisKendaraan', 'branch_name', 
@@ -239,6 +263,7 @@ def preprocess_data(df):
         if field in df.columns:
             df[f'{field}_clean'] = df[field].fillna('Unknown').astype(str).str.strip()
     
+    # Calculate risk score
     df['Risk_Score'] = df.apply(calculate_risk_score, axis=1)
     df['Risk_Category'] = pd.cut(
         df['Risk_Score'], 
@@ -280,6 +305,7 @@ def generate_analytical_insights(df):
     insights = []
     warnings = []
     
+    # Insight 1: OSPH vs Approval Rate
     if 'OSPH_Category' in df.columns and 'Scoring_Detail' in df.columns:
         for osph in ['0 - 250 Juta', '250 - 500 Juta', '500 Juta+']:
             df_osph = df[df['OSPH_Category'] == osph]
@@ -302,6 +328,7 @@ def generate_analytical_insights(df):
                             f"Best performing tier"
                         )
     
+    # Insight 2: LastOD Impact
     if 'LastOD_clean' in df.columns and 'Scoring_Detail' in df.columns:
         high_od = df[df['LastOD_clean'] > 30]
         if len(high_od) > 0:
@@ -315,6 +342,21 @@ def generate_analytical_insights(df):
                 f"Strong negative impact on approvals"
             )
     
+    # Insight 3: SLA Performance
+    if 'SLA_Days' in df.columns and 'apps_status_clean' in df.columns:
+        for status in sorted(df['apps_status_clean'].unique())[:5]:
+            if status == 'Unknown':
+                continue
+            
+            df_status = df[df['apps_status_clean'] == status]
+            sla_avg = df_status['SLA_Days'].mean()
+            
+            if pd.notna(sla_avg) and sla_avg > 5:
+                warnings.append(
+                    f"{status}: Average SLA is {sla_avg:.1f} days "
+                    f"(above 5-day target)"
+                )
+    
     return insights, warnings
 
 def main():
@@ -325,13 +367,16 @@ def main():
     )
     st.markdown("---")
     
+    # Load data
     df = load_data()
     if df is None or df.empty:
         st.error("Data tidak dapat dimuat")
         st.stop()
     
+    # Calculate historical SLA
     df_sla_history = calculate_historical_sla(df)
     
+    # Display data summary
     total_records = len(df)
     unique_apps = df['apps_id'].nunique()
     total_fields = len(df.columns)
@@ -342,8 +387,10 @@ def main():
         f"{total_fields} fields"
     )
     
+    # Sidebar filters
     st.sidebar.title("Analytics Control Panel")
     
+    # Status filter
     if 'apps_status_clean' in df.columns:
         all_status = sorted([
             x for x in df['apps_status_clean'].unique() 
@@ -357,6 +404,7 @@ def main():
     else:
         selected_status = []
     
+    # Scoring filter
     if 'Scoring_Detail' in df.columns:
         all_scoring = sorted([
             x for x in df['Scoring_Detail'].unique() 
@@ -370,6 +418,7 @@ def main():
     else:
         selected_scoring = []
     
+    # Product filter
     if 'Produk_clean' in df.columns:
         all_products = sorted(df['Produk_clean'].unique().tolist())
         selected_product = st.sidebar.selectbox(
@@ -379,6 +428,7 @@ def main():
     else:
         selected_product = 'All'
     
+    # Branch filter
     if 'branch_name_clean' in df.columns:
         all_branches = sorted(df['branch_name_clean'].unique().tolist())
         selected_branch = st.sidebar.selectbox(
@@ -388,6 +438,7 @@ def main():
     else:
         selected_branch = 'All'
     
+    # CA filter
     if 'user_name_clean' in df.columns:
         all_cas = sorted(df['user_name_clean'].unique().tolist())
         selected_ca = st.sidebar.selectbox(
@@ -397,6 +448,7 @@ def main():
     else:
         selected_ca = 'All'
     
+    # Outstanding PH filter
     if 'OSPH_Category' in df.columns:
         all_osph = sorted([
             x for x in df['OSPH_Category'].unique() 
@@ -409,6 +461,7 @@ def main():
     else:
         selected_osph = 'All'
     
+    # Apply filters
     df_filtered = df.copy()
     
     if selected_status:
@@ -441,11 +494,13 @@ def main():
             df_filtered['OSPH_Category'] == selected_osph
         ]
     
+    # Filter SLA history based on apps that passed filters
     filtered_app_ids = df_filtered['apps_id'].unique()
     df_sla_history_filtered = df_sla_history[
         df_sla_history['apps_id'].isin(filtered_app_ids)
     ]
     
+    # Sidebar summary
     st.sidebar.markdown("---")
     st.sidebar.info(
         f"{len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)"
@@ -454,6 +509,7 @@ def main():
         f"{df_filtered['apps_id'].nunique():,} unique applications"
     )
     
+    # Analytical insights
     st.header("Key Insights & Alerts")
     insights, warnings = generate_analytical_insights(df_filtered)
 
@@ -470,6 +526,8 @@ def main():
 
     st.markdown("---")
 
+    
+    # KPIs
     st.header("Key Performance Indicators")
     kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
     
@@ -524,6 +582,7 @@ def main():
     
     st.markdown("---")
     
+    # Tabs
     (
         tab1, tab2, tab3, tab4, tab5, 
         tab6, tab7, tab8, tab9
@@ -539,7 +598,7 @@ def main():
         "Raw Data"
     ])
     
-    # TAB 1: Outstanding PH Analysis
+    # Tab 1: Outstanding PH Analysis
     with tab1:
         st.header("Outstanding PH Analysis - 4 Dimensions")
         st.info(
@@ -547,6 +606,7 @@ def main():
             "with 4 analytical dimensions"
         )
         
+        # Dimension 1
         st.subheader("Dimension 1: Outstanding PH vs Scoring Result")
         st.markdown(
             "**Purpose**: Understand scoring decision patterns "
@@ -599,6 +659,7 @@ def main():
             dim1_df = pd.DataFrame(dim1_data)
             st.dataframe(dim1_df, use_container_width=True, hide_index=True)
             
+            # Heatmap
             scoring_cols = [
                 c for c in dim1_df.columns 
                 if c not in ['Range', 'Min Value', 'Max Value', 'Total Apps', 'Total Records']
@@ -619,6 +680,124 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
         
+        # Dimension 2
+        st.markdown("---")
+        st.subheader("Dimension 2: Outstanding PH vs Application Status")
+        st.markdown(
+            "**Purpose**: Distribution of application status "
+            "across Outstanding PH ranges"
+        )
+        
+        if 'OSPH_Category' in df_filtered.columns and 'apps_status_clean' in df_filtered.columns:
+            status_data = []
+            
+            for osph in sorted([
+                x for x in df_filtered['OSPH_Category'].unique() 
+                if x != 'Unknown'
+            ]):
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                row = {
+                    'Range': osph, 
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                for status in sorted(df_filtered['apps_status_clean'].unique()):
+                    if status != 'Unknown':
+                        count = len(df_osph[df_osph['apps_status_clean'] == status])
+                        if count > 0:
+                            row[status] = count
+                
+                status_data.append(row)
+            
+            status_df = pd.DataFrame(status_data)
+            st.dataframe(status_df, use_container_width=True, hide_index=True)
+            
+            status_cols = [
+                c for c in status_df.columns 
+                if c not in ['Range', 'Total Apps', 'Total Records']
+            ]
+            
+            if status_cols:
+                heatmap_status = status_df[['Range'] + status_cols].set_index('Range')
+                fig = px.imshow(
+                    heatmap_status.T,
+                    text_auto=True,
+                    title="Outstanding PH vs Application Status",
+                    labels=dict(
+                        x="Outstanding PH Range",
+                        y="Application Status",
+                        color="Count"
+                    ),
+                    aspect="auto"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Dimension 3
+        st.markdown("---")
+        st.subheader("Dimension 3: Outstanding PH vs Job Type (Pekerjaan)")
+        st.markdown(
+            "**Purpose**: Occupation profile across Outstanding PH ranges"
+        )
+        
+        if 'OSPH_Category' in df_filtered.columns and 'Pekerjaan_clean' in df_filtered.columns:
+            dim3_data = []
+            all_pekerjaan = sorted([
+                x for x in df_filtered['Pekerjaan_clean'].unique() 
+                if x != 'Unknown'
+            ])
+            
+            for osph in sorted([
+                x for x in df_filtered['OSPH_Category'].unique() 
+                if x != 'Unknown'
+            ]):
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                
+                harga_min = (
+                    df_osph['OSPH_clean'].min() 
+                    if 'OSPH_clean' in df_osph.columns 
+                    else 0
+                )
+                harga_max = (
+                    df_osph['OSPH_clean'].max() 
+                    if 'OSPH_clean' in df_osph.columns 
+                    else 0
+                )
+                
+                row = {
+                    'Range': osph,
+                    'Min Value': f"Rp {harga_min:,.0f}",
+                    'Max Value': f"Rp {harga_max:,.0f}",
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                for pekerjaan in all_pekerjaan:
+                    count = len(df_osph[df_osph['Pekerjaan_clean'] == pekerjaan])
+                    if count > 0:
+                        row[pekerjaan] = count
+                
+                dim3_data.append(row)
+            
+            dim3_df = pd.DataFrame(dim3_data)
+            st.dataframe(dim3_df, use_container_width=True, hide_index=True)
+            
+            pekerjaan_cols = [
+                c for c in dim3_df.columns 
+                if c not in ['Range', 'Min Value', 'Max Value', 'Total Apps', 'Total Records']
+            ]
+            
+            if pekerjaan_cols:
+                fig = px.bar(
+                    dim3_df,
+                    x='Range',
+                    y=pekerjaan_cols,
+                    title="Job Type Distribution by Outstanding PH Range",
+                    barmode='stack'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Dimension 4
         st.markdown("---")
         st.subheader(
             "Dimension 4: Outstanding PH vs Vehicle Type "
@@ -657,7 +836,7 @@ def main():
                     'Total Records': len(df_osph)
                 }
                 
-                for vehicle_type in df_filtered['JenisKendaraan_clean'].unique():
+                for vehicle_type in sorted(df_filtered['JenisKendaraan_clean'].unique()):
                     if vehicle_type != 'Unknown':
                         count = len(df_osph[df_osph['JenisKendaraan_clean'] == vehicle_type])
                         if count > 0:
@@ -683,7 +862,7 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
-    # TAB 2: OD Impact Analysis
+    # Tab 2: OD Impact Analysis
     with tab2:
         st.header("OD Impact Analysis - LastOD & max_OD")
         st.info(
@@ -840,6 +1019,8 @@ def main():
                 'Avg Risk'
             ]
             
+            trend_analysis['Total Records'] = df_filtered.groupby('OD_Trend_Category').size().values
+            
             st.dataframe(trend_analysis, use_container_width=True, hide_index=True)
             
             fig = px.bar(
@@ -851,7 +1032,7 @@ def main():
             )
             st.plotly_chart(fig, use_container_width=True)
     
-    # TAB 3: Status & Scoring Matrix
+    # Tab 3: Status & Scoring Matrix
     with tab3:
         st.header("Status & Scoring Matrix")
         st.info(
@@ -942,7 +1123,7 @@ def main():
                     hide_index=True
                 )
     
-    # TAB 4: CA Performance
+    # Tab 4: CA Performance
     with tab4:
         st.header("CA Performance Analytics")
         st.info(
@@ -1034,7 +1215,7 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
-    # TAB 5: Predictive Patterns
+    # Tab 5: Predictive Patterns
     with tab5:
         st.header("Predictive Pattern Recognition")
         st.info(
@@ -1087,8 +1268,24 @@ def main():
             ).head(15)
             
             st.dataframe(pattern_analysis, use_container_width=True, hide_index=True)
+            
+            if len(pattern_analysis) > 0:
+                best = pattern_analysis.iloc[0]
+                worst = pattern_analysis.iloc[-1]
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown(
+                        f'<div class="success-card">'
+                        f'<h4>Highest Volume Combination</h4>'
+                        f'{best["Outstanding PH"]} + {best["OD Segment"]} + {best["Job Type"]}<br>'
+                        f'Total Apps: {best["Total Apps"]}, Records: {best["Total Records"]}'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
     
-    # TAB 6: Trends & Forecasting
+    # Tab 6: Trends & Forecasting
     with tab6:
         st.header("Trends & Time-Series Analysis")
         st.info(
@@ -1144,7 +1341,7 @@ def main():
             
             st.plotly_chart(fig, use_container_width=True)
     
-    # TAB 7: SLA Transitions
+    # Tab 7: SLA Transitions
     with tab7:
         st.header("SLA Transitions Analysis")
         st.info("Historical SLA per Status Transition")
@@ -1187,7 +1384,7 @@ def main():
         else:
             st.info("No SLA transition data available")
     
-    # TAB 8: Duplicate Applications
+    # Tab 8: Duplicate Applications
     with tab8:
         st.header("Duplicate Applications Analysis")
         st.markdown(
@@ -1214,7 +1411,7 @@ def main():
                 
                 display_cols = [
                     'apps_id', 'user_name', 'apps_status', 'Scoring_Detail',
-                    'action_on', 'RealisasiDate', 'Outstanding_PH'
+                    'action_on', 'RealisasiDate', 'Outstanding_PH', 'SLA_Days'
                 ]
                 
                 avail_cols = [c for c in display_cols if c in dup_records.columns]
@@ -1259,7 +1456,7 @@ def main():
             else:
                 st.success("No duplicate application IDs found in the dataset")
     
-    # TAB 9: Raw Data
+    # Tab 9: Raw Data
     with tab9:
         st.header("Complete Raw Data Export")
         st.info("Full dataset with all processed fields")
@@ -1271,7 +1468,7 @@ def main():
             'Pekerjaan_Pasangan', 'Hasil_Scoring', 'JenisKendaraan',
             'branch_name', 'Tujuan_Kredit', 'LastOD', 'max_OD',
             'OSPH_clean', 'OSPH_Category', 'Scoring_Detail',
-            'Risk_Score', 'Risk_Category'
+            'SLA_Days', 'Risk_Score', 'Risk_Category'
         ]
         
         avail_cols = [c for c in display_cols if c in df_filtered.columns]
@@ -1302,117 +1499,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-        st.markdown("---")
-        st.subheader("Dimension 2: Outstanding PH vs Application Status")
-        st.markdown(
-            "**Purpose**: Distribution of application status "
-            "across Outstanding PH ranges"
-        )
-        
-        if 'OSPH_Category' in df_filtered.columns and 'apps_status_clean' in df_filtered.columns:
-            status_data = []
-            
-            for osph in sorted([
-                x for x in df_filtered['OSPH_Category'].unique() 
-                if x != 'Unknown'
-            ]):
-                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
-                row = {
-                    'Range': osph, 
-                    'Total Apps': df_osph['apps_id'].nunique(),
-                    'Total Records': len(df_osph)
-                }
-                
-                for status in df_filtered['apps_status_clean'].unique():
-                    if status != 'Unknown':
-                        count = len(df_osph[df_osph['apps_status_clean'] == status])
-                        if count > 0:
-                            row[status] = count
-                
-                status_data.append(row)
-            
-            status_df = pd.DataFrame(status_data)
-            st.dataframe(status_df, use_container_width=True, hide_index=True)
-            
-            status_cols = [
-                c for c in status_df.columns 
-                if c not in ['Range', 'Total Apps', 'Total Records']
-            ]
-            
-            if status_cols:
-                heatmap_status = status_df[['Range'] + status_cols].set_index('Range')
-                fig = px.imshow(
-                    heatmap_status.T,
-                    text_auto=True,
-                    title="Outstanding PH vs Application Status",
-                    labels=dict(
-                        x="Outstanding PH Range",
-                        y="Application Status",
-                        color="Count"
-                    ),
-                    aspect="auto"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown("---")
-        st.subheader("Dimension 3: Outstanding PH vs Job Type (Pekerjaan)")
-        st.markdown(
-            "**Purpose**: Occupation profile across Outstanding PH ranges"
-        )
-        
-        if 'OSPH_Category' in df_filtered.columns and 'Pekerjaan_clean' in df_filtered.columns:
-            dim3_data = []
-            all_pekerjaan = sorted([
-                x for x in df_filtered['Pekerjaan_clean'].unique() 
-                if x != 'Unknown'
-            ])
-            
-            for osph in sorted([
-                x for x in df_filtered['OSPH_Category'].unique() 
-                if x != 'Unknown'
-            ]):
-                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
-                
-                harga_min = (
-                    df_osph['OSPH_clean'].min() 
-                    if 'OSPH_clean' in df_osph.columns 
-                    else 0
-                )
-                harga_max = (
-                    df_osph['OSPH_clean'].max() 
-                    if 'OSPH_clean' in df_osph.columns 
-                    else 0
-                )
-                
-                row = {
-                    'Range': osph,
-                    'Min Value': f"Rp {harga_min:,.0f}",
-                    'Max Value': f"Rp {harga_max:,.0f}",
-                    'Total Apps': df_osph['apps_id'].nunique(),
-                    'Total Records': len(df_osph)
-                }
-                
-                for pekerjaan in all_pekerjaan:
-                    count = len(df_osph[df_osph['Pekerjaan_clean'] == pekerjaan])
-                    if count > 0:
-                        row[pekerjaan] = count
-                
-                dim3_data.append(row)
-            
-            dim3_df = pd.DataFrame(dim3_data)
-            st.dataframe(dim3_df, use_container_width=True, hide_index=True)
-            
-            pekerjaan_cols = [
-                c for c in dim3_df.columns 
-                if c not in ['Range', 'Min Value', 'Max Value', 'Total Apps', 'Total Records']
-            ]
-            
-            if pekerjaan_cols:
-                fig = px.bar(
-                    dim3_df,
-                    x='Range',
-                    y=pekerjaan_cols,
-                    title="Job Type Distribution by Outstanding PH Range",
-                    barmode='stack'
-                )
-                st.plotly_chart(fig, use_container_width=True)
