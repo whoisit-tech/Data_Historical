@@ -1397,9 +1397,18 @@ def main():
     # Tab 7: SLA Transitions
     with tab7:
         st.header("SLA Transitions Analysis - Pivot by App ID")
-        st.info("Lihat historical status dan SLA untuk setiap app_id dalam format pivot")
+        st.info("Lihat historical status dan SLA untuk setiap app_id. Status urutan fixed: NOT RECOMMENDED CA → PENDING CA → Pending CA Completed → RECOMMENDED CA → RECOMMENDED CA WITH COND")
         
         if 'apps_id' in df_filtered.columns and 'action_on_parsed' in df_filtered.columns:
+            # Define status order
+            status_order = [
+                'NOT RECOMMENDED CA',
+                'PENDING CA',
+                'Pending CA Completed',
+                'RECOMMENDED CA',
+                'RECOMMENDED CA WITH COND'
+            ]
+            
             df_filtered_sorted = df_filtered.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
             sla_transitions = []
             
@@ -1407,6 +1416,7 @@ def main():
                 app_id = row['apps_id']
                 current_status = row.get('apps_status_clean', 'Unknown')
                 current_time = row.get('action_on_parsed')
+                realisasi_date = row.get('RealisasiDate_parsed')
                 rekomendasi = row.get('Rekomendasi', '')
                 action_on = row.get('action_on', '')
                 
@@ -1418,52 +1428,65 @@ def main():
                     prev_status = prev_row.get('apps_status_clean', 'Unknown')
                     prev_time = prev_row.get('action_on_parsed')
                     
-                    # Untuk PENDING CA, hanya hitung SLA jika ada Rekomendasi
-                    if (current_status == 'PENDING CA' or current_status == 'Pending CA') and \
-                       (pd.isna(rekomendasi) or rekomendasi == '' or rekomendasi == '-'):
-                        sla_days = None
+                    # Hitung SLA dengan special rules
+                    sla_days = None
+                    
+                    # PENDING CA: hanya hitung jika ada Rekomendasi
+                    if current_status == 'PENDING CA' or current_status == 'Pending CA':
+                        if not pd.isna(rekomendasi) and rekomendasi != '' and rekomendasi != '-':
+                            sla_days = calculate_sla_days(prev_time, current_time)
+                    
+                    # Pending Ca Completed: hitung normal
+                    elif current_status == 'Pending Ca Completed':
+                        sla_days = calculate_sla_days(prev_time, current_time)
+                    
+                    # RECOMMENDED CA atau RECOMMENDED CA WITH COND: hanya jika ada RealisasiDate
+                    elif current_status in ['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']:
+                        if not pd.isna(realisasi_date):
+                            sla_days = calculate_sla_days(prev_time, current_time)
+                    
+                    # Status lain: hitung normal
                     else:
                         sla_days = calculate_sla_days(prev_time, current_time)
                     
                     transition = f"{prev_status} → {current_status}"
-                    transition_num = len(prev_rows) + 1
                 else:
                     sla_days = None
                     transition = f"START → {current_status}"
-                    transition_num = 1
                 
                 sla_transitions.append({
                     'apps_id': app_id,
-                    'transition_num': transition_num,
+                    'from_status': prev_status if len(prev_rows) > 0 else 'START',
+                    'to_status': current_status,
                     'transition': transition,
-                    'status': current_status,
                     'action_on': action_on,
                     'sla_days': sla_days,
+                    'realisasi_date': row.get('RealisasiDate'),
                     'rekomendasi': rekomendasi
                 })
             
             sla_df = pd.DataFrame(sla_transitions)
             
-            # Buat pivot table: apps_id -> columns untuk setiap transition
+            # Buat pivot table dengan urutan status yang fixed
             st.subheader("Pivot Table: App ID → Historical Status & SLA")
             
-            # Get all unique transitions
-            all_transitions = sorted(sla_df['transition'].unique())
-            
-            # Create pivot data
             pivot_data = []
             for app_id in sorted(sla_df['apps_id'].unique()):
-                app_transitions = sla_df[sla_df['apps_id'] == app_id].sort_values('transition_num')
+                app_data = sla_df[sla_df['apps_id'] == app_id]
                 row_data = {'App ID': app_id}
                 
-                for idx, trans_row in app_transitions.iterrows():
+                # Get all transitions untuk app ini
+                for idx, trans_row in app_data.iterrows():
                     trans_label = trans_row['transition']
                     sla_val = trans_row['sla_days']
                     
+                    # Format SLA value
                     if pd.isna(sla_val):
-                        row_data[trans_label] = '—'
+                        sla_display = '—'
                     else:
-                        row_data[trans_label] = f"{sla_val:.0f}d"
+                        sla_display = f"{int(sla_val)}d"
+                    
+                    row_data[trans_label] = sla_display
                 
                 pivot_data.append(row_data)
             
@@ -1472,33 +1495,26 @@ def main():
             # Tampilkan pivot table
             st.dataframe(pivot_df, use_container_width=True, hide_index=True)
             
-            # Summary statistics
+            # Summary statistics per transition
             st.markdown("---")
             st.subheader("SLA Statistics per Transition")
             
             stats_data = []
-            for transition in all_transitions:
+            for transition in sorted(sla_df['transition'].unique()):
                 trans_sla = sla_df[sla_df['transition'] == transition]['sla_days']
                 trans_valid = trans_sla.dropna()
+                total_trans = len(sla_df[sla_df['transition'] == transition])
                 
-                if len(trans_valid) > 0:
-                    stats_data.append({
-                        'Transition': transition,
-                        'Count': len(trans_valid),
-                        'Avg SLA (days)': f"{trans_valid.mean():.1f}",
-                        'Min': f"{trans_valid.min():.0f}",
-                        'Max': f"{trans_valid.max():.0f}",
-                        'Median': f"{trans_valid.median():.0f}"
-                    })
-                else:
-                    stats_data.append({
-                        'Transition': transition,
-                        'Count': 0,
-                        'Avg SLA (days)': 'N/A',
-                        'Min': 'N/A',
-                        'Max': 'N/A',
-                        'Median': 'N/A'
-                    })
+                stats_data.append({
+                    'Transition': transition,
+                    'Total Records': total_trans,
+                    'SLA Valid': len(trans_valid),
+                    'SLA N/A': total_trans - len(trans_valid),
+                    'Avg SLA (days)': f"{trans_valid.mean():.1f}" if len(trans_valid) > 0 else 'N/A',
+                    'Min': f"{int(trans_valid.min())}" if len(trans_valid) > 0 else 'N/A',
+                    'Max': f"{int(trans_valid.max())}" if len(trans_valid) > 0 else 'N/A',
+                    'Median': f"{int(trans_valid.median())}" if len(trans_valid) > 0 else 'N/A'
+                })
             
             stats_df = pd.DataFrame(stats_data)
             st.dataframe(stats_df, use_container_width=True, hide_index=True)
@@ -1511,7 +1527,6 @@ def main():
                 'sla_days': ['mean', 'count']
             }).reset_index()
             chart_data.columns = ['Transition', 'Avg SLA', 'Count']
-            chart_data = chart_data.sort_values('Avg SLA', ascending=False)
             
             if len(chart_data) > 0:
                 fig = px.bar(
@@ -1520,7 +1535,7 @@ def main():
                     y='Avg SLA',
                     color='Count',
                     title="Average SLA per Status Transition",
-                    labels={'Avg SLA': 'Average SLA (Days)', 'Transition': 'Status Transition', 'Count': 'Records'},
+                    labels={'Avg SLA': 'Average SLA (Days)', 'Transition': 'Status Transition', 'Count': 'Valid Records'},
                     color_continuous_scale='Viridis'
                 )
                 fig.update_layout(xaxis_tickangle=-45, height=500)
