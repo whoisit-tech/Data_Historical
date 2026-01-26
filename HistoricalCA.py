@@ -117,10 +117,12 @@ def calculate_sla_days(start_dt, end_dt):
                 working_days += 1
             current += timedelta(days=1)
         
-        # Hitung hours jika same day
+        # Hitung hours jika same day (working_days = 1, berarti hanya 1 hari)
         hours = None
-        if start_adjusted.date() == end_dt.date() and working_days == 1:
+        if start_adjusted.date() == end_dt.date():
+            # Same day
             hours = (end_dt - start_adjusted).total_seconds() / 3600
+            working_days = 0  # Set ke 0 untuk indicate same day
         
         return working_days, hours
     except:
@@ -402,9 +404,6 @@ def main():
         st.error("Data tidak dapat dimuat")
         st.stop()
     
-    # Calculate historical SLA
-    df_sla_history = calculate_historical_sla(df)
-    
     # Display data summary
     total_records = len(df)
     unique_apps = df['apps_id'].nunique()
@@ -523,12 +522,6 @@ def main():
             df_filtered['OSPH_Category'] == selected_osph
         ]
     
-    # Filter SLA history based on apps that passed filters
-    filtered_app_ids = df_filtered['apps_id'].unique()
-    df_sla_history_filtered = df_sla_history[
-        df_sla_history['apps_id'].isin(filtered_app_ids)
-    ]
-    
     # Sidebar summary
     st.sidebar.markdown("---")
     st.sidebar.info(
@@ -565,7 +558,16 @@ def main():
         st.metric("Total Applications", f"{total_apps:,}")
     
     with kpi2:
-        avg_sla = df_sla_history_filtered['SLA_Days'].mean()
+        avg_sla = None
+        if len(df_sla_history_filtered) > 0 and 'SLA_Days' in df_sla_history_filtered.columns:
+            # Ambil kolom pertama yang bukan apps_id
+            sla_col = [c for c in df_sla_history_filtered.columns if c != 'apps_id'][0] if len(df_sla_history_filtered.columns) > 1 else None
+            if sla_col:
+                try:
+                    avg_sla = df_sla_history_filtered[sla_col].mean()
+                except:
+                    avg_sla = None
+        
         sla_display = f"{avg_sla:.1f}" if not pd.isna(avg_sla) else "N/A"
         st.metric("Average SLA (days)", sla_display)
     
