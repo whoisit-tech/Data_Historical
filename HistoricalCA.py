@@ -122,41 +122,39 @@ def calculate_sla_days(start_dt, end_dt):
         return None
 
 def calculate_historical_sla(df):
-    """Calculate SLA per status transition for each application"""
-    sla_records = []
+    """Calculate SLA per row berdasarkan transition dari row sebelumnya untuk app_id yang sama"""
+    df_sorted = df.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
+    sla_list = []
     
-    for app_id, group in df.groupby('apps_id'):
-        group = group.sort_values('action_on_parsed').reset_index(drop=True)
+    for idx, row in df_sorted.iterrows():
+        app_id = row['apps_id']
+        current_status = row.get('apps_status_clean', 'Unknown')
+        current_time = row.get('action_on_parsed')
         
-        for idx in range(len(group) - 1):
-            current_row = group.iloc[idx]
-            next_row = group.iloc[idx + 1]
+        # Cari row sebelumnya untuk app_id yang sama
+        prev_rows = df_sorted[(df_sorted['apps_id'] == app_id) & (df_sorted.index < idx)]
+        
+        if len(prev_rows) > 0:
+            # Ambil row terakhir (paling dekat)
+            prev_row = prev_rows.iloc[-1]
+            prev_status = prev_row.get('apps_status_clean', 'Unknown')
+            prev_time = prev_row.get('action_on_parsed')
             
-            from_status = current_row.get('apps_status_clean', 'Unknown')
-            to_status = next_row.get('apps_status_clean', 'Unknown')
-            
-            start_time = current_row.get('action_on_parsed')
-            end_time = next_row.get('action_on_parsed')
-            
-            sla_days = calculate_sla_days(start_time, end_time)
-            
-            sla_records.append({
-                'apps_id': app_id,
-                'Transition': f"{from_status} → {to_status}",
-                'From_Status': from_status,
-                'To_Status': to_status,
-                'Start_Date': start_time,
-                'End_Date': end_time,
-                'SLA_Days': sla_days,
-                'Outstanding_PH': current_row.get('OSPH_clean'),
-                'LastOD': current_row.get('LastOD_clean'),
-                'Produk': current_row.get('Produk_clean'),
-                'User': current_row.get('user_name_clean'),
-                'Branch': current_row.get('branch_name_clean'),
-                'Scoring': next_row.get('Scoring_Detail')
-            })
+            sla_days = calculate_sla_days(prev_time, current_time)
+            transition = f"{prev_status} → {current_status}"
+        else:
+            # Row pertama untuk app ini, tidak ada transition
+            sla_days = None
+            transition = f"START → {current_status}"
+        
+        sla_list.append({
+            'idx': idx,
+            'apps_id': app_id,
+            'Transition': transition,
+            'SLA_Days': sla_days
+        })
     
-    return pd.DataFrame(sla_records)
+    return pd.DataFrame(sla_list)
 
 def get_osph_category(osph_value):
     """Categorize Outstanding PH into ranges"""
@@ -215,12 +213,14 @@ def preprocess_data(df):
         if col in df.columns:
             df[f'{col}_parsed'] = df[col].apply(parse_date)
     
-    # Calculate SLA days
-    if all(c in df.columns for c in ['action_on_parsed', 'RealisasiDate_parsed']):
-        df['SLA_Days'] = df.apply(
-            lambda r: calculate_sla_days(r['action_on_parsed'], r['RealisasiDate_parsed']), 
-            axis=1
-        )
+    # Calculate historical SLA per row
+    if all(c in df.columns for c in ['apps_id', 'action_on_parsed', 'apps_status_clean']):
+        sla_history = calculate_historical_sla(df)
+        # Merge SLA ke original dataframe berdasarkan index
+        for _, sla_row in sla_history.iterrows():
+            if sla_row['idx'] < len(df):
+                df.at[sla_row['idx'], 'SLA_Days_Transition'] = sla_row['SLA_Days']
+                df.at[sla_row['idx'], 'Transition'] = sla_row['Transition']
     
     # Clean Outstanding PH
     if 'Outstanding_PH' in df.columns:
@@ -1079,7 +1079,7 @@ def main():
         with col1:
             st.subheader("Application Status Summary")
             st.markdown(
-                "**Metrics per Status**: Volume, SLA, and Risk"
+                "**Metrics per Status**: Total Apps, Total Records, and Risk"
             )
             
             if 'apps_status_clean' in df_filtered.columns:
@@ -1087,8 +1087,8 @@ def main():
                     'apps_id': 'nunique'
                 }).reset_index()
                 
-                status_detail['Total Records'] = df_filtered.groupby('apps_status_clean').size().values
-                status_detail['Avg Risk'] = df_filtered.groupby('apps_status_clean')['Risk_Score'].mean().values
+                status_detail.insert(2, 'Total Records', df_filtered.groupby('apps_status_clean').size().values)
+                status_detail.insert(3, 'Avg Risk', df_filtered.groupby('apps_status_clean')['Risk_Score'].mean().values)
                 
                 status_detail.columns = [
                     'Status',
@@ -1107,18 +1107,24 @@ def main():
         with col2:
             st.subheader("Scoring Result Summary")
             st.markdown(
-                "**Distribution of Scoring Outcomes**"
+                "**Distribution of Scoring Outcomes with Apps & Records**"
             )
             
             if 'Scoring_Detail' in df_filtered.columns:
-                scoring_detail = df_filtered['Scoring_Detail'].value_counts().reset_index()
-                scoring_detail.columns = ['Scoring Result', 'Total Records']
-                scoring_detail['Percentage'] = (
-                    scoring_detail['Total Records'] / len(df_filtered) * 100
-                ).round(1)
+                scoring_detail = []
+                for scoring in sorted(df_filtered['Scoring_Detail'].unique()):
+                    if scoring != '(Pilih Semua)':
+                        df_scoring = df_filtered[df_filtered['Scoring_Detail'] == scoring]
+                        scoring_detail.append({
+                            'Scoring Result': scoring,
+                            'Total Apps': df_scoring['apps_id'].nunique(),
+                            'Total Records': len(df_scoring),
+                            'Percentage': f"{len(df_scoring)/len(df_filtered)*100:.1f}%"
+                        })
                 
+                scoring_df = pd.DataFrame(scoring_detail)
                 st.dataframe(
-                    scoring_detail,
+                    scoring_df,
                     use_container_width=True,
                     hide_index=True
                 )
@@ -1245,7 +1251,11 @@ def main():
                 'LastOD_Segment',
                 'Pekerjaan_clean'
             ]).agg({
-                'apps_id': 'nunique'
+                'apps_id': 'nunique',
+                'Scoring_Detail': lambda x: (
+                    x.isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() / 
+                    len(x[x != '(Pilih Semua)']) * 100
+                ) if len(x[x != '(Pilih Semua)']) > 0 else 0
             }).reset_index()
             
             pattern_analysis['Total Records'] = df_filtered.groupby([
@@ -1259,6 +1269,7 @@ def main():
                 'OD Segment',
                 'Job Type',
                 'Total Apps',
+                'Approval %',
                 'Total Records'
             ]
             
@@ -1279,8 +1290,26 @@ def main():
                     st.markdown(
                         f'<div class="success-card">'
                         f'<h4>Highest Volume Combination</h4>'
-                        f'{best["Outstanding PH"]} + {best["OD Segment"]} + {best["Job Type"]}<br>'
-                        f'Total Apps: {best["Total Apps"]}, Records: {best["Total Records"]}'
+                        f'<strong>Outstanding PH:</strong> {best["Outstanding PH"]}<br>'
+                        f'<strong>OD Segment:</strong> {best["OD Segment"]}<br>'
+                        f'<strong>Job Type:</strong> {best["Job Type"]}<br>'
+                        f'<strong>Total Apps:</strong> {best["Total Apps"]}<br>'
+                        f'<strong>Total Records:</strong> {best["Total Records"]}<br>'
+                        f'<strong>Approval Rate:</strong> {best["Approval %"]:.1f}%'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                
+                with col2:
+                    st.markdown(
+                        f'<div class="warning-card">'
+                        f'<h4>Lowest Volume Combination</h4>'
+                        f'<strong>Outstanding PH:</strong> {worst["Outstanding PH"]}<br>'
+                        f'<strong>OD Segment:</strong> {worst["OD Segment"]}<br>'
+                        f'<strong>Job Type:</strong> {worst["Job Type"]}<br>'
+                        f'<strong>Total Apps:</strong> {worst["Total Apps"]}<br>'
+                        f'<strong>Total Records:</strong> {worst["Total Records"]}<br>'
+                        f'<strong>Approval Rate:</strong> {worst["Approval %"]:.1f}%'
                         f'</div>',
                         unsafe_allow_html=True
                     )
@@ -1343,46 +1372,82 @@ def main():
     
     # Tab 7: SLA Transitions
     with tab7:
-        st.header("SLA Transitions Analysis")
-        st.info("Historical SLA per Status Transition")
+        st.header("SLA Transitions Analysis - Per Row History")
+        st.info("Historical SLA dihitung per row berdasarkan transition dari status sebelumnya")
         
-        if len(df_sla_history_filtered) > 0:
-            transition_sla = df_sla_history_filtered.groupby('Transition').agg({
+        # Add SLA calculation untuk df_filtered
+        if 'apps_id' in df_filtered.columns and 'action_on_parsed' in df_filtered.columns:
+            df_filtered_sorted = df_filtered.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
+            sla_transitions = []
+            
+            for idx, row in df_filtered_sorted.iterrows():
+                app_id = row['apps_id']
+                current_status = row.get('apps_status_clean', 'Unknown')
+                current_time = row.get('action_on_parsed')
+                
+                # Cari row sebelumnya untuk app_id yang sama
+                prev_rows = df_filtered_sorted[(df_filtered_sorted['apps_id'] == app_id) & (df_filtered_sorted.index < idx)]
+                
+                if len(prev_rows) > 0:
+                    prev_row = prev_rows.iloc[-1]
+                    prev_status = prev_row.get('apps_status_clean', 'Unknown')
+                    prev_time = prev_row.get('action_on_parsed')
+                    
+                    sla_days = calculate_sla_days(prev_time, current_time)
+                    transition = f"{prev_status} → {current_status}"
+                else:
+                    sla_days = None
+                    transition = f"START → {current_status}"
+                
+                sla_transitions.append({
+                    'apps_id': app_id,
+                    'Transition': transition,
+                    'From_Status': prev_status if len(prev_rows) > 0 else 'START',
+                    'To_Status': current_status,
+                    'action_on': row.get('action_on'),
+                    'SLA_Days': sla_days,
+                    'Scoring': row.get('Scoring_Detail'),
+                    'Outstanding_PH': row.get('OSPH_clean')
+                })
+            
+            sla_df = pd.DataFrame(sla_transitions)
+            
+            # Summary per Transition Type
+            st.subheader("SLA Summary per Transition Type")
+            transition_summary = sla_df[sla_df['SLA_Days'].notna()].groupby('Transition').agg({
                 'apps_id': 'nunique',
-                'SLA_Days': ['mean', 'max', 'min', 'median']
+                'SLA_Days': ['count', 'mean', 'max', 'min', 'median']
             }).reset_index()
             
-            transition_sla.columns = [
-                'Transition',
-                'Total Apps',
-                'Avg SLA Days',
-                'Max SLA',
-                'Min SLA',
-                'Median SLA'
-            ]
+            transition_summary.columns = ['Transition', 'Total Apps', 'Total Records', 'Avg SLA', 'Max SLA', 'Min SLA', 'Median SLA']
+            transition_summary = transition_summary.sort_values('Total Records', ascending=False)
+            st.dataframe(transition_summary, use_container_width=True, hide_index=True)
             
-            transition_sla['Total Records'] = df_sla_history_filtered.groupby('Transition').size().values
+            # Detail records dengan SLA per row
+            st.markdown("---")
+            st.subheader("Detail Records dengan SLA per Row")
+            st.markdown("**Setiap row menunjukkan waktu transisi dari status sebelumnya**")
             
-            transition_sla = transition_sla.sort_values(
-                'Total Apps',
-                ascending=False
-            )
+            display_sla = sla_df[['apps_id', 'Transition', 'action_on', 'SLA_Days', 'Scoring', 'Outstanding_PH']].copy()
+            display_sla.columns = ['App ID', 'Transition', 'Action Date', 'SLA Days', 'Scoring', 'Outstanding PH']
+            st.dataframe(display_sla, use_container_width=True, hide_index=True)
             
-            st.dataframe(transition_sla, use_container_width=True, hide_index=True)
-            
-            st.subheader("Top Transitions by Volume")
+            # Visualization
+            st.markdown("---")
+            st.subheader("Top 10 Transitions by Average SLA")
+            top_trans = transition_summary.head(10)
             fig = px.bar(
-                transition_sla.head(10),
+                top_trans,
                 x='Transition',
-                y='Avg SLA Days',
-                color='Total Apps',
-                title="Average SLA by Transition (Top 10)",
-                labels={'Avg SLA Days': 'Average SLA (Days)'}
+                y='Avg SLA',
+                color='Total Records',
+                title="Average SLA per Transition (Top 10)",
+                labels={'Avg SLA': 'Average SLA (Days)', 'Total Records': 'Count'}
             )
-            fig.update_layout(xaxis_tickangle=-45)
+            fig.update_layout(xaxis_tickangle=-45, height=500)
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("No SLA transition data available")
+            st.info("Data tidak cukup untuk perhitungan SLA")
     
     # Tab 8: Duplicate Applications
     with tab8:
@@ -1409,24 +1474,8 @@ def main():
                     'apps_id'
                 )
                 
-                display_cols = [
-                    'apps_id', 'user_name', 'apps_status', 'Scoring_Detail',
-                    'action_on', 'RealisasiDate', 'Outstanding_PH', 'SLA_Days'
-                ]
-                
-                avail_cols = [c for c in display_cols if c in dup_records.columns]
-                
-                st.subheader("Duplicate Application Records")
-                st.markdown(
-                    "**All records for duplicate applications**"
-                )
-                st.dataframe(
-                    dup_records[avail_cols].sort_values('apps_id'),
-                    use_container_width=True,
-                    height=600
-                )
-                
-                col1, col2, col3 = st.columns(3)
+                # Summary metrics
+                col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
                     st.metric("Total Duplicate IDs", len(duplicates))
@@ -1437,6 +1486,47 @@ def main():
                 with col3:
                     st.metric("Total Duplicate Records", duplicates.sum())
                 
+                with col4:
+                    avg_records = duplicates.mean()
+                    st.metric("Avg Records per ID", f"{avg_records:.1f}")
+                
+                # Duplicate distribution by status
+                st.subheader("Duplicate Apps by Status")
+                dup_status = dup_records.groupby('apps_status_clean').agg({
+                    'apps_id': 'nunique'
+                }).reset_index()
+                dup_status.columns = ['Status', 'Total Duplicate Apps']
+                dup_status['Total Records'] = dup_records.groupby('apps_status_clean').size().values
+                st.dataframe(dup_status.sort_values('Total Duplicate Apps', ascending=False), use_container_width=True, hide_index=True)
+                
+                # Duplicate distribution by scoring
+                st.subheader("Duplicate Apps by Scoring")
+                dup_scoring = dup_records.groupby('Scoring_Detail').agg({
+                    'apps_id': 'nunique'
+                }).reset_index()
+                dup_scoring.columns = ['Scoring', 'Total Duplicate Apps']
+                dup_scoring['Total Records'] = dup_records.groupby('Scoring_Detail').size().values
+                st.dataframe(dup_scoring.sort_values('Total Duplicate Apps', ascending=False), use_container_width=True, hide_index=True)
+                
+                # Detailed records
+                st.markdown("---")
+                st.subheader("Duplicate Application Records Detail")
+                
+                display_cols = [
+                    'apps_id', 'user_name', 'apps_status', 'Scoring_Detail',
+                    'action_on', 'RealisasiDate', 'Outstanding_PH', 'SLA_Days'
+                ]
+                
+                avail_cols = [c for c in display_cols if c in dup_records.columns]
+                
+                st.dataframe(
+                    dup_records[avail_cols].sort_values('apps_id'),
+                    use_container_width=True,
+                    height=600
+                )
+                
+                # Distribution chart
+                st.markdown("---")
                 st.subheader("Distribution of Duplicate Counts")
                 st.markdown(
                     "**How many applications appear N times**"
