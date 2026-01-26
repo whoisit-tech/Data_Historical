@@ -89,9 +89,9 @@ def is_working_day(date):
     return is_weekday and is_not_holiday
 
 def calculate_sla_days(start_dt, end_dt):
-    """Calculate SLA in working days only"""
+    """Calculate SLA in working days only. Return tuple (days, hours) untuk handling same-day"""
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
-        return None
+        return None, None
     
     try:
         if not isinstance(start_dt, datetime):
@@ -117,9 +117,14 @@ def calculate_sla_days(start_dt, end_dt):
                 working_days += 1
             current += timedelta(days=1)
         
-        return working_days
+        # Hitung hours jika same day
+        hours = None
+        if start_adjusted.date() == end_dt.date() and working_days == 1:
+            hours = (end_dt - start_adjusted).total_seconds() / 3600
+        
+        return working_days, hours
     except:
-        return None
+        return None, None
 
 def calculate_historical_sla(df):
     """Calculate SLA per row berdasarkan transition dari row sebelumnya untuk app_id yang sama
