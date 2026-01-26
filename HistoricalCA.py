@@ -462,22 +462,20 @@ def main():
     # Analytical insights
     st.header("Key Insights & Alerts")
     insights, warnings = generate_analytical_insights(df_filtered)
-    
-    col1, col2 = st.columns(2)
-    
-    with col2:
-        st.markdown(
-            '<div class="warning-card"><h3>Risk Alerts</h3>',
-            unsafe_allow_html=True
-        )
-        if warnings:
-            for warning in warnings:
-                st.markdown(f"**{warning}**")
-        else:
-            st.markdown("All metrics within acceptable range")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
+
+    st.markdown(
+    '<div class="warning-card"><h3>Risk Alerts</h3>',
+    unsafe_allow_html=True
+    )
+    if warnings:
+        for warning in warnings:
+            st.markdown(f"**{warning}**")
+    else:
+        st.markdown("All metrics within acceptable range")
+    st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown("---")
+
     
     # KPIs
     st.header("Key Performance Indicators")
