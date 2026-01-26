@@ -120,7 +120,7 @@ def calculate_sla_days(start_dt, end_dt):
         # Hitung hours jika same day (working_days = 1, berarti hanya 1 hari)
         hours = None
         if start_adjusted.date() == end_dt.date():
-            # Same day
+            # Same day - hitung selisih jam langsung
             hours = (end_dt - start_adjusted).total_seconds() / 3600
             working_days = 0  # Set ke 0 untuk indicate same day
         
