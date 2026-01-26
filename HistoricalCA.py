@@ -594,7 +594,7 @@ def main():
                 
                 scoring_values = [
                     '(Pilih Semua)', '-', 'APPROVE', 'APPROVE 1', 'APPROVE 2',
-                    'Reguler', 'Reguler 1', 'Reguler 2',
+                    'REGULER', 'REGULER 1', 'REGULER 2',
                     'Reject', 'Reject 1', 'Reject 2', 'Scoring in Progress'
                 ]
                 
