@@ -292,7 +292,7 @@ def generate_analytical_insights(df):
         high_od = df[df['LastOD_clean'] > 30]
         if len(high_od) > 0:
             reject_count = high_od['Scoring_Detail'].isin(
-                ['Reject', 'Reject 1', 'Reject 2']
+                ['REJECT', 'REJECT 1', 'REJECT 2']
             ).sum()
             reject_rate = (reject_count / len(high_od)) * 100
             
@@ -595,7 +595,7 @@ def main():
                 scoring_values = [
                     '(Pilih Semua)', '-', 'APPROVE', 'APPROVE 1', 'APPROVE 2',
                     'REGULER', 'REGULER 1', 'REGULER 2',
-                    'Reject', 'Reject 1', 'Reject 2', 'Scoring in Progress'
+                    'REJECT', 'REJECT 1', 'REJECT 2', 'Scoring in Progress'
                 ]
                 
                 for scoring in scoring_values:
@@ -841,7 +841,7 @@ def main():
                         ).sum()
                         
                         reject = df_od['Scoring_Detail'].isin(
-                            ['Reject', 'Reject 1', 'Reject 2']
+                            ['REJECT', 'REJECT 1', 'REJECT 2']
                         ).sum()
                         
                         total = len(df_od[df_od['Scoring_Detail'] != '(Pilih Semua)'])
@@ -894,7 +894,7 @@ def main():
                         ).sum()
                         
                         reject = df_od['Scoring_Detail'].isin(
-                            ['Reject', 'Reject 1', 'Reject 2']
+                            ['REJECT', 'REJECT 1', 'REJECT 2']
                         ).sum()
                         
                         total = len(df_od[df_od['Scoring_Detail'] != '(Pilih Semua)'])
@@ -1086,7 +1086,7 @@ def main():
                 ).sum()
                 
                 reject = df_ca['Scoring_Detail'].isin(
-                    ['Reject', 'Reject 1', 'Reject 2']
+                    ['REJECT', 'REJECT 1', 'REJECT 2']
                 ).sum()
                 
                 total_scored = len(
