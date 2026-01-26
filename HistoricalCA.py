@@ -270,7 +270,7 @@ def generate_analytical_insights(df):
             df_osph = df[df['OSPH_Category'] == osph]
             if len(df_osph) > 0:
                 approve = df_osph['Scoring_Detail'].isin(
-                    ['APPROVE', 'Approve 1', 'Approve 2']
+                    ['APPROVE', 'APPROVE 1', 'APPROVE 2']
                 ).sum()
                 total = len(df_osph[df_osph['Scoring_Detail'] != '(Pilih Semua)'])
                 
@@ -493,7 +493,7 @@ def main():
     with kpi3:
         if 'Scoring_Detail' in df_filtered.columns:
             approve_count = df_filtered['Scoring_Detail'].isin(
-                ['APPROVE', 'Approve 1', 'Approve 2']
+                ['APPROVE', 'APPROVE 1', 'APPROVE 2']
             ).sum()
             total_scored = len(
                 df_filtered[df_filtered['Scoring_Detail'] != '(Pilih Semua)']
@@ -593,7 +593,7 @@ def main():
                 }
                 
                 scoring_values = [
-                    '(Pilih Semua)', '-', 'APPROVE', 'Approve 1', 'Approve 2',
+                    '(Pilih Semua)', '-', 'APPROVE', 'APPROVE 1', 'APPROVE 2',
                     'Reguler', 'Reguler 1', 'Reguler 2',
                     'Reject', 'Reject 1', 'Reject 2', 'Scoring in Progress'
                 ]
@@ -837,7 +837,7 @@ def main():
                     
                     if len(df_od) > 0:
                         approve = df_od['Scoring_Detail'].isin(
-                            ['APPROVE', 'Approve 1', 'Approve 2']
+                            ['APPROVE', 'APPROVE 1', 'APPROVE 2']
                         ).sum()
                         
                         reject = df_od['Scoring_Detail'].isin(
@@ -890,7 +890,7 @@ def main():
                     
                     if len(df_od) > 0:
                         approve = df_od['Scoring_Detail'].isin(
-                            ['APPROVE', 'Approve 1', 'Approve 2']
+                            ['APPROVE', 'APPROVE 1', 'APPROVE 2']
                         ).sum()
                         
                         reject = df_od['Scoring_Detail'].isin(
@@ -950,7 +950,7 @@ def main():
             trend_analysis = df_filtered.groupby('OD_Trend_Category').agg({
                 'apps_id': 'nunique',
                 'Scoring_Detail': lambda x: (
-                    x.isin(['APPROVE', 'Approve 1', 'Approve 2']).sum() / 
+                    x.isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() / 
                     len(x[x != '(Pilih Semua)']) * 100
                 ) if len(x[x != '(Pilih Semua)']) > 0 else 0,
                 'Risk_Score': 'mean'
@@ -1082,7 +1082,7 @@ def main():
                 df_ca = df_filtered[df_filtered['user_name_clean'] == ca]
                 
                 approve = df_ca['Scoring_Detail'].isin(
-                    ['APPROVE', 'Approve 1', 'Approve 2']
+                    ['APPROVE', 'APPROVE 1', 'APPROVE 2']
                 ).sum()
                 
                 reject = df_ca['Scoring_Detail'].isin(
@@ -1195,7 +1195,7 @@ def main():
             ]).agg({
                 'apps_id': 'nunique',
                 'Scoring_Detail': lambda x: (
-                    x.isin(['APPROVE', 'Approve 1', 'Approve 2']).sum() /
+                    x.isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() /
                     len(x[x != '(Pilih Semua)']) * 100
                 ) if len(x[x != '(Pilih Semua)']) > 0 else 0,
                 'SLA_Days': 'mean'
@@ -1257,7 +1257,7 @@ def main():
                 'apps_id': 'nunique',
                 'SLA_Days': 'mean',
                 'Scoring_Detail': lambda x: (
-                    x.isin(['APPROVE', 'Approve 1', 'Approve 2']).sum() /
+                    x.isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() /
                     len(x[x != '(Pilih Semua)']) * 100
                 ) if len(x[x != '(Pilih Semua)']) > 0 else 0
             }).reset_index()
