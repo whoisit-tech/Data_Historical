@@ -463,9 +463,9 @@ def main():
     st.header("Key Insights & Alerts")
     insights, warnings = generate_analytical_insights(df_filtered)
     
-    col1, col2 = st.columns(2)
+    col1 = st.columns(1)
     
-    with col2:
+    with col1:
         st.markdown(
             '<div class="warning-card"><h3>Risk Alerts</h3>',
             unsafe_allow_html=True
