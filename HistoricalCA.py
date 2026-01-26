@@ -122,7 +122,10 @@ def calculate_sla_days(start_dt, end_dt):
         return None
 
 def calculate_historical_sla(df):
-    """Calculate SLA per row berdasarkan transition dari row sebelumnya untuk app_id yang sama"""
+    """Calculate SLA per row berdasarkan transition dari row sebelumnya untuk app_id yang sama
+    
+    Special case: Jika status adalah PENDING CA, SLA dihitung sampai ada value di field Rekomendasi
+    """
     df_sorted = df.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
     sla_list = []
     
@@ -130,18 +133,30 @@ def calculate_historical_sla(df):
         app_id = row['apps_id']
         current_status = row.get('apps_status_clean', 'Unknown')
         current_time = row.get('action_on_parsed')
+        rekomendasi = row.get('Rekomendasi')
         
         # Cari row sebelumnya untuk app_id yang sama
         prev_rows = df_sorted[(df_sorted['apps_id'] == app_id) & (df_sorted.index < idx)]
         
         if len(prev_rows) > 0:
-            # Ambil row terakhir (paling dekat)
             prev_row = prev_rows.iloc[-1]
             prev_status = prev_row.get('apps_status_clean', 'Unknown')
             prev_time = prev_row.get('action_on_parsed')
             
-            sla_days = calculate_sla_days(prev_time, current_time)
-            transition = f"{prev_status} → {current_status}"
+            # Special handling untuk PENDING CA
+            if current_status == 'PENDING CA' or current_status == 'Pending CA':
+                if pd.isna(rekomendasi) or rekomendasi == '' or rekomendasi == '-':
+                    # Belum ada rekomendasi, SLA = None (masih pending)
+                    sla_days = None
+                    transition = f"{prev_status} → {current_status} (Menunggu Rekomendasi)"
+                else:
+                    # Ada rekomendasi, hitung SLA
+                    sla_days = calculate_sla_days(prev_time, current_time)
+                    transition = f"{prev_status} → {current_status} (Rekomendasi: {rekomendasi})"
+            else:
+                # Status lain, hitung SLA normal
+                sla_days = calculate_sla_days(prev_time, current_time)
+                transition = f"{prev_status} → {current_status}"
         else:
             # Row pertama untuk app ini, tidak ada transition
             sla_days = None
@@ -151,7 +166,10 @@ def calculate_historical_sla(df):
             'idx': idx,
             'apps_id': app_id,
             'Transition': transition,
-            'SLA_Days': sla_days
+            'From_Status': prev_status if len(prev_rows) > 0 else 'START',
+            'To_Status': current_status,
+            'SLA_Days': sla_days,
+            'Has_Rekomendasi': not pd.isna(rekomendasi) and rekomendasi != '' and rekomendasi != '-'
         })
     
     return pd.DataFrame(sla_list)
@@ -242,6 +260,12 @@ def preprocess_data(df):
     # Clean Hasil_Scoring
     if 'Hasil_Scoring' in df.columns:
         df['Scoring_Detail'] = df['Hasil_Scoring'].fillna('(Pilih Semua)').astype(str).str.strip()
+    
+    # Clean Rekomendasi field (jika ada)
+    if 'Rekomendasi' in df.columns:
+        df['Rekomendasi'] = df['Rekomendasi'].fillna('').astype(str).str.strip()
+    else:
+        df['Rekomendasi'] = ''
     
     # Extract time features
     if 'action_on_parsed' in df.columns:
@@ -1384,6 +1408,7 @@ def main():
                 app_id = row['apps_id']
                 current_status = row.get('apps_status_clean', 'Unknown')
                 current_time = row.get('action_on_parsed')
+                rekomendasi = row.get('Rekomendasi', '')
                 
                 # Cari row sebelumnya untuk app_id yang sama
                 prev_rows = df_filtered_sorted[(df_filtered_sorted['apps_id'] == app_id) & (df_filtered_sorted.index < idx)]
@@ -1393,11 +1418,24 @@ def main():
                     prev_status = prev_row.get('apps_status_clean', 'Unknown')
                     prev_time = prev_row.get('action_on_parsed')
                     
-                    sla_days = calculate_sla_days(prev_time, current_time)
-                    transition = f"{prev_status} → {current_status}"
+                    # Special handling untuk PENDING CA
+                    if current_status == 'PENDING CA' or current_status == 'Pending CA':
+                        if pd.isna(rekomendasi) or rekomendasi == '' or rekomendasi == '-':
+                            sla_days = None
+                            transition = f"{prev_status} → {current_status} (⏳ Menunggu Rekomendasi)"
+                            status_note = "Menunggu Rekomendasi"
+                        else:
+                            sla_days = calculate_sla_days(prev_time, current_time)
+                            transition = f"{prev_status} → {current_status} (✓ {rekomendasi})"
+                            status_note = f"Rekomendasi: {rekomendasi}"
+                    else:
+                        sla_days = calculate_sla_days(prev_time, current_time)
+                        transition = f"{prev_status} → {current_status}"
+                        status_note = "Completed"
                 else:
                     sla_days = None
                     transition = f"START → {current_status}"
+                    status_note = "Initial"
                 
                 sla_transitions.append({
                     'apps_id': app_id,
@@ -1407,7 +1445,8 @@ def main():
                     'action_on': row.get('action_on'),
                     'SLA_Days': sla_days,
                     'Scoring': row.get('Scoring_Detail'),
-                    'Outstanding_PH': row.get('OSPH_clean')
+                    'Outstanding_PH': row.get('OSPH_clean'),
+                    'Status_Note': status_note
                 })
             
             sla_df = pd.DataFrame(sla_transitions)
@@ -1423,13 +1462,34 @@ def main():
             transition_summary = transition_summary.sort_values('Total Records', ascending=False)
             st.dataframe(transition_summary, use_container_width=True, hide_index=True)
             
+            # Pending CA Status Summary
+            st.markdown("---")
+            st.subheader("PENDING CA Status - Rekomendasi Tracking")
+            pending_ca = sla_df[sla_df['To_Status'].isin(['PENDING CA', 'Pending CA'])]
+            
+            if len(pending_ca) > 0:
+                pending_summary = pending_ca.groupby('Status_Note').agg({
+                    'apps_id': 'nunique'
+                }).reset_index()
+                pending_summary.columns = ['Status', 'Total Apps']
+                pending_summary['Total Records'] = pending_ca.groupby('Status_Note').size().values
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Pending CA", len(pending_ca))
+                with col2:
+                    waiting = len(pending_ca[pending_ca['Status_Note'] == 'Menunggu Rekomendasi'])
+                    st.metric("⏳ Menunggu Rekomendasi", waiting)
+                
+                st.dataframe(pending_summary, use_container_width=True, hide_index=True)
+            
             # Detail records dengan SLA per row
             st.markdown("---")
             st.subheader("Detail Records dengan SLA per Row")
             st.markdown("**Setiap row menunjukkan waktu transisi dari status sebelumnya**")
             
-            display_sla = sla_df[['apps_id', 'Transition', 'action_on', 'SLA_Days', 'Scoring', 'Outstanding_PH']].copy()
-            display_sla.columns = ['App ID', 'Transition', 'Action Date', 'SLA Days', 'Scoring', 'Outstanding PH']
+            display_sla = sla_df[['apps_id', 'Transition', 'action_on', 'SLA_Days', 'Status_Note', 'Outstanding_PH']].copy()
+            display_sla.columns = ['App ID', 'Transition', 'Action Date', 'SLA Days', 'Status', 'Outstanding PH']
             st.dataframe(display_sla, use_container_width=True, hide_index=True)
             
             # Visualization
