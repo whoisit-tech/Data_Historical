@@ -52,7 +52,6 @@ def is_working_day(date):
     return date.weekday() < 5 and date.date() not in TANGGAL_MERAH_DT
 
 def calculate_working_days(start_dt, end_dt):
-    # SLA hari kerja, dipakai global & Pending CA
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
     try:
@@ -118,12 +117,10 @@ def calculate_risk_score(row):
 def preprocess_data(df):
     df = df.copy()
 
-    # parsing tanggal
     for col in ['action_on', 'Initiation', 'RealisasiDate']:
         if col in df.columns:
             df[f'{col}_parsed'] = df[col].apply(parse_date)
 
-    # SLA global: action_on -> RealisasiDate
     if all(c in df.columns for c in ['action_on_parsed', 'RealisasiDate_parsed']):
         df['SLA_Days'] = df.apply(
             lambda r: calculate_working_days(r['action_on_parsed'], r['RealisasiDate_parsed']),
@@ -226,7 +223,6 @@ def generate_analytical_insights(df):
     warnings = []
     recommendations = []
 
-    # 1. OSPH vs Approval
     if 'OSPH_Category' in df.columns and 'Scoring_Detail' in df.columns:
         for osph in ['0 - 250 Juta', '250 - 500 Juta', '500 Juta+']:
             df_osph = df[df['OSPH_Category'] == osph]
@@ -240,7 +236,6 @@ def generate_analytical_insights(df):
                     elif rate > 60:
                         insights.append(f"🎯 {osph}: Strong approval {rate:.1f}% - Best practice segment")
 
-    # 2. LastOD & max_OD
     if 'LastOD_clean' in df.columns and 'Scoring_Detail' in df.columns:
         high_od = df[df['LastOD_clean'] > 30]
         if len(high_od) > 0:
@@ -255,7 +250,6 @@ def generate_analytical_insights(df):
             approve_improving = improving['Scoring_Detail'].str.contains('Approve', case=False, na=False).sum() / len(improving) * 100
             insights.append(f"✅ Improving OD trend: {approve_improving:.1f}% approval rate")
 
-    # 3. SLA bottleneck
     if 'SLA_Days' in df.columns and 'apps_status_clean' in df.columns:
         for status in df['apps_status_clean'].unique()[:5]:
             if status == 'Unknown':
@@ -267,7 +261,6 @@ def generate_analytical_insights(df):
                 warnings.append(f"⚠️ {status}: SLA {sla_avg:.1f}d, {pending_count} pending")
                 recommendations.append(f"📋 Priority: Fast-track {status} applications")
 
-    # 4. Workload imbalance
     if 'user_name_clean' in df.columns:
         ca_load = df.groupby('user_name_clean')['apps_id'].nunique()
         if len(ca_load) > 1:
@@ -279,7 +272,6 @@ def generate_analytical_insights(df):
                 optimal = mean_load
                 recommendations.append(f"📋 Target load per CA: ~{optimal:.0f} apps for optimal efficiency")
 
-    # 5. Scoring pattern by status
     if 'apps_status_clean' in df.columns and 'Scoring_Detail' in df.columns:
         for status in ['RECOMMENDED CA', 'NOT RECOMMENDED CA']:
             df_s = df[df['apps_status_clean'] == status]
@@ -304,7 +296,7 @@ def main():
 
     st.success(f"✅ **{len(df):,} records** | **{df['apps_id'].nunique():,} unique apps** | **{len(df.columns)} fields**")
 
-    # TOTAL RECORDS PER APPS_STATUS (GLOBAL)
+    # TOTAL RECORDS PER APPS_STATUS
     if 'apps_status_clean' in df.columns:
         status_count = (
             df.groupby('apps_status_clean')['apps_id']
@@ -313,8 +305,8 @@ def main():
               .rename(columns={'apps_status_clean': 'apps_status',
                                'apps_id': 'total_apps'})
         )
-        st.subheader("Total Apps per apps_status")
-        st.dataframe(status_count, use_container_width=True)
+        st.subheader("📋 Total Apps per apps_status")
+        st.dataframe(status_count, use_container_width=True, hide_index=True)
 
     # SIDEBAR
     st.sidebar.title("🎛️ Analytics Control Panel")
@@ -354,18 +346,26 @@ def main():
     st.sidebar.info(f"📊 **{len(df_filtered):,}** records ({len(df_filtered)/len(df)*100:.1f}%)")
     st.sidebar.info(f"🎯 **{df_filtered['apps_id'].nunique():,}** unique apps")
 
-    # SLA Pending CA summary (filtered)
+    # SLA Pending CA summary
     if 'SLA_Pending_CA_Days' in df_filtered.columns:
         sla_pending = df_filtered.dropna(subset=['SLA_Pending_CA_Days'])
         if not sla_pending.empty:
-            st.subheader("SLA Pending CA → Pending CA Completed")
-            st.metric(
-                "Avg SLA Pending CA (days)",
-                f"{sla_pending['SLA_Pending_CA_Days'].mean():.1f}"
-            )
+            st.subheader("⏱️ SLA Pending CA → Pending CA Completed")
+            col_sla1, col_sla2 = st.columns(2)
+            with col_sla1:
+                st.metric(
+                    "Avg SLA Pending CA (days)",
+                    f"{sla_pending['SLA_Pending_CA_Days'].mean():.1f}"
+                )
+            with col_sla2:
+                st.metric(
+                    "Max SLA Pending CA (days)",
+                    f"{sla_pending['SLA_Pending_CA_Days'].max():.0f}"
+                )
             st.dataframe(
-                sla_pending[['apps_id', 'SLA_Pending_CA_Days']].drop_duplicates('apps_id'),
-                use_container_width=True
+                sla_pending[['apps_id', 'SLA_Pending_CA_Days']].drop_duplicates('apps_id').sort_values('SLA_Pending_CA_Days', ascending=False),
+                use_container_width=True,
+                hide_index=True
             )
 
     # ANALYTICAL INSIGHTS
@@ -455,7 +455,6 @@ def main():
         st.header("💰 OSPH Analysis - 3 Analytical Dimensions")
         st.info("**Analytical Insight**: Analisis OSPH dari 3 sudut pandang berbeda untuk menemukan pola tersembunyi")
 
-        # Dimension 1: OSPH vs Hasil_Scoring_1
         st.subheader("📊 Dimension 1: OSPH vs Hasil_Scoring_1")
         st.markdown("**Insight Goal**: Pola scoring decision per range OSPH")
 
@@ -809,49 +808,111 @@ def main():
 
             st.dataframe(pattern_analysis, use_container_width=True, hide_index=True)
 
-            best = pattern_analysis.loc[pattern_analysis['Approval%'].idxmax()]
-            worst = pattern_analysis.loc[pattern_analysis['Approval%'].idxmin()]
+            if len(pattern_analysis) > 0:
+                best = pattern_analysis.loc[pattern_analysis['Approval%'].idxmax()]
+                worst = pattern_analysis.loc[pattern_analysis['Approval%'].idxmin()]
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(
-                    f'<div class="success-card">**Best Combination**<br>{best["OSPH"]} + {best["OD Segment"]} + {best["Pekerjaan"]}<br>Approval: {best["Approval%"]:.1f}%</div>',
-                    unsafe_allow_html=True
-                )
-            with col2:
-                st.markdown(
-                    f'<div class="warning-card">**Worst Combination**<br>{worst["OSPH"]} + {worst["OD Segment"]} + {worst["Pekerjaan"]}<br>Approval: {worst["Approval%"]:.1f}%</div>',
-                    unsafe_allow_html=True
-                )
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(
+                        f'<div class="success-card">**Best Combination**<br>{best["OSPH"]} + {best["OD Segment"]} + {best["Pekerjaan"]}<br>Approval: {best["Approval%"]:.1f}%</div>',
+                        unsafe_allow_html=True
+                    )
+                with col2:
+                    st.markdown(
+                        f'<div class="warning-card">**Worst Combination**<br>{worst["OSPH"]} + {worst["OD Segment"]} + {worst["Pekerjaan"]}<br>Approval: {worst["Approval%"]:.1f}%</div>',
+                        unsafe_allow_html=True
+                    )
+
+        st.markdown("---")
+        st.subheader("🔬 Scoring by Product & Branch")
+        
+        if all(c in df_filtered.columns for c in ['Produk_clean', 'branch_name_clean', 'Scoring_Detail']):
+            prod_branch = df_filtered.groupby(['Produk_clean', 'branch_name_clean']).agg({
+                'apps_id': 'nunique',
+                'Scoring_Detail': lambda x: (x.str.contains('Approve', case=False, na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0
+            }).reset_index()
+            prod_branch.columns = ['Produk', 'Branch', 'Total Apps', 'Approval%']
+            prod_branch = prod_branch.sort_values('Total Apps', ascending=False).head(20)
+            
+            st.dataframe(prod_branch, use_container_width=True, hide_index=True)
+            
+            fig = px.scatter(prod_branch, x='Total Apps', y='Approval%', 
+                           color='Produk', size='Total Apps',
+                           hover_data=['Branch'],
+                           title="Product & Branch Performance Matrix")
+            st.plotly_chart(fig, use_container_width=True)
 
     with tab6:
         st.header("📈 Trends & Time-Series Forecasting")
 
         if 'YearMonth' in df_filtered.columns:
+            st.subheader("📆 Monthly Trends")
             monthly = df_filtered.groupby('YearMonth').agg({
                 'apps_id': 'nunique',
                 'SLA_Days': 'mean',
-                'Scoring_Detail': lambda x: (x.str.contains('Approve', case=False, na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0
+                'Scoring_Detail': lambda x: (x.str.contains('Approve', case=False, na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0,
+                'Risk_Score': 'mean'
             }).reset_index()
-            monthly.columns = ['Month', 'Volume', 'Avg SLA', 'Approval%']
+            monthly.columns = ['Month', 'Volume', 'Avg SLA', 'Approval%', 'Avg Risk']
 
             fig = make_subplots(specs=[[{"secondary_y": True}]])
             fig.add_trace(go.Bar(x=monthly['Month'], y=monthly['Volume'], name="Volume"), secondary_y=False)
             fig.add_trace(go.Scatter(x=monthly['Month'], y=monthly['Approval%'], name="Approval%", mode='lines+markers'), secondary_y=True)
-            fig.update_layout(title="Monthly Trend: Volume & Approval Rate")
+            fig.update_layout(title="Monthly Trend: Volume & Approval Rate", xaxis_tickangle=-45)
+            fig.update_yaxes(title_text="Volume", secondary_y=False)
+            fig.update_yaxes(title_text="Approval %", secondary_y=True)
             st.plotly_chart(fig, use_container_width=True)
+
+            st.dataframe(monthly, use_container_width=True, hide_index=True)
+
+        if 'DayName' in df_filtered.columns:
+            st.subheader("📅 Day of Week Pattern")
+            day_analysis = df_filtered.groupby('DayName').agg({
+                'apps_id': 'nunique',
+                'SLA_Days': 'mean',
+                'Scoring_Detail': lambda x: (x.str.contains('Approve', case=False, na=False).sum() / len(x[x != '-']) * 100) if len(x[x != '-']) > 0 else 0
+            }).reset_index()
+            day_analysis.columns = ['Day', 'Volume', 'Avg SLA', 'Approval%']
+            
+            day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            day_analysis['Day'] = pd.Categorical(day_analysis['Day'], categories=day_order, ordered=True)
+            day_analysis = day_analysis.sort_values('Day')
+            
+            fig = px.bar(day_analysis, x='Day', y='Volume', 
+                        title="Application Volume by Day of Week",
+                        color='Approval%',
+                        text='Volume')
+            st.plotly_chart(fig, use_container_width=True)
+
+        if 'Quarter' in df_filtered.columns:
+            st.subheader("📊 Quarterly Performance")
+            quarterly = df_filtered.groupby('Quarter').agg({
+                'apps_id': 'nunique',
+                'SLA_Days': 'mean',
+                'OSPH_clean': 'mean',
+                'Risk_Score': 'mean'
+            }).reset_index()
+            quarterly.columns = ['Quarter', 'Total Apps', 'Avg SLA', 'Avg OSPH', 'Avg Risk']
+            quarterly['Avg OSPH (M)'] = quarterly['Avg OSPH'] / 1e6
+            
+            st.dataframe(quarterly[['Quarter', 'Total Apps', 'Avg SLA', 'Avg OSPH (M)', 'Avg Risk']], 
+                        use_container_width=True, hide_index=True)
 
     with tab7:
         st.header("📋 Complete Raw Data Export")
+        st.info(f"Displaying {len(df_filtered):,} filtered records out of {len(df):,} total records")
 
         display_cols = ['apps_id', 'position_name', 'user_name', 'apps_status', 'desc_status_apps',
                        'Produk', 'action_on', 'Initiation', 'RealisasiDate',
                        'Outstanding_PH', 'Pekerjaan', 'Jabatan', 'Pekerjaan_Pasangan',
                        'Hasil_Scoring_1', 'JenisKendaraan', 'branch_name', 'Tujuan_Kredit',
                        'LastOD', 'max_OD', 'OSPH_clean', 'OSPH_Category', 'Scoring_Detail',
-                       'SLA_Days', 'SLA_Pending_CA_Days', 'Risk_Score', 'Risk_Category']
+                       'SLA_Days', 'SLA_Pending_CA_Days', 'Risk_Score', 'Risk_Category',
+                       'Hour', 'DayName', 'YearMonth']
 
         available_cols = [c for c in display_cols if c in df_filtered.columns]
+        
         st.dataframe(df_filtered[available_cols], use_container_width=True, height=500)
 
         csv = df_filtered[available_cols].to_csv(index=False).encode('utf-8')
@@ -860,9 +921,15 @@ def main():
                           file_name=f"CA_Analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                           mime="text/csv")
 
+        col_summary1, col_summary2 = st.columns(2)
+        with col_summary1:
+            st.metric("Total Columns Exported", len(available_cols))
+        with col_summary2:
+            st.metric("Total Rows", f"{len(df_filtered):,}")
+
     st.markdown("---")
     st.markdown(
-        f"<div style='text-align:center;color:#666'>Advanced Analytics Dashboard | Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>",
+        f"<div style='text-align:center;color:#666;padding:20px'>🎯 Advanced Analytics Dashboard | Data updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Developed with ❤️ by CA Analytics Team</div>",
         unsafe_allow_html=True
     )
 
