@@ -89,7 +89,9 @@ def is_working_day(date):
     return is_weekday and is_not_holiday
 
 def calculate_sla_days(start_dt, end_dt):
-    """Calculate SLA in working days only, or hours if same day"""
+    """Calculate SLA in working days only, or hours/minutes if same day
+    Returns: number (if < 1 = hours, if >= 1 = days)
+    """
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
     
@@ -99,13 +101,6 @@ def calculate_sla_days(start_dt, end_dt):
         if not isinstance(end_dt, datetime):
             end_dt = pd.to_datetime(end_dt)
         
-        # Check if same day
-        if start_dt.date() == end_dt.date():
-            # Calculate hours difference
-            time_diff = end_dt - start_dt
-            hours = time_diff.total_seconds() / 3600
-            return round(hours, 2)  # Return hours with 2 decimal places
-        
         start_adjusted = start_dt
         
         # If start time is after 3:30 PM, move to next working day at 8:30 AM
@@ -114,6 +109,13 @@ def calculate_sla_days(start_dt, end_dt):
             start_adjusted = start_adjusted.replace(hour=8, minute=30, second=0)
             while not is_working_day(start_adjusted):
                 start_adjusted += timedelta(days=1)
+        
+        # Check if same day AFTER adjustment
+        if start_adjusted.date() == end_dt.date():
+            # Calculate hours difference
+            time_diff = end_dt - start_adjusted
+            hours = time_diff.total_seconds() / 3600
+            return round(hours, 4)  # Return hours with high precision
         
         working_days = 0
         current = start_adjusted.date()
@@ -230,16 +232,24 @@ def calculate_risk_score(row):
     return min(score, 100)
 
 def format_sla_display(sla_value):
-    """Format SLA value for display - show hours if < 1 day, otherwise days"""
+    """Format SLA value for display - show in days/hours/minutes format"""
     if pd.isna(sla_value):
         return "—"
     
     if sla_value < 1:
-        # It's in hours already
-        return f"{sla_value:.2f}h"
+        # It's in hours, convert to hours and minutes
+        total_minutes = sla_value * 60
+        hours = int(total_minutes // 60)
+        minutes = int(total_minutes % 60)
+        
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        else:
+            return f"{minutes}m"
     else:
         # It's in days
-        return f"{int(sla_value)}d"
+        days = int(sla_value)
+        return f"{days}d"
 
 def preprocess_data(df):
     """Clean and prepare data for analysis"""
@@ -1416,7 +1426,8 @@ def main():
     # Tab 7: SLA Transitions
     with tab7:
         st.header("SLA Transitions Analysis - Pivot by App ID")
-        st.info("Lihat historical status dan SLA untuk setiap app_id. SLA dihitung dalam JAM jika di hari yang sama, atau HARI jika berbeda hari.")
+        st.info("📊 SLA Format: Hari yang sama = JAM & MENIT (contoh: 1h 30m), Beda hari = HARI KERJA (contoh: 3d)")
+
         
         if 'apps_id' in df_filtered.columns and 'action_on_parsed' in df_filtered.columns:
             # Define status order
@@ -1565,16 +1576,16 @@ def main():
             chart_data.columns = ['Transition', 'Avg SLA', 'Count']
             
             if len(chart_data) > 0:
-                # Format display for chart
-                chart_data['Avg SLA Display'] = chart_data['Avg SLA'].apply(lambda x: f"{x:.2f}h" if x < 1 else f"{x:.1f}d")
+                # Format display for chart using the same format function
+                chart_data['Avg SLA Display'] = chart_data['Avg SLA'].apply(format_sla_display)
                 
                 fig = px.bar(
                     chart_data,
                     x='Transition',
                     y='Avg SLA',
                     color='Count',
-                    title="Average SLA per Status Transition (Hours if <1 day, Days otherwise)",
-                    labels={'Avg SLA': 'Average SLA', 'Transition': 'Status Transition', 'Count': 'Valid Records'},
+                    title="Average SLA per Status Transition (Format: Jam/Menit atau Hari)",
+                    labels={'Avg SLA': 'Average SLA (numeric)', 'Transition': 'Status Transition', 'Count': 'Valid Records'},
                     color_continuous_scale='Viridis',
                     hover_data={'Avg SLA Display': True}
                 )
