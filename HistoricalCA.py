@@ -9,7 +9,7 @@ from pathlib import Path
 
 st.set_page_config(page_title="CA Analytics", layout="wide")
 
-FILE_NAME = "HistoricalCA.xlsx"
+FILE_NAME = "Historical_CA (1).xlsx"
 
 st.markdown("""
 <style>
@@ -90,8 +90,13 @@ def is_working_day(date):
 
 def calculate_sla_details(start_dt, end_dt):
     """
-    Calculate SLA dengan detail hari, jam, menit
-    Returns: (days, hours, minutes) tuple atau None jika error
+    Calculate SLA with WORKING DAYS ONLY (Mon-Fri, exclude holidays)
+    Returns: (working_days, hours, minutes) tuple
+    
+    LOGIC:
+    1. Adjust start if after 3:30 PM → next working day 8:30 AM
+    2. Count only working days (Mon-Fri, exclude holidays)
+    3. Calculate remaining hours/minutes on working days only
     """
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
@@ -105,33 +110,64 @@ def calculate_sla_details(start_dt, end_dt):
         if end_dt <= start_dt:
             return None
         
+        # ADJUST START TIME
         start_adjusted = start_dt
         
         # If start time is after 3:30 PM, move to next working day at 8:30 AM
         if start_dt.time() >= datetime.strptime("15:30", "%H:%M").time():
             start_adjusted = start_dt + timedelta(days=1)
             start_adjusted = start_adjusted.replace(hour=8, minute=30, second=0)
+            # Skip weekends/holidays
             while not is_working_day(start_adjusted):
                 start_adjusted += timedelta(days=1)
         
-        # Hitung total waktu
-        total_delta = end_dt - start_adjusted
-        total_seconds = total_delta.total_seconds()
+        # COUNT WORKING DAYS AND REMAINING TIME
+        working_days = 0
+        total_hours = 0
+        total_minutes = 0
         
-        if total_seconds < 0:
-            return None
+        current = start_adjusted
         
-        # Extract komponen
-        days = int(total_delta.days)
-        hours = int((total_seconds % (24 * 3600)) // 3600)
-        minutes = int((total_seconds % 3600) // 60)
+        # Loop through setiap hari dari start ke end
+        while current.date() < end_dt.date():
+            if is_working_day(current):
+                working_days += 1
+            
+            # Move to next day at midnight
+            current = current.replace(hour=0, minute=0, second=0) + timedelta(days=1)
         
-        return (days, hours, minutes)
-    except:
+        # Handle last day (partial)
+        if is_working_day(end_dt):
+            # Calculate remaining hours/minutes on the last day
+            if current.date() == end_dt.date():
+                # Same day as end
+                time_diff = end_dt - start_adjusted
+                total_seconds = time_diff.total_seconds()
+                
+                total_hours = int((total_seconds % (24 * 3600)) // 3600)
+                total_minutes = int((total_seconds % 3600) // 60)
+                
+                # If start and end on same day
+                if start_adjusted.date() == end_dt.date():
+                    working_days = 0
+            else:
+                # Different day, calculate time on last working day
+                last_day_start = end_dt.replace(hour=0, minute=0, second=0)
+                time_on_last_day = end_dt - last_day_start
+                total_seconds = time_on_last_day.total_seconds()
+                
+                total_hours = int((total_seconds % (24 * 3600)) // 3600)
+                total_minutes = int((total_seconds % 3600) // 60)
+                
+                working_days += 1  # Add the last partial day
+        
+        return (working_days, total_hours, total_minutes)
+    except Exception as e:
+        print(f"SLA Error: {e}")
         return None
 
 def format_sla_display(sla_tuple):
-    """Format SLA tuple (days, hours, minutes) menjadi string yang readable"""
+    """Format SLA tuple (days, hours, minutes) untuk display"""
     if sla_tuple is None or (isinstance(sla_tuple, float) and pd.isna(sla_tuple)):
         return "—"
     
@@ -140,7 +176,7 @@ def format_sla_display(sla_tuple):
         
         parts = []
         if days > 0:
-            parts.append(f"{days}h" if days == 1 else f"{days}d")
+            parts.append(f"{days}d")
         if hours > 0:
             parts.append(f"{hours}j")
         if minutes > 0:
@@ -847,7 +883,37 @@ def main():
     # Tab 7: SLA Transitions
     with tab7:
         st.header("SLA Transitions Analysis")
-        st.info("📊 Format SLA: Hari (d) + Jam (j) + Menit (m). Contoh: 2d 3j 15m = 2 hari, 3 jam, 15 menit")
+        st.info("📊 PENTING: SLA dihitung dengan WORKING DAYS ONLY (Mon-Fri, exclude holidays)\nFormat: Hari (d) + Jam (j) + Menit (m). Contoh: 2d 3j 15m = 2 hari kerja, 3 jam, 15 menit")
+        
+        with st.expander("📖 SLA Logic Explanation", expanded=False):
+            st.markdown("""
+            ### Cara Hitung SLA:
+            
+            1. **Adjust Start Time**
+               - Jika mulai SETELAH 3:30 PM → mulai dari next working day jam 8:30 AM
+               - Skip weekend dan public holidays
+            
+            2. **Count Working Days Only**
+               - Hanya hitung Mon-Fri
+               - Skip Sat, Sun, dan 45 public holidays
+            
+            3. **Calculate Hours/Minutes**
+               - Hanya pada working days
+               - Hasil: (working_days, hours, minutes)
+            
+            ### Contoh:
+            - **Start:** Wed 08:00 (8 pagi)
+            - **End:** Fri 15:00 (3 sore)
+            - **Working Days:** Wed, Thu, Fri = 3 days
+            - **Remaining:** 07:00 = 7 hours
+            - **SLA:** 3d 7j 0m (3 hari kerja, 7 jam)
+            
+            ### Special Case: After 3:30 PM
+            - **Start:** Fri 16:00 (4 sore, AFTER 3:30 PM)
+            - **Adjusted:** Mon 08:30 (8:30 pagi hari Senin)
+            - **End:** Mon 10:00
+            - **SLA:** 0d 1j 30m (1 jam 30 menit)
+            """)
         
         if 'apps_id' in df_filtered.columns and 'action_on_parsed' in df_filtered.columns:
             df_filtered_sorted = df_filtered.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
@@ -888,7 +954,7 @@ def main():
             
             sla_df = pd.DataFrame(sla_transitions)
             
-            st.subheader("SLA Details (Hari, Jam, Menit)")
+            st.subheader("SLA Pivot Table (Working Days)")
             
             # Create pivot table
             pivot_data = []
@@ -909,7 +975,7 @@ def main():
             
             # Summary statistics
             st.markdown("---")
-            st.subheader("SLA Statistics")
+            st.subheader("SLA Statistics (Working Days Only)")
             
             stats_data = []
             for transition in sorted(sla_df['transition'].unique()):
@@ -930,7 +996,7 @@ def main():
                     'Total': total_trans,
                     'Valid': len(trans_valid),
                     'N/A': total_trans - len(trans_valid),
-                    'Avg (days)': f"{avg_days:.1f}" if isinstance(avg_days, (int, float)) else avg_days,
+                    'Avg (hari)': f"{avg_days:.1f}" if isinstance(avg_days, (int, float)) else avg_days,
                     'Min': f"{int(min_days)}" if isinstance(min_days, (int, float)) else min_days,
                     'Max': f"{int(max_days)}" if isinstance(max_days, (int, float)) else max_days,
                     'Median': f"{int(median_days)}" if isinstance(median_days, (int, float)) else median_days
@@ -947,11 +1013,11 @@ def main():
                 trans_valid = [s for s in trans_sla if s is not None]
                 if len(trans_valid) > 0:
                     avg_days = np.mean([s[0] for s in trans_valid])
-                    chart_data.append({'Transition': transition, 'Avg SLA (days)': avg_days, 'Count': len(trans_valid)})
+                    chart_data.append({'Transition': transition, 'Avg SLA (hari)': avg_days, 'Count': len(trans_valid)})
             
             if chart_data:
                 chart_df = pd.DataFrame(chart_data)
-                fig = px.bar(chart_df, x='Transition', y='Avg SLA (days)', color='Count', title="Average SLA per Transition")
+                fig = px.bar(chart_df, x='Transition', y='Avg SLA (hari)', color='Count', title="Average SLA per Transition (Working Days)")
                 fig.update_layout(xaxis_tickangle=-45, height=500)
                 st.plotly_chart(fig, use_container_width=True)
     
