@@ -89,7 +89,7 @@ def is_working_day(date):
     return is_weekday and is_not_holiday
 
 def calculate_sla_days(start_dt, end_dt):
-    """Calculate SLA in working days only"""
+    """Calculate SLA in working days only, or hours if same day"""
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
     
@@ -98,6 +98,13 @@ def calculate_sla_days(start_dt, end_dt):
             start_dt = pd.to_datetime(start_dt)
         if not isinstance(end_dt, datetime):
             end_dt = pd.to_datetime(end_dt)
+        
+        # Check if same day
+        if start_dt.date() == end_dt.date():
+            # Calculate hours difference
+            time_diff = end_dt - start_dt
+            hours = time_diff.total_seconds() / 3600
+            return round(hours, 2)  # Return hours with 2 decimal places
         
         start_adjusted = start_dt
         
@@ -221,6 +228,18 @@ def calculate_risk_score(row):
             score += 10
     
     return min(score, 100)
+
+def format_sla_display(sla_value):
+    """Format SLA value for display - show hours if < 1 day, otherwise days"""
+    if pd.isna(sla_value):
+        return "—"
+    
+    if sla_value < 1:
+        # It's in hours already
+        return f"{sla_value:.2f}h"
+    else:
+        # It's in days
+        return f"{int(sla_value)}d"
 
 def preprocess_data(df):
     """Clean and prepare data for analysis"""
@@ -561,8 +580,8 @@ def main():
     
     with kpi2:
         avg_sla = df_sla_history_filtered['SLA_Days'].mean()
-        sla_display = f"{avg_sla:.1f}" if not pd.isna(avg_sla) else "N/A"
-        st.metric("Average SLA (days)", sla_display)
+        sla_display = format_sla_display(avg_sla)
+        st.metric("Average SLA", sla_display)
     
     with kpi3:
         if 'Scoring_Detail' in df_filtered.columns:
@@ -1397,14 +1416,14 @@ def main():
     # Tab 7: SLA Transitions
     with tab7:
         st.header("SLA Transitions Analysis - Pivot by App ID")
-        st.info("Lihat historical status dan SLA untuk setiap app_id. Status urutan fixed: NOT RECOMMENDED CA → PENDING CA → Pending CA Completed → RECOMMENDED CA → RECOMMENDED CA WITH COND")
+        st.info("Lihat historical status dan SLA untuk setiap app_id. SLA dihitung dalam JAM jika di hari yang sama, atau HARI jika berbeda hari.")
         
         if 'apps_id' in df_filtered.columns and 'action_on_parsed' in df_filtered.columns:
             # Define status order
             status_order = [
                 'NOT RECOMMENDED CA',
                 'PENDING CA',
-                'Pending CA Completed',
+                'Pending Ca Completed',
                 'RECOMMENDED CA',
                 'RECOMMENDED CA WITH COND'
             ]
@@ -1481,11 +1500,7 @@ def main():
                     sla_val = trans_row['sla_days']
                     
                     # Format SLA value
-                    if pd.isna(sla_val):
-                        sla_display = '—'
-                    else:
-                        sla_display = f"{int(sla_val)}d"
-                    
+                    sla_display = format_sla_display(sla_val)
                     row_data[trans_label] = sla_display
                 
                 pivot_data.append(row_data)
@@ -1505,15 +1520,36 @@ def main():
                 trans_valid = trans_sla.dropna()
                 total_trans = len(sla_df[sla_df['transition'] == transition])
                 
+                # Separate hours and days for stats
+                trans_hours = trans_valid[trans_valid < 1]
+                trans_days = trans_valid[trans_valid >= 1]
+                
+                avg_display = "N/A"
+                if len(trans_valid) > 0:
+                    avg_val = trans_valid.mean()
+                    avg_display = format_sla_display(avg_val)
+                
+                min_display = "N/A"
+                if len(trans_valid) > 0:
+                    min_display = format_sla_display(trans_valid.min())
+                
+                max_display = "N/A"
+                if len(trans_valid) > 0:
+                    max_display = format_sla_display(trans_valid.max())
+                
+                median_display = "N/A"
+                if len(trans_valid) > 0:
+                    median_display = format_sla_display(trans_valid.median())
+                
                 stats_data.append({
                     'Transition': transition,
                     'Total Records': total_trans,
                     'SLA Valid': len(trans_valid),
                     'SLA N/A': total_trans - len(trans_valid),
-                    'Avg SLA (days)': f"{trans_valid.mean():.1f}" if len(trans_valid) > 0 else 'N/A',
-                    'Min': f"{int(trans_valid.min())}" if len(trans_valid) > 0 else 'N/A',
-                    'Max': f"{int(trans_valid.max())}" if len(trans_valid) > 0 else 'N/A',
-                    'Median': f"{int(trans_valid.median())}" if len(trans_valid) > 0 else 'N/A'
+                    'Avg SLA': avg_display,
+                    'Min': min_display,
+                    'Max': max_display,
+                    'Median': median_display
                 })
             
             stats_df = pd.DataFrame(stats_data)
@@ -1529,14 +1565,18 @@ def main():
             chart_data.columns = ['Transition', 'Avg SLA', 'Count']
             
             if len(chart_data) > 0:
+                # Format display for chart
+                chart_data['Avg SLA Display'] = chart_data['Avg SLA'].apply(lambda x: f"{x:.2f}h" if x < 1 else f"{x:.1f}d")
+                
                 fig = px.bar(
                     chart_data,
                     x='Transition',
                     y='Avg SLA',
                     color='Count',
-                    title="Average SLA per Status Transition",
-                    labels={'Avg SLA': 'Average SLA (Days)', 'Transition': 'Status Transition', 'Count': 'Valid Records'},
-                    color_continuous_scale='Viridis'
+                    title="Average SLA per Status Transition (Hours if <1 day, Days otherwise)",
+                    labels={'Avg SLA': 'Average SLA', 'Transition': 'Status Transition', 'Count': 'Valid Records'},
+                    color_continuous_scale='Viridis',
+                    hover_data={'Avg SLA Display': True}
                 )
                 fig.update_layout(xaxis_tickangle=-45, height=500)
                 st.plotly_chart(fig, use_container_width=True)
