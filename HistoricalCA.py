@@ -186,9 +186,21 @@ def calculate_historical_sla_detailed(df):
             # Special handling based on status
             if current_status == 'PENDING CA' or current_status == 'Pending CA':
                 # PENDING CA: hitung SLA hanya jika ada Recommendation
-                if pd.notna(recommendation) and recommendation != '' and recommendation != '-':
+                # Handle both string and datetime types for Recommendation
+                has_recommendation = False
+                rec_display = ''
+                
+                if pd.notna(recommendation):
+                    if isinstance(recommendation, datetime):
+                        has_recommendation = True
+                        rec_display = recommendation.strftime('%Y-%m-%d %H:%M')
+                    elif isinstance(recommendation, str) and recommendation.strip() not in ['', '-']:
+                        has_recommendation = True
+                        rec_display = str(recommendation)[:30]
+                
+                if has_recommendation:
                     sla_detail = calculate_sla_detailed(prev_time, current_time)
-                    transition = f"{prev_status} → {current_status} (Recommendation: {recommendation[:20]}...)"
+                    transition = f"{prev_status} → {current_status} (Rec: {rec_display})"
                 else:
                     transition = f"{prev_status} → {current_status} (Waiting Recommendation)"
             
@@ -222,7 +234,11 @@ def calculate_historical_sla_detailed(df):
             'SLA_Minutes': sla_detail['minutes'] if sla_detail else None,
             'SLA_Seconds': sla_detail['seconds'] if sla_detail else None,
             'SLA_Working_Days': sla_detail['working_days'] if sla_detail else None,
-            'Has_Recommendation': pd.notna(recommendation) and recommendation != '' and recommendation != '-'
+            'Has_Recommendation': (
+                pd.notna(recommendation) and 
+                (isinstance(recommendation, datetime) or 
+                 (isinstance(recommendation, str) and recommendation.strip() not in ['', '-']))
+            )
         })
     
     return pd.DataFrame(sla_list)
@@ -320,9 +336,16 @@ def preprocess_data(df):
     if 'Hasil_Scoring' in df.columns:
         df['Scoring_Detail'] = df['Hasil_Scoring'].fillna('(Pilih Semua)').astype(str).str.strip()
     
-    # Clean Recommendation field
+    # Clean Recommendation field (handle both string and datetime)
     if 'Recommendation' in df.columns:
-        df['Recommendation_clean'] = df['Recommendation'].fillna('').astype(str).str.strip()
+        def clean_recommendation(val):
+            if pd.isna(val):
+                return ''
+            if isinstance(val, datetime):
+                return val.strftime('%Y-%m-%d %H:%M:%S')
+            return str(val).strip()
+        
+        df['Recommendation_clean'] = df['Recommendation'].apply(clean_recommendation)
     else:
         df['Recommendation_clean'] = ''
     
