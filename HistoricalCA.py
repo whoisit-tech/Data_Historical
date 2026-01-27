@@ -9,7 +9,7 @@ from pathlib import Path
 
 st.set_page_config(page_title="CA Analytics", layout="wide")
 
-FILE_NAME = "Historical_CA (1).xlsx"
+FILE_NAME = "HistoricalCA.xlsx"
 
 st.markdown("""
 <style>
