@@ -117,12 +117,7 @@ def calculate_sla_days(start_dt, end_dt):
                 working_days += 1
             current += timedelta(days=1)
         
-        # Jika same day, hitung jam
-        if start_adjusted.date() == end_dt.date():
-            hours = (end_dt - start_adjusted).total_seconds() / 3600
-            return (0, hours)  # Return (0 days, X hours)
-        
-        return (working_days, None)  # Return (X days, None)
+        return working_days
     except:
         return None
 
@@ -402,6 +397,9 @@ def main():
         st.error("Data tidak dapat dimuat")
         st.stop()
     
+    # Calculate historical SLA
+    df_sla_history = calculate_historical_sla(df)
+    
     # Display data summary
     total_records = len(df)
     unique_apps = df['apps_id'].nunique()
@@ -520,6 +518,12 @@ def main():
             df_filtered['OSPH_Category'] == selected_osph
         ]
     
+    # Filter SLA history based on apps that passed filters
+    filtered_app_ids = df_filtered['apps_id'].unique()
+    df_sla_history_filtered = df_sla_history[
+        df_sla_history['apps_id'].isin(filtered_app_ids)
+    ]
+    
     # Sidebar summary
     st.sidebar.markdown("---")
     st.sidebar.info(
@@ -556,7 +560,9 @@ def main():
         st.metric("Total Applications", f"{total_apps:,}")
     
     with kpi2:
-        st.metric("Average SLA (days)", "Lihat Tab 7")
+        avg_sla = df_sla_history_filtered['SLA_Days'].mean()
+        sla_display = f"{avg_sla:.1f}" if not pd.isna(avg_sla) else "N/A"
+        st.metric("Average SLA (days)", sla_display)
     
     with kpi3:
         if 'Scoring_Detail' in df_filtered.columns:
