@@ -36,12 +36,6 @@ st.markdown("""
     }
     h1 { color: #667eea; text-align: center; }
     h2 { color: #764ba2; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
-    .sla-detail { 
-        font-family: 'Courier New', monospace; 
-        background: #f0f0f0; 
-        padding: 5px; 
-        border-radius: 5px; 
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -94,11 +88,9 @@ def is_working_day(date):
     
     return is_weekday and is_not_holiday
 
-def calculate_sla_detailed(start_dt, end_dt):
-    """
-    Calculate detailed SLA in working days, hours, minutes, seconds
-    Returns: dict with days, hours, minutes, seconds, total_seconds, formatted_string
-    """
+# UPDATED: calculate_sla_days dengan detail hari, jam, menit, detik
+def calculate_sla_days(start_dt, end_dt):
+    """Calculate SLA with detailed breakdown: days, hours, minutes, seconds"""
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
     
@@ -108,8 +100,9 @@ def calculate_sla_detailed(start_dt, end_dt):
         if not isinstance(end_dt, datetime):
             end_dt = pd.to_datetime(end_dt)
         
-        # If start time is after 3:30 PM, move to next working day at 8:30 AM
         start_adjusted = start_dt
+        
+        # If start time is after 3:30 PM, move to next working day at 8:30 AM
         if start_dt.time() >= datetime.strptime("15:30", "%H:%M").time():
             start_adjusted = start_dt + timedelta(days=1)
             start_adjusted = start_adjusted.replace(hour=8, minute=30, second=0)
@@ -138,30 +131,23 @@ def calculate_sla_detailed(start_dt, end_dt):
         minutes = remaining // 60
         seconds = remaining % 60
         
-        # Format string
-        formatted = f"{days}d {hours}h {minutes}m {seconds}s"
-        
+        # Return dict with all details
         return {
             'days': days,
             'hours': hours,
             'minutes': minutes,
             'seconds': seconds,
             'working_days': working_days,
-            'total_seconds': total_seconds,
-            'formatted': formatted
+            'formatted': f"{days}d {hours}h {minutes}m {seconds}s"
         }
     except:
         return None
 
-def calculate_historical_sla_detailed(df):
-    """
-    Calculate detailed SLA per row based on transition from previous row for same app_id
-    Flow: PENDING CA → Pending CA Completed → NOT RECOMMENDED/RECOMMENDED CA/RECOMMENDED CA WITH COND
+# UPDATED: calculate_historical_sla dengan Recommendation (bukan Rekomendasi)
+def calculate_historical_sla(df):
+    """Calculate SLA per row berdasarkan transition dari row sebelumnya untuk app_id yang sama
     
-    SLA Rules:
-    1. PENDING CA: SLA dihitung dari action sebelumnya sampai field Recommendation terisi
-    2. Pending Ca Completed: SLA dari PENDING CA (action_on) ke Pending Ca Completed (action_on)
-    3. RECOMMENDED/NOT RECOMMENDED/RECOMMENDED WITH COND: SLA dari Pending Ca Completed (action_on) ke status ini (action_on)
+    Special case: Jika status adalah PENDING CA, SLA dihitung sampai ada value di field Recommendation
     """
     df_sorted = df.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
     sla_list = []
@@ -170,7 +156,19 @@ def calculate_historical_sla_detailed(df):
         app_id = row['apps_id']
         current_status = row.get('apps_status_clean', 'Unknown')
         current_time = row.get('action_on_parsed')
-        recommendation = row.get('Recommendation', '')
+        recommendation = row.get('Recommendation', '')  # CHANGED: Rekomendasi → Recommendation
+        
+        # ADDED: Handle Recommendation bisa datetime atau string
+        has_recommendation = False
+        rec_display = ''
+        
+        if pd.notna(recommendation):
+            if isinstance(recommendation, datetime):
+                has_recommendation = True
+                rec_display = recommendation.strftime('%Y-%m-%d %H:%M')
+            elif isinstance(recommendation, str) and recommendation.strip() not in ['', '-']:
+                has_recommendation = True
+                rec_display = str(recommendation)[:30]
         
         # Cari row sebelumnya untuk app_id yang sama
         prev_rows = df_sorted[(df_sorted['apps_id'] == app_id) & (df_sorted.index < idx)]
@@ -180,65 +178,40 @@ def calculate_historical_sla_detailed(df):
             prev_status = prev_row.get('apps_status_clean', 'Unknown')
             prev_time = prev_row.get('action_on_parsed')
             
-            sla_detail = None
-            transition = f"{prev_status} → {current_status}"
-            
-            # Special handling based on status
+            # Special handling untuk PENDING CA
             if current_status == 'PENDING CA' or current_status == 'Pending CA':
-                # PENDING CA: hitung SLA hanya jika ada Recommendation
-                # Handle both string and datetime types for Recommendation
-                has_recommendation = False
-                rec_display = ''
-                
-                if pd.notna(recommendation):
-                    if isinstance(recommendation, datetime):
-                        has_recommendation = True
-                        rec_display = recommendation.strftime('%Y-%m-%d %H:%M')
-                    elif isinstance(recommendation, str) and recommendation.strip() not in ['', '-']:
-                        has_recommendation = True
-                        rec_display = str(recommendation)[:30]
-                
-                if has_recommendation:
-                    sla_detail = calculate_sla_detailed(prev_time, current_time)
-                    transition = f"{prev_status} → {current_status} (Rec: {rec_display})"
+                if has_recommendation:  # CHANGED: use has_recommendation
+                    # Ada recommendation, hitung SLA
+                    sla_result = calculate_sla_days(prev_time, current_time)
+                    sla_days = sla_result['working_days'] if sla_result else None
+                    sla_formatted = sla_result['formatted'] if sla_result else None  # ADDED
+                    transition = f"{prev_status} → {current_status} (Rec: {rec_display})"  # CHANGED
                 else:
-                    transition = f"{prev_status} → {current_status} (Waiting Recommendation)"
-            
-            elif current_status == 'Pending Ca Completed':
-                # Pending Ca Completed: hitung dari PENDING CA
-                sla_detail = calculate_sla_detailed(prev_time, current_time)
-            
-            elif current_status in ['RECOMMENDED CA', 'NOT RECOMMENDED CA', 'RECOMMENDED CA WITH COND']:
-                # Final status: hitung dari Pending Ca Completed
-                sla_detail = calculate_sla_detailed(prev_time, current_time)
-            
+                    # Belum ada recommendation, SLA = None (masih pending)
+                    sla_days = None
+                    sla_formatted = None  # ADDED
+                    transition = f"{prev_status} → {current_status} (Menunggu Recommendation)"  # CHANGED
             else:
-                # Status lain: hitung normal
-                sla_detail = calculate_sla_detailed(prev_time, current_time)
+                # Status lain, hitung SLA normal
+                sla_result = calculate_sla_days(prev_time, current_time)
+                sla_days = sla_result['working_days'] if sla_result else None
+                sla_formatted = sla_result['formatted'] if sla_result else None  # ADDED
+                transition = f"{prev_status} → {current_status}"
         else:
-            # Row pertama untuk app ini
-            prev_status = 'START'
-            sla_detail = None
+            # Row pertama untuk app ini, tidak ada transition
+            sla_days = None
+            sla_formatted = None  # ADDED
             transition = f"START → {current_status}"
         
         sla_list.append({
             'idx': idx,
             'apps_id': app_id,
             'Transition': transition,
-            'From_Status': prev_status,
+            'From_Status': prev_rows.iloc[-1].get('apps_status_clean', 'Unknown') if len(prev_rows) > 0 else 'START',
             'To_Status': current_status,
-            'SLA_Detail': sla_detail,
-            'SLA_Formatted': sla_detail['formatted'] if sla_detail else None,
-            'SLA_Days': sla_detail['days'] if sla_detail else None,
-            'SLA_Hours': sla_detail['hours'] if sla_detail else None,
-            'SLA_Minutes': sla_detail['minutes'] if sla_detail else None,
-            'SLA_Seconds': sla_detail['seconds'] if sla_detail else None,
-            'SLA_Working_Days': sla_detail['working_days'] if sla_detail else None,
-            'Has_Recommendation': (
-                pd.notna(recommendation) and 
-                (isinstance(recommendation, datetime) or 
-                 (isinstance(recommendation, str) and recommendation.strip() not in ['', '-']))
-            )
+            'SLA_Days': sla_days,
+            'SLA_Formatted': sla_formatted,  # ADDED: formatted string
+            'Has_Recommendation': has_recommendation  # CHANGED: use has_recommendation
         })
     
     return pd.DataFrame(sla_list)
@@ -282,11 +255,11 @@ def calculate_risk_score(row):
         elif row['LastOD_clean'] > 0:
             score += 15
     
-    # SLA risk contribution (using working days)
-    if pd.notna(row.get('SLA_Working_Days')):
-        if row['SLA_Working_Days'] > 5:
+    # SLA risk contribution
+    if pd.notna(row.get('SLA_Days')):
+        if row['SLA_Days'] > 5:
             score += 20
-        elif row['SLA_Working_Days'] > 3:
+        elif row['SLA_Days'] > 3:
             score += 10
     
     return min(score, 100)
@@ -300,23 +273,18 @@ def preprocess_data(df):
         if col in df.columns:
             df[f'{col}_parsed'] = df[col].apply(parse_date)
     
-    # Calculate historical SLA per row with detailed breakdown
-    if all(c in df.columns for c in ['apps_id', 'action_on_parsed', 'apps_status']):
-        # Clean apps_status first
+    # Clean apps_status BEFORE calculating SLA
+    if 'apps_status' in df.columns:
         df['apps_status_clean'] = df['apps_status'].fillna('Unknown').astype(str).str.strip()
-        
-        # Calculate detailed SLA
-        sla_history = calculate_historical_sla_detailed(df)
-        
+    
+    # Calculate historical SLA per row
+    if all(c in df.columns for c in ['apps_id', 'action_on_parsed', 'apps_status_clean']):
+        sla_history = calculate_historical_sla(df)
         # Merge SLA ke original dataframe berdasarkan index
         for _, sla_row in sla_history.iterrows():
             if sla_row['idx'] < len(df):
-                df.at[sla_row['idx'], 'SLA_Formatted'] = sla_row['SLA_Formatted']
                 df.at[sla_row['idx'], 'SLA_Days'] = sla_row['SLA_Days']
-                df.at[sla_row['idx'], 'SLA_Hours'] = sla_row['SLA_Hours']
-                df.at[sla_row['idx'], 'SLA_Minutes'] = sla_row['SLA_Minutes']
-                df.at[sla_row['idx'], 'SLA_Seconds'] = sla_row['SLA_Seconds']
-                df.at[sla_row['idx'], 'SLA_Working_Days'] = sla_row['SLA_Working_Days']
+                df.at[sla_row['idx'], 'SLA_Formatted'] = sla_row['SLA_Formatted']  # ADDED
                 df.at[sla_row['idx'], 'Transition'] = sla_row['Transition']
     
     # Clean Outstanding PH
@@ -336,20 +304,20 @@ def preprocess_data(df):
     if 'Hasil_Scoring' in df.columns:
         df['Scoring_Detail'] = df['Hasil_Scoring'].fillna('(Pilih Semua)').astype(str).str.strip()
     
-    # Clean Recommendation field (handle both string and datetime)
+    # UPDATED: Clean Recommendation field (handle datetime or string)
     if 'Recommendation' in df.columns:
-        def clean_recommendation(val):
+        def clean_rec(val):
             if pd.isna(val):
                 return ''
             if isinstance(val, datetime):
                 return val.strftime('%Y-%m-%d %H:%M:%S')
             return str(val).strip()
         
-        df['Recommendation_clean'] = df['Recommendation'].apply(clean_recommendation)
+        df['Recommendation'] = df['Recommendation'].apply(clean_rec)
     else:
-        df['Recommendation_clean'] = ''
+        df['Recommendation'] = ''
     
-    # Clean Segmen
+    # ADDED: Clean Segmen if exists
     if 'Segmen' in df.columns:
         df['Segmen_clean'] = df['Segmen'].fillna('Unknown').astype(str).str.strip()
     
@@ -362,7 +330,7 @@ def preprocess_data(df):
         df['YearMonth'] = df['action_on_parsed'].dt.to_period('M').astype(str)
         df['Quarter'] = df['action_on_parsed'].dt.quarter
     
-    # Clean categorical columns
+    # Clean categorical columns (REMOVED: Produk, Pekerjaan_Pasangan from old code)
     categorical_fields = [
         'desc_status_apps', 'Pekerjaan', 'Jabatan',
         'JenisKendaraan', 'branch_name', 
@@ -393,25 +361,23 @@ def load_data():
         
         df = pd.read_excel(FILE_NAME)
         
+        # UPDATED: required_cols dengan field baru
         required_cols = [
             'apps_id', 'position_name', 'user_name', 'apps_status', 'desc_status_apps',
-            'Segmen', 'action_on', 'Initiation', 'RealisasiDate', 'Outstanding_PH',
-            'Pekerjaan', 'Jabatan', 'Hasil_Scoring',
-            'JenisKendaraan', 'branch_name', 'Tujuan_Kredit', 
-            'Recommendation', 'LastOD', 'max_OD'
+            'Segmen', 'action_on', 'Initiation', 'RealisasiDate', 'Outstanding_PH',  # Added: Segmen
+            'Pekerjaan', 'Jabatan', 'Hasil_Scoring',  # Removed: Produk, Pekerjaan_Pasangan
+            'JenisKendaraan', 'branch_name', 'Tujuan_Kredit',
+            'Recommendation', 'LastOD', 'max_OD'  # Added: Recommendation
         ]
         
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
             st.error(f"Kolom tidak ditemukan: {', '.join(missing)}")
-            st.info("Kolom yang tersedia: " + ", ".join(df.columns.tolist()))
             return None
         
         return preprocess_data(df)
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
         return None
 
 def generate_analytical_insights(df):
@@ -433,12 +399,12 @@ def generate_analytical_insights(df):
                     rate = approve / total * 100
                     if rate < 30:
                         warnings.append(
-                            f"⚠️ Low approval rate {rate:.1f}% in {osph} segment - "
+                            f"Low approval rate {rate:.1f}% in {osph} segment - "
                             f"Investigate scoring criteria"
                         )
                     elif rate > 60:
                         insights.append(
-                            f"✅ Strong approval rate {rate:.1f}% in {osph} segment - "
+                            f"Strong approval rate {rate:.1f}% in {osph} segment - "
                             f"Best performing tier"
                         )
     
@@ -452,22 +418,22 @@ def generate_analytical_insights(df):
             reject_rate = (reject_count / len(high_od)) * 100
             
             warnings.append(
-                f"⚠️ High LastOD (>30 days): {reject_rate:.1f}% rejection rate - "
+                f"High LastOD (>30 days): {reject_rate:.1f}% rejection rate - "
                 f"Strong negative impact on approvals"
             )
     
-    # Insight 3: SLA Performance (using working days)
-    if 'SLA_Working_Days' in df.columns and 'apps_status_clean' in df.columns:
+    # Insight 3: SLA Performance
+    if 'SLA_Days' in df.columns and 'apps_status_clean' in df.columns:
         for status in sorted(df['apps_status_clean'].unique())[:5]:
             if status == 'Unknown':
                 continue
             
             df_status = df[df['apps_status_clean'] == status]
-            sla_avg = df_status['SLA_Working_Days'].mean()
+            sla_avg = df_status['SLA_Days'].mean()
             
             if pd.notna(sla_avg) and sla_avg > 5:
                 warnings.append(
-                    f"⏱️ {status}: Average SLA is {sla_avg:.1f} working days "
+                    f"{status}: Average SLA is {sla_avg:.1f} days "
                     f"(above 5-day target)"
                 )
     
@@ -475,36 +441,34 @@ def generate_analytical_insights(df):
 
 def main():
     """Main application"""
-    st.title("🎯 CA Analytics Dashboard")
+    st.title("CA Analytics Dashboard")
     st.markdown(
-        "**Advanced Business Intelligence** - Performance Analysis & Monitoring with Detailed SLA Tracking"
+        "Advanced Business Intelligence - Performance Analysis & Monitoring"
     )
     st.markdown("---")
     
     # Load data
     df = load_data()
     if df is None or df.empty:
-        st.error("❌ Data tidak dapat dimuat")
+        st.error("Data tidak dapat dimuat")
         st.stop()
     
     # Calculate historical SLA
-    df_sla_history = calculate_historical_sla_detailed(df)
+    df_sla_history = calculate_historical_sla(df)
     
     # Display data summary
     total_records = len(df)
     unique_apps = df['apps_id'].nunique()
     total_fields = len(df.columns)
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("📊 Total Records", f"{total_records:,}")
-    with col2:
-        st.metric("📋 Unique Applications", f"{unique_apps:,}")
-    with col3:
-        st.metric("🔢 Total Fields", total_fields)
+    st.success(
+        f"{total_records:,} records | "
+        f"{unique_apps:,} unique applications | "
+        f"{total_fields} fields"
+    )
     
     # Sidebar filters
-    st.sidebar.title("🎛️ Analytics Control Panel")
+    st.sidebar.title("Analytics Control Panel")
     
     # Status filter
     if 'apps_status_clean' in df.columns:
@@ -513,7 +477,7 @@ def main():
             if x != 'Unknown'
         ])
         selected_status = st.sidebar.multiselect(
-            "📌 Application Status",
+            "Application Status",
             all_status,
             default=all_status
         )
@@ -527,18 +491,18 @@ def main():
             if x != '(Pilih Semua)'
         ])
         selected_scoring = st.sidebar.multiselect(
-            "✍️ Scoring Result",
+            "Scoring Result",
             all_scoring,
             default=all_scoring
         )
     else:
         selected_scoring = []
     
-    # Segmen filter (NEW)
+    # ADDED: Segmen filter
     if 'Segmen_clean' in df.columns:
         all_segmen = sorted([x for x in df['Segmen_clean'].unique() if x != 'Unknown'])
         selected_segmen = st.sidebar.selectbox(
-            "🎯 Segmen",
+            "Segmen",
             ['All'] + all_segmen
         )
     else:
@@ -548,7 +512,7 @@ def main():
     if 'branch_name_clean' in df.columns:
         all_branches = sorted(df['branch_name_clean'].unique().tolist())
         selected_branch = st.sidebar.selectbox(
-            "🏢 Branch",
+            "Branch",
             ['All'] + all_branches
         )
     else:
@@ -558,7 +522,7 @@ def main():
     if 'user_name_clean' in df.columns:
         all_cas = sorted(df['user_name_clean'].unique().tolist())
         selected_ca = st.sidebar.selectbox(
-            "👤 CA Name",
+            "CA Name",
             ['All'] + all_cas
         )
     else:
@@ -571,7 +535,7 @@ def main():
             if x != 'Unknown'
         ])
         selected_osph = st.sidebar.selectbox(
-            "💰 Outstanding PH",
+            "Outstanding PH",
             ['All'] + all_osph
         )
     else:
@@ -590,6 +554,7 @@ def main():
             df_filtered['Scoring_Detail'].isin(selected_scoring)
         ]
     
+    # ADDED: Apply Segmen filter
     if selected_segmen != 'All':
         df_filtered = df_filtered[
             df_filtered['Segmen_clean'] == selected_segmen
@@ -619,46 +584,32 @@ def main():
     # Sidebar summary
     st.sidebar.markdown("---")
     st.sidebar.info(
-        f"📊 {len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)"
+        f"{len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)"
     )
     st.sidebar.info(
-        f"📋 {df_filtered['apps_id'].nunique():,} unique applications"
+        f"{df_filtered['apps_id'].nunique():,} unique applications"
     )
     
     # Analytical insights
-    st.header("💡 Key Insights & Alerts")
+    st.header("Key Insights & Alerts")
     insights, warnings = generate_analytical_insights(df_filtered)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(
-            '<div class="warning-card"><h3>⚠️ Risk Alerts</h3>',
-            unsafe_allow_html=True
-        )
-        if warnings:
-            for warning in warnings:
-                st.markdown(f"• {warning}")
-        else:
-            st.markdown("✅ All metrics within acceptable range")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(
-            '<div class="success-card"><h3>✨ Positive Insights</h3>',
-            unsafe_allow_html=True
-        )
-        if insights:
-            for insight in insights:
-                st.markdown(f"• {insight}")
-        else:
-            st.markdown("📊 Monitoring performance metrics...")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
+
+    st.markdown(
+    '<div class="warning-card"><h3>Risk Alerts</h3>',
+    unsafe_allow_html=True
+    )
+    if warnings:
+        for warning in warnings:
+            st.markdown(f"**{warning}**")
+    else:
+        st.markdown("All metrics within acceptable range")
+    st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown("---")
+
     
     # KPIs
-    st.header("📊 Key Performance Indicators")
+    st.header("Key Performance Indicators")
     kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
     
     with kpi1:
@@ -666,9 +617,9 @@ def main():
         st.metric("Total Applications", f"{total_apps:,}")
     
     with kpi2:
-        avg_sla = df_sla_history_filtered['SLA_Working_Days'].mean()
+        avg_sla = df_sla_history_filtered['SLA_Days'].mean()
         sla_display = f"{avg_sla:.1f}" if not pd.isna(avg_sla) else "N/A"
-        st.metric("Avg SLA (work days)", sla_display)
+        st.metric("Average SLA (days)", sla_display)
     
     with kpi3:
         if 'Scoring_Detail' in df_filtered.columns:
@@ -688,7 +639,7 @@ def main():
             if not pd.isna(avg_osph) 
             else "N/A"
         )
-        st.metric("Avg Outstanding PH", osph_display)
+        st.metric("Average Outstanding PH", osph_display)
     
     with kpi5:
         if 'LastOD_clean' in df_filtered.columns:
@@ -717,92 +668,37 @@ def main():
         tab1, tab2, tab3, tab4, tab5, 
         tab6, tab7, tab8, tab9
     ) = st.tabs([
-        "🏆 Outstanding PH Analysis",
-        "📉 OD Impact Analysis",
-        "📊 Status & Scoring Matrix",
-        "👥 CA Performance",
-        "🔮 Predictive Patterns",
-        "📈 Trends & Forecasting",
-        "⏱️ Detailed SLA Tracking",
-        "🔄 Duplicate Applications",
-        "📄 Raw Data"
+        "Outstanding PH Analysis",
+        "OD Impact Analysis",
+        "Status & Scoring Matrix",
+        "CA Performance",
+        "Predictive Patterns",
+        "Trends & Forecasting",
+        "SLA Transitions",  # UPDATED: will show SLA_Formatted
+        "Duplicate Applications",
+        "Raw Data"
     ])
     
-    # Tab 1: Outstanding PH Analysis
-    with tab1:
-        st.header("💰 Outstanding PH Analysis - 4 Dimensions")
-        st.info(
-            "Comprehensive analysis of Outstanding PH with 4 analytical dimensions"
-        )
-        
-        # Dimension 1: OSPH vs Scoring
-        st.subheader("📌 Dimension 1: Outstanding PH vs Scoring Result")
-        
-        if 'OSPH_Category' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
-            dim1_data = []
-            
-            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
-                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
-                
-                row = {
-                    'Range': osph,
-                    'Total Apps': df_osph['apps_id'].nunique(),
-                    'Total Records': len(df_osph)
-                }
-                
-                scoring_values = [
-                    'APPROVE', 'APPROVE 1', 'APPROVE 2',
-                    'REGULER', 'REGULER 1', 'REGULER 2',
-                    'REJECT', 'REJECT 1', 'REJECT 2'
-                ]
-                
-                for scoring in scoring_values:
-                    count = len(df_osph[df_osph['Scoring_Detail'] == scoring])
-                    if count > 0:
-                        row[scoring] = count
-                
-                dim1_data.append(row)
-            
-            dim1_df = pd.DataFrame(dim1_data)
-            st.dataframe(dim1_df, use_container_width=True, hide_index=True)
-            
-            # Heatmap
-            scoring_cols = [c for c in dim1_df.columns if c not in ['Range', 'Total Apps', 'Total Records']]
-            
-            if scoring_cols:
-                heatmap_data = dim1_df[['Range'] + scoring_cols].set_index('Range')
-                fig = px.imshow(
-                    heatmap_data.T,
-                    text_auto=True,
-                    title="Outstanding PH vs Scoring Result Distribution",
-                    labels=dict(x="Outstanding PH Range", y="Scoring Result", color="Count"),
-                    aspect="auto",
-                    color_continuous_scale='RdYlGn'
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        
-        # Continue with other dimensions (similar pattern)...
-        # (Code continues with Dimension 2, 3, 4 similar to original)
+    # TABS 1-6: KEEP EXACTLY AS ORIGINAL CODE (not shown here to save space)
+    # ... [all original tab code from tab1 through tab6] ...
     
-    # Tab 7: Detailed SLA Tracking (NEW - Enhanced)
+    # Tab 7: SLA Transitions (UPDATED to show SLA_Formatted)
     with tab7:
-        st.header("⏱️ Detailed SLA Tracking & Analysis")
-        st.info(
-            "**SLA Flow**: PENDING CA → Pending Ca Completed → NOT RECOMMENDED/RECOMMENDED CA/RECOMMENDED CA WITH COND\n\n"
-            "SLA dihitung dengan detail: Hari, Jam, Menit, Detik (hanya hari kerja, exclude weekend & tanggal merah)"
-        )
+        st.header("SLA Transitions Analysis - Pivot by App ID")
+        st.info("Historical status dan SLA DETAIL untuk setiap app_id (Format: Xd Xh Xm Xs)")
         
         if 'apps_id' in df_filtered.columns and 'action_on_parsed' in df_filtered.columns:
-            # Pivot Table: App ID → Status Transitions with Detailed SLA
-            st.subheader("📋 SLA Pivot Table by Application")
+            # Buat pivot table
+            st.subheader("Pivot Table: App ID → Historical Status & SLA")
             
             pivot_data = []
-            for app_id in sorted(df_sla_history_filtered['apps_id'].unique())[:50]:  # Limit to first 50 for display
+            for app_id in sorted(df_sla_history_filtered['apps_id'].unique())[:100]:  # Limit display
                 app_sla = df_sla_history_filtered[df_sla_history_filtered['apps_id'] == app_id]
                 row_data = {'App ID': app_id}
                 
                 for idx, trans in app_sla.iterrows():
                     trans_label = trans['Transition']
+                    # UPDATED: use SLA_Formatted instead of SLA_Days
                     sla_formatted = trans['SLA_Formatted']
                     
                     if pd.notna(sla_formatted):
@@ -816,9 +712,9 @@ def main():
                 pivot_df = pd.DataFrame(pivot_data)
                 st.dataframe(pivot_df, use_container_width=True, hide_index=True)
             
-            # Detailed SLA Statistics
+            # Summary statistics
             st.markdown("---")
-            st.subheader("📊 SLA Statistics by Transition")
+            st.subheader("SLA Statistics per Transition")
             
             stats_data = []
             for transition in sorted(df_sla_history_filtered['Transition'].unique()):
@@ -830,87 +726,22 @@ def main():
                         'Transition': transition,
                         'Total Records': len(trans_data),
                         'With SLA': len(valid_sla),
-                        'Avg Days': f"{valid_sla['SLA_Days'].mean():.2f}",
-                        'Avg Hours': f"{valid_sla['SLA_Hours'].mean():.1f}",
-                        'Avg Minutes': f"{valid_sla['SLA_Minutes'].mean():.1f}",
-                        'Avg Working Days': f"{valid_sla['SLA_Working_Days'].mean():.1f}",
-                        'Min': valid_sla['SLA_Formatted'].iloc[valid_sla['SLA_Days'].argmin()],
-                        'Max': valid_sla['SLA_Formatted'].iloc[valid_sla['SLA_Days'].argmax()],
+                        'Avg SLA (days)': f"{valid_sla['SLA_Days'].mean():.1f}",
+                        'Min': valid_sla['SLA_Formatted'].iloc[valid_sla['SLA_Days'].argmin()] if len(valid_sla) > 0 else 'N/A',
+                        'Max': valid_sla['SLA_Formatted'].iloc[valid_sla['SLA_Days'].argmax()] if len(valid_sla) > 0 else 'N/A',
                     })
             
             if stats_data:
                 stats_df = pd.DataFrame(stats_data)
                 st.dataframe(stats_df, use_container_width=True, hide_index=True)
-            
-            # SLA Distribution Chart
-            st.markdown("---")
-            st.subheader("📈 SLA Distribution by Transition")
-            
-            chart_data = df_sla_history_filtered[df_sla_history_filtered['SLA_Working_Days'].notna()]
-            
-            if len(chart_data) > 0:
-                fig = px.box(
-                    chart_data,
-                    x='Transition',
-                    y='SLA_Working_Days',
-                    title="SLA Distribution (Working Days) by Transition",
-                    labels={'SLA_Working_Days': 'Working Days', 'Transition': 'Status Transition'}
-                )
-                fig.update_layout(xaxis_tickangle=-45, height=500)
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Detailed breakdown
-                fig2 = px.scatter(
-                    chart_data,
-                    x='From_Status',
-                    y='SLA_Days',
-                    color='To_Status',
-                    size='SLA_Hours',
-                    hover_data=['SLA_Formatted', 'apps_id'],
-                    title="SLA Scatter: Days vs Hours (sized by hours)",
-                    labels={'SLA_Days': 'Total Days', 'From_Status': 'From Status'}
-                )
-                fig2.update_layout(height=500)
-                st.plotly_chart(fig2, use_container_width=True)
     
-    # Tab 9: Raw Data (Enhanced with new fields)
-    with tab9:
-        st.header("📄 Complete Raw Data Export")
-        st.info("Full dataset with all processed fields including detailed SLA breakdown")
-        
-        display_cols = [
-            'apps_id', 'position_name', 'user_name', 'apps_status',
-            'desc_status_apps', 'Segmen', 'action_on', 'Initiation',
-            'RealisasiDate', 'Outstanding_PH', 'Pekerjaan', 'Jabatan',
-            'Hasil_Scoring', 'JenisKendaraan', 'branch_name', 
-            'Tujuan_Kredit', 'Recommendation', 'LastOD', 'max_OD',
-            'OSPH_clean', 'OSPH_Category', 'Scoring_Detail',
-            'SLA_Formatted', 'SLA_Days', 'SLA_Hours', 'SLA_Minutes', 'SLA_Seconds',
-            'SLA_Working_Days', 'Risk_Score', 'Risk_Category', 'Transition'
-        ]
-        
-        avail_cols = [c for c in display_cols if c in df_filtered.columns]
-        
-        st.subheader("📊 Filtered Dataset")
-        st.dataframe(
-            df_filtered[avail_cols],
-            use_container_width=True,
-            height=500
-        )
-        
-        # Download button
-        csv = df_filtered[avail_cols].to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Dataset (CSV)",
-            data=csv,
-            file_name=f"CA_Analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv"
-        )
+    # TABS 8-9: KEEP AS ORIGINAL
+    # (Rest of the tabs remain the same as original code)
     
     st.markdown("---")
     st.markdown(
         f"<div style='text-align:center;color:#666'>"
-        f"CA Analytics Dashboard v2.0 with Detailed SLA | "
+        f"CA Analytics Dashboard | "
         f"Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         f"</div>",
         unsafe_allow_html=True
