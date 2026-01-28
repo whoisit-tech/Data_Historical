@@ -90,7 +90,7 @@ def is_working_day(date):
 
 def calculate_sla_working_hours(start_dt, end_dt):
     """
-    Hitung SLA dalam working hours (08:30 - 17:30)
+    Hitung SLA dalam working hours (08:30 - 15:30)
     Exclude weekend dan tanggal merah
     """
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
@@ -106,8 +106,8 @@ def calculate_sla_working_hours(start_dt, end_dt):
             return None
         
         WORK_START = timedelta(hours=8, minutes=30)
-        WORK_END = timedelta(hours=17, minutes=30)
-        WORK_HOURS_PER_DAY = 9 * 3600
+        WORK_END = timedelta(hours=15, minutes=30)
+        WORK_HOURS_PER_DAY = 7 * 3600
         
         current = start_dt
         total_seconds = 0
@@ -394,7 +394,7 @@ def load_data():
             return None
         
         if 'Recommendation' not in df.columns:
-            st.warning("⚠️ Kolom 'Recommendation' tidak ditemukan.")
+            st.warning(" Kolom 'Recommendation' tidak ditemukan.")
             df['Recommendation'] = None
         
         df_clean = preprocess_data(df)
@@ -524,8 +524,8 @@ def generate_analytical_insights(df):
 
 def main():
     """Main application"""
-    st.title("🎯 CA Analytics Dashboard - Final Version")
-    st.markdown("**✅ Correct Per-Row SLA | OSPH Pivot Tables per Segmen**")
+    st.title(" CA Analytics Dashboard - Final Version")
+    st.markdown("** Correct Per-Row SLA | OSPH Pivot Tables per Segmen**")
     st.markdown("---")
     
     with st.spinner("Loading dan processing data..."):
@@ -541,14 +541,12 @@ def main():
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("📊 Total Records", f"{total_records:,}")
+        st.metric(" Total Records", f"{total_records:,}")
     with col2:
-        st.metric("📝 Unique Applications", f"{unique_apps:,}")
+        st.metric(" Unique Applications", f"{unique_apps:,}")
     with col3:
-        st.metric("⏱️ SLA Calculated", f"{sla_calculated:,}")
-    with col4:
         avg_sla = df[df['SLA_Days'].notna()]['SLA_Days'].mean()
-        st.metric("📈 Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
+        st.metric(" Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
     
     st.markdown("---")
     
@@ -617,29 +615,29 @@ def main():
     st.sidebar.info(f"{df_filtered['apps_id'].nunique():,} unique applications")
     
     # Insights
-    st.header("💡 Key Insights")
+    st.header(" Key Insights")
     insights, warnings = generate_analytical_insights(df_filtered)
     
     if warnings:
-        st.warning("⚠️ **Alerts:**\n" + "\n".join([f"• {w}" for w in warnings]))
+        st.warning(" **Alerts:**\n" + "\n".join([f"• {w}" for w in warnings]))
     
     if insights:
-        st.success("✅ **Positive Findings:**\n" + "\n".join([f"• {i}" for i in insights]))
+        st.success(" **Positive Findings:**\n" + "\n".join([f"• {i}" for i in insights]))
     
     st.markdown("---")
     
     # Tabs
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 SLA Overview",
-        "📈 OSPH Pivot Analysis per Segmen",
-        "🔍 Detailed View",
-        "💾 Raw Data"
+        " SLA Overview",
+        " OSPH Pivot Analysis per Segmen",
+        " Detailed View",
+        " Raw Data"
     ])
     
     # Tab 1: SLA Overview
     with tab1:
         st.header("SLA Performance Overview")
-        st.info("✅ SLA dihitung per row dengan logika yang BENAR")
+        st.info(" SLA dihitung per row dengan logika yang BENAR")
         
         sla_valid = df_filtered[df_filtered['SLA_Days'].notna()]
         
@@ -701,15 +699,15 @@ def main():
     # Tab 2: OSPH Pivot Analysis
     with tab2:
         st.header("OSPH Pivot Tables per Segmen")
-        st.info("📊 Pivot tables showing unique apps count for each combination")
+        st.info(" Pivot tables showing unique apps count for each combination")
         
         osph_pivots = create_osph_pivot_analysis(df_filtered)
         
         if osph_pivots:
             pivot_tab1, pivot_tab2, pivot_tab3 = st.tabs([
-                "👔 Pekerjaan x OSPH",
-                "🚗 Jenis Kendaraan x OSPH",
-                "📊 Hasil Scoring x OSPH"
+                " Pekerjaan x OSPH",
+                " Jenis Kendaraan x OSPH",
+                " Hasil Scoring x OSPH"
             ])
             
             # PIVOT 1: Pekerjaan
@@ -781,14 +779,14 @@ def main():
                     st.info(f"**Total Rows:** {len(app_data)}")
                 
                 st.markdown("---")
-                st.subheader("📅 Chronological History")
+                st.subheader(" Chronological History")
                 
                 raw_cols = ['apps_status_clean', 'action_on_parsed', 'Recommendation_parsed', 'user_name_clean']
                 available_raw = [c for c in raw_cols if c in app_data.columns]
                 st.dataframe(app_data[available_raw].reset_index(drop=True), use_container_width=True)
                 
                 st.markdown("---")
-                st.subheader("⏱️ SLA Calculation Details")
+                st.subheader(" SLA Calculation Details")
                 
                 sla_cols = ['apps_status_clean', 'SLA_Start', 'SLA_End', 'SLA_Days', 'SLA_Formatted', 'SLA_Logic']
                 available_sla = [c for c in sla_cols if c in app_data.columns]
@@ -817,7 +815,7 @@ def main():
         
         csv_data = df_filtered[available_cols].to_csv(index=False)
         st.download_button(
-            "📥 Download Filtered Data (CSV)",
+            " Download Filtered Data (CSV)",
             csv_data,
             "ca_analytics_filtered.csv",
             "text/csv"
