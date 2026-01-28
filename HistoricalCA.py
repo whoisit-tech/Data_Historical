@@ -186,153 +186,95 @@ def calculate_sla_working_hours(start_dt, end_dt):
             'formatted': f"{days}d {hours}h {minutes}m {seconds}s"
         }
     except Exception as e:
-        st.warning(f"Error calculating SLA: {str(e)}")
         return None
 
-# ============================================================
-# FIXED: Logika calculate_historical_sla yang BENAR
-# Berdasarkan kolom Recommendation untuk PENDING CA
-# ============================================================
-def calculate_historical_sla(df):
+def calculate_row_sla(df):
     """
-    Calculate SLA per transition yang SEBENARNYA terjadi
+    Calculate SLA per row berdasarkan logika:
+    1. PENDING CA: action - recommendation (baris yang sama)
+    2. PENDING CA COMPLETED: action baris ini - action baris sebelumnya (apps_id sama)
+    3. NOT RECOMMENDED/RECOMMENDED CA/RECOMMENDED CA WITH COND: 
+       - Jika ada baris sebelumnya: action baris ini - action baris sebelumnya
+       - Jika tidak ada baris sebelumnya: action - recommendation (baris yang sama)
     
-    LOGIKA BENAR:
-    1. Sort by apps_id dan action_on_parsed
-    2. Untuk PENDING CA: SLA = action_on - Recommendation
-    3. Untuk PENDING CA COMPLETED: SLA = action_on - action_on PENDING CA sebelumnya
-    4. Untuk RECOMMENDATION CA: SLA = action_on - action_on PENDING CA COMPLETED sebelumnya
-    5. Status lain: SLA = action_on current - action_on previous
+    Returns: DataFrame dengan kolom SLA tambahan
     """
-    # Sort dulu
     df_sorted = df.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
-    sla_list = []
     
-    # Group by apps_id untuk efisiensi
+    # Initialize SLA columns
+    df_sorted['SLA_Start'] = None
+    df_sorted['SLA_End'] = None
+    df_sorted['SLA_Days'] = None
+    df_sorted['SLA_Formatted'] = '—'
+    df_sorted['SLA_Logic'] = 'N/A'
+    
+    # Group by apps_id
     for app_id, group in df_sorted.groupby('apps_id'):
         group = group.reset_index(drop=True)
         
         for idx in range(len(group)):
-            row = group.iloc[idx]
-            current_status = row.get('apps_status_clean', 'Unknown')
-            current_time = row.get('action_on_parsed')
-            recommendation_time = row.get('Recommendation_parsed')
+            row_idx = group.index[idx]
+            current_status = group.at[idx, 'apps_status_clean'].upper()
+            current_action = group.at[idx, 'action_on_parsed']
+            current_recommendation = group.at[idx, 'Recommendation_parsed']
             
-            # Jika ini row pertama untuk app ini
-            if idx == 0:
-                # Untuk row pertama, cek apakah PENDING CA dengan Recommendation
-                if current_status.upper() == 'PENDING CA' and pd.notna(recommendation_time):
-                    # PENDING CA dengan Recommendation: SLA = action_on - Recommendation
-                    sla_result = calculate_sla_working_hours(recommendation_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-                        sla_days = sla_result['working_days']
+            sla_start = None
+            sla_end = current_action
+            logic = 'N/A'
+            
+            # LOGIKA 1: PENDING CA
+            if current_status == 'PENDING CA':
+                if pd.notna(current_recommendation):
+                    sla_start = current_recommendation
+                    logic = 'PENDING CA: action - recommendation (same row)'
+                else:
+                    logic = 'PENDING CA: No recommendation data'
+            
+            # LOGIKA 2: PENDING CA COMPLETED
+            elif current_status == 'PENDING CA COMPLETED':
+                if idx > 0:
+                    # Ada baris sebelumnya
+                    prev_action = group.at[idx - 1, 'action_on_parsed']
+                    sla_start = prev_action
+                    logic = 'PENDING CA COMPLETED: action this row - action previous row'
+                else:
+                    # Baris pertama, cek recommendation
+                    if pd.notna(current_recommendation):
+                        sla_start = current_recommendation
+                        logic = 'PENDING CA COMPLETED: action - recommendation (first row)'
                     else:
-                        sla_formatted = '—'
-                        sla_days = None
-                    transition = f"START → {current_status}"
-                    start_time = recommendation_time
+                        logic = 'PENDING CA COMPLETED: First row, no recommendation'
+            
+            # LOGIKA 3: Status lainnya (NOT RECOMMENDED, RECOMMENDED CA, RECOMMENDED CA WITH COND)
+            elif current_status in ['NOT RECOMMENDED', 'RECOMMENDED CA', 'RECOMMENDED CA WITH COND']:
+                if idx > 0:
+                    # Ada baris sebelumnya
+                    prev_action = group.at[idx - 1, 'action_on_parsed']
+                    sla_start = prev_action
+                    logic = f'{current_status}: action this row - action previous row'
                 else:
-                    # Row pertama tanpa Recommendation atau bukan PENDING CA
-                    sla_formatted = '—'
-                    sla_days = None
-                    transition = f"START → {current_status}"
-                    start_time = None
-                
-                sla_list.append({
-                    'idx': row.name,  # original index
-                    'apps_id': app_id,
-                    'Transition': transition,
-                    'From_Status': 'START',
-                    'To_Status': current_status,
-                    'SLA_Days': sla_days,
-                    'SLA_Formatted': sla_formatted,
-                    'Start_Time': start_time,
-                    'End_Time': current_time,
-                    'Recommendation': recommendation_time
-                })
-                continue
+                    # Baris pertama, gunakan recommendation
+                    if pd.notna(current_recommendation):
+                        sla_start = current_recommendation
+                        logic = f'{current_status}: action - recommendation (first row)'
+                    else:
+                        logic = f'{current_status}: First row, no recommendation'
             
-            # Ada previous row
-            prev_row = group.iloc[idx - 1]
-            prev_status = prev_row.get('apps_status_clean', 'Unknown')
-            prev_time = prev_row.get('action_on_parsed')
-            
-            # Hitung SLA berdasarkan status
-            sla_result = None
-            sla_formatted = '—'
-            start_time = prev_time
-            transition = f"{prev_status} → {current_status}"
-            
-            # LOGIKA KHUSUS UNTUK PENDING CA
-            if current_status.upper() == 'PENDING CA':
-                if pd.notna(recommendation_time):
-                    # PENDING CA dengan Recommendation: SLA = action_on - Recommendation
-                    sla_result = calculate_sla_working_hours(recommendation_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-                    start_time = recommendation_time
-                    transition += " (from Rec)"
-                else:
-                    # PENDING CA tanpa Recommendation: pakai previous action
-                    sla_result = calculate_sla_working_hours(prev_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-            
-            # LOGIKA KHUSUS UNTUK PENDING CA COMPLETED
-            elif current_status.upper() == 'PENDING CA COMPLETED':
-                # Cari PENDING CA terakhir
-                pending_ca_rows = group[group['apps_status_clean'].str.upper() == 'PENDING CA']
-                if len(pending_ca_rows) > 0:
-                    last_pending_ca = pending_ca_rows.iloc[-1]
-                    last_pending_ca_time = last_pending_ca.get('action_on_parsed')
-                    sla_result = calculate_sla_working_hours(last_pending_ca_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-                    start_time = last_pending_ca_time
-                else:
-                    # Fallback: pakai previous action
-                    sla_result = calculate_sla_working_hours(prev_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-            
-            # LOGIKA KHUSUS UNTUK RECOMMENDATION CA
-            elif current_status.upper() == 'RECOMMENDATION CA':
-                # Cari PENDING CA COMPLETED terakhir
-                pending_ca_comp_rows = group[group['apps_status_clean'].str.upper() == 'PENDING CA COMPLETED']
-                if len(pending_ca_comp_rows) > 0:
-                    last_pending_ca_comp = pending_ca_comp_rows.iloc[-1]
-                    last_pending_ca_comp_time = last_pending_ca_comp.get('action_on_parsed')
-                    sla_result = calculate_sla_working_hours(last_pending_ca_comp_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-                    start_time = last_pending_ca_comp_time
-                else:
-                    # Fallback: pakai previous action
-                    sla_result = calculate_sla_working_hours(prev_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-            
-            # STATUS LAINNYA: SLA normal (current - previous)
-            else:
-                sla_result = calculate_sla_working_hours(prev_time, current_time)
+            # Hitung SLA jika ada start dan end
+            if sla_start and sla_end and pd.notna(sla_start) and pd.notna(sla_end):
+                sla_result = calculate_sla_working_hours(sla_start, sla_end)
                 if sla_result:
-                    sla_formatted = sla_result['formatted']
-            
-            sla_list.append({
-                'idx': row.name,  # original index
-                'apps_id': app_id,
-                'Transition': transition,
-                'From_Status': prev_status,
-                'To_Status': current_status,
-                'SLA_Days': sla_result['working_days'] if sla_result else None,
-                'SLA_Formatted': sla_formatted,
-                'Start_Time': start_time,
-                'End_Time': current_time,
-                'Recommendation': recommendation_time
-            })
+                    df_sorted.at[row_idx, 'SLA_Start'] = sla_start
+                    df_sorted.at[row_idx, 'SLA_End'] = sla_end
+                    df_sorted.at[row_idx, 'SLA_Days'] = sla_result['working_days']
+                    df_sorted.at[row_idx, 'SLA_Formatted'] = sla_result['formatted']
+                    df_sorted.at[row_idx, 'SLA_Logic'] = logic
+                else:
+                    df_sorted.at[row_idx, 'SLA_Logic'] = logic + ' (calculation failed)'
+            else:
+                df_sorted.at[row_idx, 'SLA_Logic'] = logic
     
-    return pd.DataFrame(sla_list)
+    return df_sorted
 
 def get_osph_category(osph_value):
     """Categorize Outstanding PH into ranges"""
@@ -463,16 +405,8 @@ def load_data():
         
         df_clean = preprocess_data(df)
         
-        # Calculate SLA setelah preprocessing
-        sla_history = calculate_historical_sla(df_clean)
-        
-        # Merge SLA ke original dataframe
-        for _, sla_row in sla_history.iterrows():
-            idx = sla_row['idx']
-            if idx < len(df_clean):
-                df_clean.at[idx, 'SLA_Days'] = sla_row['SLA_Days']
-                df_clean.at[idx, 'SLA_Formatted'] = sla_row['SLA_Formatted']
-                df_clean.at[idx, 'Transition'] = sla_row['Transition']
+        # Calculate SLA per row
+        df_clean = calculate_row_sla(df_clean)
         
         # Calculate risk score SETELAH SLA
         df_clean['Risk_Score'] = df_clean.apply(calculate_risk_score, axis=1)
@@ -488,6 +422,64 @@ def load_data():
         import traceback
         st.code(traceback.format_exc())
         return None
+
+def create_osph_analysis(df):
+    """
+    Create multi-dimensional OSPH analysis:
+    - By Pekerjaan (Job Type)
+    - By JenisKendaraan (Vehicle Type)
+    - By Hasil_Scoring (Scoring Result)
+    Each dimension broken down by Segmen
+    """
+    analyses = {}
+    
+    # Filter valid data
+    df_valid = df[
+        (df['OSPH_clean'].notna()) & 
+        (df['OSPH_Category'] != 'Unknown') &
+        (df['Segmen_clean'] != 'Unknown')
+    ].copy()
+    
+    if len(df_valid) == 0:
+        return analyses
+    
+    # 1. OSPH by Pekerjaan per Segmen
+    if 'Pekerjaan_clean' in df_valid.columns:
+        osph_pekerjaan = df_valid.groupby(
+            ['Segmen_clean', 'Pekerjaan_clean', 'OSPH_Category']
+        ).agg({
+            'apps_id': 'count',
+            'OSPH_clean': 'mean'
+        }).reset_index()
+        osph_pekerjaan.columns = ['Segmen', 'Pekerjaan', 'OSPH_Category', 'Count', 'Avg_OSPH']
+        analyses['pekerjaan'] = osph_pekerjaan
+    
+    # 2. OSPH by JenisKendaraan per Segmen
+    if 'JenisKendaraan_clean' in df_valid.columns:
+        osph_kendaraan = df_valid.groupby(
+            ['Segmen_clean', 'JenisKendaraan_clean', 'OSPH_Category']
+        ).agg({
+            'apps_id': 'count',
+            'OSPH_clean': 'mean'
+        }).reset_index()
+        osph_kendaraan.columns = ['Segmen', 'JenisKendaraan', 'OSPH_Category', 'Count', 'Avg_OSPH']
+        analyses['kendaraan'] = osph_kendaraan
+    
+    # 3. OSPH by Hasil_Scoring per Segmen
+    if 'Scoring_Detail' in df_valid.columns:
+        # Filter out placeholder values
+        df_scoring = df_valid[df_valid['Scoring_Detail'] != '(Pilih Semua)']
+        
+        osph_scoring = df_scoring.groupby(
+            ['Segmen_clean', 'Scoring_Detail', 'OSPH_Category']
+        ).agg({
+            'apps_id': 'count',
+            'OSPH_clean': 'mean'
+        }).reset_index()
+        osph_scoring.columns = ['Segmen', 'Scoring_Result', 'OSPH_Category', 'Count', 'Avg_OSPH']
+        analyses['scoring'] = osph_scoring
+    
+    return analyses
 
 def generate_analytical_insights(df):
     """Generate insights and warnings from data"""
@@ -517,8 +509,9 @@ def generate_analytical_insights(df):
     
     # Insight 2: SLA Performance
     if 'SLA_Days' in df.columns:
-        avg_sla = df['SLA_Days'].mean()
-        if pd.notna(avg_sla):
+        sla_valid = df[df['SLA_Days'].notna()]
+        if len(sla_valid) > 0:
+            avg_sla = sla_valid['SLA_Days'].mean()
             if avg_sla > 5:
                 warnings.append(
                     f"Average SLA is {avg_sla:.1f} working days (target: ≤5 days)"
@@ -528,12 +521,23 @@ def generate_analytical_insights(df):
                     f"Good SLA performance: {avg_sla:.1f} working days average"
                 )
     
+    # Insight 3: High Risk Cases
+    if 'Risk_Category' in df.columns:
+        high_risk = (df['Risk_Category'] == 'High Risk').sum()
+        total = len(df[df['Risk_Category'].notna()])
+        if total > 0:
+            risk_pct = high_risk / total * 100
+            if risk_pct > 20:
+                warnings.append(
+                    f"{risk_pct:.1f}% of cases are high risk (>20% threshold)"
+                )
+    
     return insights, warnings
 
 def main():
     """Main application"""
-    st.title("🎯 CA Analytics Dashboard (SLA FIXED v2)")
-    st.markdown("**✅ SLA Calculation FIXED - Based on Recommendation Column**")
+    st.title("🎯 CA Analytics Dashboard - Enhanced")
+    st.markdown("**✅ Per-Row SLA Calculation | Multi-Dimensional OSPH Analysis**")
     st.markdown("---")
     
     # Load data
@@ -544,21 +548,21 @@ def main():
         st.error("Data tidak dapat dimuat")
         st.stop()
     
-    # Calculate historical SLA
-    df_sla_history = calculate_historical_sla(df)
-    
     # Display data summary
     total_records = len(df)
     unique_apps = df['apps_id'].nunique()
+    sla_calculated = df['SLA_Days'].notna().sum()
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("📊 Total Records", f"{total_records:,}")
     with col2:
         st.metric("📝 Unique Applications", f"{unique_apps:,}")
     with col3:
-        avg_sla = df_sla_history['SLA_Days'].mean()
-        st.metric("⏱️ Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
+        st.metric("⏱️ SLA Calculated", f"{sla_calculated:,}")
+    with col4:
+        avg_sla = df[df['SLA_Days'].notna()]['SLA_Days'].mean()
+        st.metric("📈 Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
     
     st.markdown("---")
     
@@ -669,13 +673,6 @@ def main():
             df_filtered['OSPH_Category'] == selected_osph
         ]
     
-    
-    # Filter SLA history based on apps that passed filters
-    filtered_app_ids = df_filtered['apps_id'].unique()
-    df_sla_history_filtered = df_sla_history[
-        df_sla_history['apps_id'].isin(filtered_app_ids)
-    ]
-    
     # Sidebar summary
     st.sidebar.markdown("---")
     st.sidebar.info(
@@ -699,64 +696,42 @@ def main():
     
     # Tabs
     (
-        tab1, tab2, tab3
+        tab1, tab2, tab3, tab4, tab5
     ) = st.tabs([
-        "SLA Transitions (NEW)",
-        "SLA Examples",
-        "Raw Data"
+        "📊 SLA Overview",
+        "📈 OSPH Analysis",
+        "🔍 Detailed View",
+        "📋 Examples",
+        "💾 Raw Data"
     ])
     
-    # Tab 1: SLA Transitions
+    # Tab 1: SLA Overview
     with tab1:
-        st.header("SLA Transitions Analysis")
-        st.info("✅ FIXED: SLA berdasarkan kolom Recommendation untuk PENDING CA")
+        st.header("SLA Performance Overview")
         
-        # SLA Overview
-        st.subheader("SLA Performance Overview")
+        # SLA Metrics
+        sla_valid = df_filtered[df_filtered['SLA_Days'].notna()]
         
-        col1, col2, col3 = st.columns(3)
-        
-        sla_valid = df_sla_history_filtered[df_sla_history_filtered['SLA_Days'].notna()]
-        
-        with col1:
-            if len(sla_valid) > 0:
-                st.metric("Average SLA", f"{sla_valid['SLA_Days'].mean():.2f} days")
-        
-        with col2:
-            if len(sla_valid) > 0:
-                st.metric("Median SLA", f"{sla_valid['SLA_Days'].median():.2f} days")
-        
-        with col3:
-            if len(sla_valid) > 0:
-                st.metric("90th Percentile", f"{sla_valid['SLA_Days'].quantile(0.9):.2f} days")
-        
-        st.markdown("---")
-        
-        # Statistics per Transition
-        st.subheader("SLA Statistics per Transition")
-        
-        stats_data = []
-        for transition in sorted(df_sla_history_filtered['Transition'].unique()):
-            trans_data = df_sla_history_filtered[df_sla_history_filtered['Transition'] == transition]
-            valid_sla = trans_data[trans_data['SLA_Days'].notna()]
-            
-            if len(valid_sla) > 0:
-                stats_data.append({
-                    'Transition': transition,
-                    'Total Records': len(trans_data),
-                    'With SLA': len(valid_sla),
-                    'Avg SLA (days)': f"{valid_sla['SLA_Days'].mean():.2f}",
-                    'Min': valid_sla['SLA_Formatted'].iloc[valid_sla['SLA_Days'].argmin()],
-                    'Max': valid_sla['SLA_Formatted'].iloc[valid_sla['SLA_Days'].argmax()],
-                })
-        
-        if stats_data:
-            stats_df = pd.DataFrame(stats_data)
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
-        
-        # Distribution chart
         if len(sla_valid) > 0:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Average SLA", f"{sla_valid['SLA_Days'].mean():.2f} days")
+            
+            with col2:
+                st.metric("Median SLA", f"{sla_valid['SLA_Days'].median():.2f} days")
+            
+            with col3:
+                st.metric("90th Percentile", f"{sla_valid['SLA_Days'].quantile(0.9):.2f} days")
+            
+            with col4:
+                exceed_5 = (sla_valid['SLA_Days'] > 5).sum()
+                pct = exceed_5 / len(sla_valid) * 100
+                st.metric("Exceed 5 Days", f"{exceed_5} ({pct:.1f}%)")
+            
             st.markdown("---")
+            
+            # SLA Distribution
             st.subheader("SLA Distribution")
             
             fig = px.histogram(
@@ -764,62 +739,309 @@ def main():
                 x='SLA_Days',
                 nbins=50,
                 title="SLA Distribution (Working Days)",
-                labels={'SLA_Days': 'Working Days'}
+                labels={'SLA_Days': 'Working Days'},
+                color_discrete_sequence=['#667eea']
+            )
+            fig.add_vline(x=5, line_dash="dash", line_color="red", 
+                         annotation_text="5 Days Target")
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # SLA by Status
+            st.subheader("Average SLA by Status")
+            
+            sla_by_status = sla_valid.groupby('apps_status_clean').agg({
+                'SLA_Days': ['mean', 'median', 'count']
+            }).reset_index()
+            sla_by_status.columns = ['Status', 'Avg_SLA', 'Median_SLA', 'Count']
+            sla_by_status = sla_by_status.sort_values('Avg_SLA', ascending=False)
+            
+            fig = px.bar(
+                sla_by_status,
+                x='Status',
+                y='Avg_SLA',
+                text='Count',
+                title="Average SLA by Application Status",
+                labels={'Avg_SLA': 'Average SLA (Days)'},
+                color='Avg_SLA',
+                color_continuous_scale='RdYlGn_r'
             )
             st.plotly_chart(fig, use_container_width=True)
+            
+            # SLA Logic Distribution
+            st.subheader("SLA Calculation Logic Distribution")
+            
+            logic_counts = sla_valid['SLA_Logic'].value_counts().reset_index()
+            logic_counts.columns = ['Logic', 'Count']
+            
+            fig = px.pie(
+                logic_counts,
+                values='Count',
+                names='Logic',
+                title="Distribution of SLA Calculation Methods"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+        else:
+            st.info("No SLA data available for current filters")
     
-    # Tab 2: SLA Examples
+    # Tab 2: OSPH Analysis
     with tab2:
-        st.header("SLA Calculation Examples")
-        st.info("Lihat contoh perhitungan SLA untuk apps tertentu")
+        st.header("Multi-Dimensional OSPH Analysis")
+        st.info("Analisis OSPH berdasarkan 3 dimensi: Pekerjaan, Jenis Kendaraan, dan Hasil Scoring - masing-masing per Segmen")
+        
+        # Generate OSPH analysis
+        osph_analyses = create_osph_analysis(df_filtered)
+        
+        if osph_analyses:
+            # Sub-tabs for each dimension
+            osph_tab1, osph_tab2, osph_tab3 = st.tabs([
+                "👔 By Pekerjaan",
+                "🚗 By Jenis Kendaraan",
+                "📊 By Hasil Scoring"
+            ])
+            
+            # Dimension 1: Pekerjaan
+            with osph_tab1:
+                if 'pekerjaan' in osph_analyses:
+                    df_pek = osph_analyses['pekerjaan']
+                    
+                    st.subheader("OSPH Distribution by Pekerjaan per Segmen")
+                    
+                    # Summary table
+                    st.dataframe(
+                        df_pek.sort_values(['Segmen', 'Count'], ascending=[True, False]),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Visualization
+                    fig = px.sunburst(
+                        df_pek,
+                        path=['Segmen', 'Pekerjaan', 'OSPH_Category'],
+                        values='Count',
+                        title="OSPH Hierarchy: Segmen → Pekerjaan → OSPH Range",
+                        color='Avg_OSPH',
+                        color_continuous_scale='RdYlGn_r'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Bar chart per segmen
+                    for segmen in df_pek['Segmen'].unique():
+                        df_seg = df_pek[df_pek['Segmen'] == segmen]
+                        
+                        fig = px.bar(
+                            df_seg,
+                            x='Pekerjaan',
+                            y='Count',
+                            color='OSPH_Category',
+                            title=f"Pekerjaan Distribution - {segmen}",
+                            barmode='stack'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No data available for Pekerjaan analysis")
+            
+            # Dimension 2: Jenis Kendaraan
+            with osph_tab2:
+                if 'kendaraan' in osph_analyses:
+                    df_ken = osph_analyses['kendaraan']
+                    
+                    st.subheader("OSPH Distribution by Jenis Kendaraan per Segmen")
+                    
+                    # Summary table
+                    st.dataframe(
+                        df_ken.sort_values(['Segmen', 'Count'], ascending=[True, False]),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Visualization
+                    fig = px.sunburst(
+                        df_ken,
+                        path=['Segmen', 'JenisKendaraan', 'OSPH_Category'],
+                        values='Count',
+                        title="OSPH Hierarchy: Segmen → Jenis Kendaraan → OSPH Range",
+                        color='Avg_OSPH',
+                        color_continuous_scale='RdYlGn_r'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Bar chart per segmen
+                    for segmen in df_ken['Segmen'].unique():
+                        df_seg = df_ken[df_ken['Segmen'] == segmen]
+                        
+                        fig = px.bar(
+                            df_seg,
+                            x='JenisKendaraan',
+                            y='Count',
+                            color='OSPH_Category',
+                            title=f"Jenis Kendaraan Distribution - {segmen}",
+                            barmode='stack'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No data available for Jenis Kendaraan analysis")
+            
+            # Dimension 3: Hasil Scoring
+            with osph_tab3:
+                if 'scoring' in osph_analyses:
+                    df_scr = osph_analyses['scoring']
+                    
+                    st.subheader("OSPH Distribution by Hasil Scoring per Segmen")
+                    
+                    # Summary table
+                    st.dataframe(
+                        df_scr.sort_values(['Segmen', 'Count'], ascending=[True, False]),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Visualization
+                    fig = px.sunburst(
+                        df_scr,
+                        path=['Segmen', 'Scoring_Result', 'OSPH_Category'],
+                        values='Count',
+                        title="OSPH Hierarchy: Segmen → Scoring Result → OSPH Range",
+                        color='Avg_OSPH',
+                        color_continuous_scale='RdYlGn_r'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Bar chart per segmen
+                    for segmen in df_scr['Segmen'].unique():
+                        df_seg = df_scr[df_scr['Segmen'] == segmen]
+                        
+                        fig = px.bar(
+                            df_seg,
+                            x='Scoring_Result',
+                            y='Count',
+                            color='OSPH_Category',
+                            title=f"Scoring Result Distribution - {segmen}",
+                            barmode='stack'
+                        )
+                        fig.update_xaxes(tickangle=45)
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No data available for Hasil Scoring analysis")
+        else:
+            st.warning("No data available for OSPH analysis with current filters")
+    
+    # Tab 3: Detailed View
+    with tab3:
+        st.header("Detailed SLA View per Application")
         
         # Select app to view
-        sample_apps = sorted(df_sla_history_filtered['apps_id'].unique())[:100]
+        sample_apps = sorted(df_filtered['apps_id'].unique())
         
         if len(sample_apps) > 0:
             selected_app = st.selectbox(
-                "Pilih App ID untuk melihat detail SLA:",
-                sample_apps
+                "Select Application ID:",
+                sample_apps,
+                key='detailed_view_app'
             )
             
             if selected_app:
-                app_sla = df_sla_history_filtered[df_sla_history_filtered['apps_id'] == selected_app]
+                app_data = df_filtered[df_filtered['apps_id'] == selected_app].sort_values('action_on_parsed')
                 
-                st.subheader(f"SLA History untuk App ID: {selected_app}")
+                st.subheader(f"Application ID: {selected_app}")
+                
+                # Display key info
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if 'Segmen_clean' in app_data.columns:
+                        st.info(f"**Segmen:** {app_data['Segmen_clean'].iloc[0]}")
+                
+                with col2:
+                    if 'OSPH_Category' in app_data.columns:
+                        st.info(f"**OSPH:** {app_data['OSPH_Category'].iloc[0]}")
+                
+                with col3:
+                    if 'branch_name_clean' in app_data.columns:
+                        st.info(f"**Branch:** {app_data['branch_name_clean'].iloc[0]}")
+                
+                st.markdown("---")
+                
+                # Timeline visualization
+                st.subheader("Status Timeline")
+                
+                timeline_data = []
+                for idx, row in app_data.iterrows():
+                    timeline_data.append({
+                        'Status': row['apps_status_clean'],
+                        'Time': row['action_on_parsed'],
+                        'SLA': row['SLA_Formatted'],
+                        'Logic': row['SLA_Logic']
+                    })
+                
+                timeline_df = pd.DataFrame(timeline_data)
+                
+                fig = px.scatter(
+                    timeline_df,
+                    x='Time',
+                    y='Status',
+                    text='SLA',
+                    title=f"Status Progression for {selected_app}",
+                    color='Status'
+                )
+                fig.update_traces(textposition='top center', marker=dict(size=15))
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Detailed table
+                st.subheader("Detailed Records")
                 
                 display_cols = [
-                    'Transition', 'From_Status', 'To_Status',
-                    'Start_Time', 'End_Time', 'Recommendation',
-                    'SLA_Formatted', 'SLA_Days'
+                    'apps_status_clean', 'action_on_parsed', 'Recommendation_parsed',
+                    'SLA_Start', 'SLA_End', 'SLA_Days', 'SLA_Formatted', 'SLA_Logic',
+                    'Scoring_Detail', 'user_name_clean'
                 ]
                 
+                available_cols = [c for c in display_cols if c in app_data.columns]
+                
                 st.dataframe(
-                    app_sla[display_cols],
+                    app_data[available_cols],
                     use_container_width=True,
                     hide_index=True
                 )
-                
-                # Show raw data for this app
-                st.markdown("---")
-                st.subheader("Raw Data untuk App ini")
-                
-                app_raw = df[df['apps_id'] == selected_app].sort_values('action_on_parsed')
-                
-                raw_cols = [
-                    'apps_status', 'action_on_parsed', 'Recommendation_parsed',
-                    'user_name', 'Scoring_Detail'
-                ]
-                
-                available_raw = [c for c in raw_cols if c in app_raw.columns]
-                
-                st.dataframe(
-                    app_raw[available_raw],
-                    use_container_width=True,
-                    hide_index=True
-                )
+        else:
+            st.info("No applications available with current filters")
     
-    # Tab 3: Raw Data
-    with tab3:
+    # Tab 4: Examples
+    with tab4:
+        st.header("SLA Calculation Examples")
+        st.info("Contoh perhitungan SLA untuk berbagai skenario")
+        
+        # Show examples for each logic type
+        if 'SLA_Logic' in df_filtered.columns:
+            logic_types = df_filtered[df_filtered['SLA_Days'].notna()]['SLA_Logic'].unique()
+            
+            for logic in sorted(logic_types):
+                with st.expander(f" {logic}"):
+                    examples = df_filtered[
+                        (df_filtered['SLA_Logic'] == logic) & 
+                        (df_filtered['SLA_Days'].notna())
+                    ].head(5)
+                    
+                    if len(examples) > 0:
+                        display_cols = [
+                            'apps_id', 'apps_status_clean', 
+                            'action_on_parsed', 'Recommendation_parsed',
+                            'SLA_Start', 'SLA_End',
+                            'SLA_Days', 'SLA_Formatted'
+                        ]
+                        
+                        available_cols = [c for c in display_cols if c in examples.columns]
+                        
+                        st.dataframe(
+                            examples[available_cols],
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info("No examples available")
+    
+    # Tab 5: Raw Data
+    with tab5:
         st.header("Raw Data Export")
         st.info("View and download filtered data")
         
@@ -827,9 +1049,12 @@ def main():
         
         display_cols = [
             'apps_id', 'apps_status_clean', 'action_on_parsed',
-            'Recommendation_parsed', 'Transition', 'SLA_Formatted', 'SLA_Days',
-            'Scoring_Detail', 'OSPH_clean', 'LastOD_clean',
-            'user_name_clean', 'branch_name_clean'
+            'Recommendation_parsed', 'SLA_Start', 'SLA_End',
+            'SLA_Days', 'SLA_Formatted', 'SLA_Logic',
+            'Scoring_Detail', 'OSPH_clean', 'OSPH_Category',
+            'Pekerjaan_clean', 'JenisKendaraan_clean',
+            'LastOD_clean', 'user_name_clean', 'branch_name_clean',
+            'Segmen_clean'
         ]
         
         available_cols = [c for c in display_cols if c in df_filtered.columns]
@@ -851,20 +1076,32 @@ def main():
         with col1:
             csv_data = df_filtered[available_cols].to_csv(index=False)
             st.download_button(
-                "📥 Download Filtered Data (CSV)",
+                " Download Filtered Data (CSV)",
                 csv_data,
                 "ca_analytics_filtered.csv",
                 "text/csv"
             )
         
         with col2:
-            csv_sla = df_sla_history_filtered.to_csv(index=False)
-            st.download_button(
-                "📥 Download SLA History (CSV)",
-                csv_sla,
-                "sla_history.csv",
-                "text/csv"
-            )
+            # Create OSPH analysis export
+            if osph_analyses:
+                # Combine all dimensions
+                export_data = []
+                
+                for dim_name, dim_data in osph_analyses.items():
+                    dim_data_copy = dim_data.copy()
+                    dim_data_copy['Dimension'] = dim_name
+                    export_data.append(dim_data_copy)
+                
+                if export_data:
+                    osph_export = pd.concat(export_data, ignore_index=True)
+                    csv_osph = osph_export.to_csv(index=False)
+                    st.download_button(
+                        " Download OSPH Analysis (CSV)",
+                        csv_osph,
+                        "osph_analysis.csv",
+                        "text/csv"
+                    )
     
     st.markdown("---")
     st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
