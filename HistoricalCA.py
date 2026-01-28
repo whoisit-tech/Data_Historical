@@ -9,7 +9,7 @@ from pathlib import Path
 
 st.set_page_config(page_title="CA Analytics", layout="wide")
 
-FILE_NAME = "Historical_CA (1).xlsx"
+FILE_NAME = "HistoricalCA.xlsx"
 
 st.markdown("""
 <style>
@@ -191,11 +191,11 @@ def calculate_sla_working_hours(start_dt, end_dt):
 def calculate_row_sla(df):
     """
     Calculate SLA per row berdasarkan logika:
-    1. PENDING CA: action - recommendation (baris yang sama)
+    1. PENDING CA: action - Recommendation (baris yang sama)
     2. PENDING CA COMPLETED: action baris ini - action baris sebelumnya (apps_id sama)
     3. NOT RECOMMENDED/RECOMMENDED CA/RECOMMENDED CA WITH COND: 
        - Jika ada baris sebelumnya: action baris ini - action baris sebelumnya
-       - Jika tidak ada baris sebelumnya: action - recommendation (baris yang sama)
+       - Jika tidak ada baris sebelumnya: action - Recommendation (baris yang sama)
     
     Returns: DataFrame dengan kolom SLA tambahan
     """
@@ -214,7 +214,7 @@ def calculate_row_sla(df):
         
         for idx in range(len(group)):
             row_idx = group.index[idx]
-            current_status = group.at[idx, 'apps_status_clean'].upper()
+            current_status = str(group.at[idx, 'apps_status_clean']).upper()
             current_action = group.at[idx, 'action_on_parsed']
             current_recommendation = group.at[idx, 'Recommendation_parsed']
             
@@ -223,15 +223,15 @@ def calculate_row_sla(df):
             logic = 'N/A'
             
             # LOGIKA 1: PENDING CA
-            if current_status == 'PENDING CA':
+            if 'PENDING CA' in current_status and 'COMPLETED' not in current_status:
                 if pd.notna(current_recommendation):
                     sla_start = current_recommendation
-                    logic = 'PENDING CA: action - recommendation (same row)'
+                    logic = 'PENDING CA: action - Recommendation (same row)'
                 else:
-                    logic = 'PENDING CA: No recommendation data'
+                    logic = 'PENDING CA: No Recommendation data'
             
             # LOGIKA 2: PENDING CA COMPLETED
-            elif current_status == 'PENDING CA COMPLETED':
+            elif 'PENDING CA COMPLETED' in current_status or 'PENDING CA COMPLETED' in current_status.replace(' ', ''):
                 if idx > 0:
                     # Ada baris sebelumnya
                     prev_action = group.at[idx - 1, 'action_on_parsed']
@@ -241,12 +241,12 @@ def calculate_row_sla(df):
                     # Baris pertama, cek recommendation
                     if pd.notna(current_recommendation):
                         sla_start = current_recommendation
-                        logic = 'PENDING CA COMPLETED: action - recommendation (first row)'
+                        logic = 'PENDING CA COMPLETED: action - Recommendation (first row)'
                     else:
-                        logic = 'PENDING CA COMPLETED: First row, no recommendation'
+                        logic = 'PENDING CA COMPLETED: First row, no Recommendation'
             
             # LOGIKA 3: Status lainnya (NOT RECOMMENDED, RECOMMENDED CA, RECOMMENDED CA WITH COND)
-            elif current_status in ['NOT RECOMMENDED', 'RECOMMENDED CA', 'RECOMMENDED CA WITH COND']:
+            elif any(status in current_status for status in ['NOT RECOMMENDED', 'RECOMMENDED CA']):
                 if idx > 0:
                     # Ada baris sebelumnya
                     prev_action = group.at[idx - 1, 'action_on_parsed']
@@ -256,9 +256,9 @@ def calculate_row_sla(df):
                     # Baris pertama, gunakan recommendation
                     if pd.notna(current_recommendation):
                         sla_start = current_recommendation
-                        logic = f'{current_status}: action - recommendation (first row)'
+                        logic = f'{current_status}: action - Recommendation (first row)'
                     else:
-                        logic = f'{current_status}: First row, no recommendation'
+                        logic = f'{current_status}: First row, no Recommendation'
             
             # Hitung SLA jika ada start dan end
             if sla_start and sla_end and pd.notna(sla_start) and pd.notna(sla_end):
@@ -329,7 +329,7 @@ def preprocess_data(df):
     df = df.copy()
     
     # Parse dates - INCLUDING RECOMMENDATION
-    for col in ['action_on', 'Initiation', 'RealisasiDate', 'Recommendation', 'ApprovalCC1', 'ApprovalCC2']:
+    for col in ['action_on', 'Initiation', 'RealisasiDate', 'Recommendation']:
         if col in df.columns:
             df[f'{col}_parsed'] = df[col].apply(parse_date)
     
@@ -357,6 +357,8 @@ def preprocess_data(df):
     # Clean Segmen
     if 'Segmen' in df.columns:
         df['Segmen_clean'] = df['Segmen'].fillna('Unknown').astype(str).str.strip()
+    else:
+        df['Segmen_clean'] = 'Unknown'
     
     # Extract time features
     if 'action_on_parsed' in df.columns:
@@ -369,8 +371,8 @@ def preprocess_data(df):
     
     # Clean categorical columns
     categorical_fields = [
-        'desc_status_apps', 'Pekerjaan', 'Jabatan',
-        'JenisKendaraan', 'branch_name', 
+        'desc_status_apps', 'Produk', 'Pekerjaan', 'Jabatan',
+        'Pekerjaan_Pasangan', 'JenisKendaraan', 'branch_name', 
         'Tujuan_Kredit', 'user_name', 'position_name'
     ]
     
@@ -392,10 +394,9 @@ def load_data():
         
         required_cols = [
             'apps_id', 'position_name', 'user_name', 'apps_status', 'desc_status_apps',
-            'Segmen', 'action_on', 'Initiation', 'RealisasiDate', 'Outstanding_PH',
+            'action_on', 'Initiation', 'RealisasiDate', 'Outstanding_PH',
             'Pekerjaan', 'Jabatan', 'Hasil_Scoring',
-            'JenisKendaraan', 'branch_name', 'Tujuan_Kredit',
-            'Recommendation', 'LastOD', 'max_OD'
+            'JenisKendaraan', 'branch_name', 'Tujuan_Kredit', 'LastOD', 'max_OD'
         ]
         
         missing = [c for c in required_cols if c not in df.columns]
@@ -423,13 +424,12 @@ def load_data():
         st.code(traceback.format_exc())
         return None
 
-def create_osph_analysis(df):
+def create_osph_analysis_3d(df):
     """
-    Create multi-dimensional OSPH analysis:
-    - By Pekerjaan (Job Type)
-    - By JenisKendaraan (Vehicle Type)
-    - By Hasil_Scoring (Scoring Result)
-    Each dimension broken down by Segmen
+    Create 3-dimensional OSPH analysis per Segmen:
+    - Dimension 1: By Pekerjaan per Segmen
+    - Dimension 2: By JenisKendaraan per Segmen
+    - Dimension 3: By Hasil_Scoring per Segmen
     """
     analyses = {}
     
@@ -443,41 +443,83 @@ def create_osph_analysis(df):
     if len(df_valid) == 0:
         return analyses
     
-    # 1. OSPH by Pekerjaan per Segmen
+    # DIMENSION 1: OSPH by Pekerjaan per Segmen
     if 'Pekerjaan_clean' in df_valid.columns:
-        osph_pekerjaan = df_valid.groupby(
+        dim1_data = df_valid.groupby(
             ['Segmen_clean', 'Pekerjaan_clean', 'OSPH_Category']
         ).agg({
-            'apps_id': 'count',
+            'apps_id': 'nunique',
             'OSPH_clean': 'mean'
         }).reset_index()
-        osph_pekerjaan.columns = ['Segmen', 'Pekerjaan', 'OSPH_Category', 'Count', 'Avg_OSPH']
-        analyses['pekerjaan'] = osph_pekerjaan
+        dim1_data.columns = ['Segmen', 'Pekerjaan', 'OSPH_Category', 'Total_Apps', 'Avg_OSPH']
+        
+        # Add record count
+        record_counts = df_valid.groupby(
+            ['Segmen_clean', 'Pekerjaan_clean', 'OSPH_Category']
+        ).size().reset_index(name='Total_Records')
+        
+        dim1_data = dim1_data.merge(
+            record_counts, 
+            left_on=['Segmen', 'Pekerjaan', 'OSPH_Category'],
+            right_on=['Segmen_clean', 'Pekerjaan_clean', 'OSPH_Category'],
+            how='left'
+        )
+        dim1_data = dim1_data.drop(['Segmen_clean', 'Pekerjaan_clean'], axis=1, errors='ignore')
+        
+        analyses['pekerjaan'] = dim1_data
     
-    # 2. OSPH by JenisKendaraan per Segmen
+    # DIMENSION 2: OSPH by JenisKendaraan per Segmen
     if 'JenisKendaraan_clean' in df_valid.columns:
-        osph_kendaraan = df_valid.groupby(
+        dim2_data = df_valid.groupby(
             ['Segmen_clean', 'JenisKendaraan_clean', 'OSPH_Category']
         ).agg({
-            'apps_id': 'count',
+            'apps_id': 'nunique',
             'OSPH_clean': 'mean'
         }).reset_index()
-        osph_kendaraan.columns = ['Segmen', 'JenisKendaraan', 'OSPH_Category', 'Count', 'Avg_OSPH']
-        analyses['kendaraan'] = osph_kendaraan
+        dim2_data.columns = ['Segmen', 'JenisKendaraan', 'OSPH_Category', 'Total_Apps', 'Avg_OSPH']
+        
+        # Add record count
+        record_counts = df_valid.groupby(
+            ['Segmen_clean', 'JenisKendaraan_clean', 'OSPH_Category']
+        ).size().reset_index(name='Total_Records')
+        
+        dim2_data = dim2_data.merge(
+            record_counts,
+            left_on=['Segmen', 'JenisKendaraan', 'OSPH_Category'],
+            right_on=['Segmen_clean', 'JenisKendaraan_clean', 'OSPH_Category'],
+            how='left'
+        )
+        dim2_data = dim2_data.drop(['Segmen_clean', 'JenisKendaraan_clean'], axis=1, errors='ignore')
+        
+        analyses['kendaraan'] = dim2_data
     
-    # 3. OSPH by Hasil_Scoring per Segmen
+    # DIMENSION 3: OSPH by Hasil_Scoring per Segmen
     if 'Scoring_Detail' in df_valid.columns:
         # Filter out placeholder values
         df_scoring = df_valid[df_valid['Scoring_Detail'] != '(Pilih Semua)']
         
-        osph_scoring = df_scoring.groupby(
+        dim3_data = df_scoring.groupby(
             ['Segmen_clean', 'Scoring_Detail', 'OSPH_Category']
         ).agg({
-            'apps_id': 'count',
+            'apps_id': 'nunique',
             'OSPH_clean': 'mean'
         }).reset_index()
-        osph_scoring.columns = ['Segmen', 'Scoring_Result', 'OSPH_Category', 'Count', 'Avg_OSPH']
-        analyses['scoring'] = osph_scoring
+        dim3_data.columns = ['Segmen', 'Hasil_Scoring', 'OSPH_Category', 'Total_Apps', 'Avg_OSPH']
+        
+        # Add record count
+        record_counts = df_scoring.groupby(
+            ['Segmen_clean', 'Scoring_Detail', 'OSPH_Category']
+        ).size().reset_index(name='Total_Records')
+        
+        dim3_data = dim3_data.merge(
+            record_counts,
+            left_on=['Segmen', 'Hasil_Scoring', 'OSPH_Category'],
+            right_on=['Segmen_clean', 'Scoring_Detail', 'OSPH_Category'],
+            how='left'
+        )
+        dim3_data = dim3_data.drop(['Segmen_clean', 'Scoring_Detail'], axis=1, errors='ignore')
+        
+        analyses['scoring'] = dim3_data
     
     return analyses
 
@@ -536,8 +578,8 @@ def generate_analytical_insights(df):
 
 def main():
     """Main application"""
-    st.title("🎯 CA Analytics Dashboard - Enhanced")
-    st.markdown("**✅ Per-Row SLA Calculation | Multi-Dimensional OSPH Analysis**")
+    st.title(" CA Analytics Dashboard - Enhanced v2")
+    st.markdown("** Per-Row SLA Calculation | 3D OSPH Analysis per Segmen**")
     st.markdown("---")
     
     # Load data
@@ -555,14 +597,14 @@ def main():
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("📊 Total Records", f"{total_records:,}")
+        st.metric(" Total Records", f"{total_records:,}")
     with col2:
-        st.metric("📝 Unique Applications", f"{unique_apps:,}")
+        st.metric(" Unique Applications", f"{unique_apps:,}")
     with col3:
-        st.metric("⏱️ SLA Calculated", f"{sla_calculated:,}")
+        st.metric(" SLA Calculated", f"{sla_calculated:,}")
     with col4:
         avg_sla = df[df['SLA_Days'].notna()]['SLA_Days'].mean()
-        st.metric("📈 Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
+        st.metric(" Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
     
     st.markdown("---")
     
@@ -683,31 +725,31 @@ def main():
     )
     
     # Insights
-    st.header("💡 Key Insights")
+    st.header(" Key Insights")
     insights, warnings = generate_analytical_insights(df_filtered)
     
     if warnings:
-        st.warning("⚠️ **Alerts:**\n" + "\n".join([f"• {w}" for w in warnings]))
+        st.warning(" **Alerts:**\n" + "\n".join([f"• {w}" for w in warnings]))
     
     if insights:
-        st.success("✅ **Positive Findings:**\n" + "\n".join([f"• {i}" for i in insights]))
+        st.success(" **Positive Findings:**\n" + "\n".join([f"• {i}" for i in insights]))
     
     st.markdown("---")
     
     # Tabs
     (
-        tab1, tab2, tab3, tab4, tab5
+        tab1, tab2, tab3, tab4
     ) = st.tabs([
-        "📊 SLA Overview",
-        "📈 OSPH Analysis",
-        "🔍 Detailed View",
-        "📋 Examples",
-        "💾 Raw Data"
+        " SLA Overview",
+        " OSPH Analysis 3D per Segmen",
+        " Detailed View",
+        " Raw Data"
     ])
     
     # Tab 1: SLA Overview
     with tab1:
         st.header("SLA Performance Overview")
+        st.info(" SLA dihitung per row dengan logika yang benar")
         
         # SLA Metrics
         sla_valid = df_filtered[df_filtered['SLA_Days'].notna()]
@@ -755,6 +797,8 @@ def main():
             sla_by_status.columns = ['Status', 'Avg_SLA', 'Median_SLA', 'Count']
             sla_by_status = sla_by_status.sort_values('Avg_SLA', ascending=False)
             
+            st.dataframe(sla_by_status, use_container_width=True, hide_index=True)
+            
             fig = px.bar(
                 sla_by_status,
                 x='Status',
@@ -765,9 +809,11 @@ def main():
                 color='Avg_SLA',
                 color_continuous_scale='RdYlGn_r'
             )
+            fig.update_xaxes(tickangle=45)
             st.plotly_chart(fig, use_container_width=True)
             
             # SLA Logic Distribution
+            st.markdown("---")
             st.subheader("SLA Calculation Logic Distribution")
             
             logic_counts = sla_valid['SLA_Logic'].value_counts().reset_index()
@@ -784,140 +830,172 @@ def main():
         else:
             st.info("No SLA data available for current filters")
     
-    # Tab 2: OSPH Analysis
+    # Tab 2: OSPH Analysis 3D per Segmen
     with tab2:
-        st.header("Multi-Dimensional OSPH Analysis")
+        st.header("OSPH Analysis - 3 Dimensi per Segmen")
         st.info("Analisis OSPH berdasarkan 3 dimensi: Pekerjaan, Jenis Kendaraan, dan Hasil Scoring - masing-masing per Segmen")
         
         # Generate OSPH analysis
-        osph_analyses = create_osph_analysis(df_filtered)
+        osph_analyses = create_osph_analysis_3d(df_filtered)
         
         if osph_analyses:
             # Sub-tabs for each dimension
-            osph_tab1, osph_tab2, osph_tab3 = st.tabs([
-                "👔 By Pekerjaan",
-                "🚗 By Jenis Kendaraan",
-                "📊 By Hasil Scoring"
+            dim_tab1, dim_tab2, dim_tab3 = st.tabs([
+                " Dimensi 1: Pekerjaan",
+                " Dimensi 2: Jenis Kendaraan",
+                " Dimensi 3: Hasil Scoring"
             ])
             
-            # Dimension 1: Pekerjaan
-            with osph_tab1:
+            # DIMENSION 1: Pekerjaan
+            with dim_tab1:
                 if 'pekerjaan' in osph_analyses:
                     df_pek = osph_analyses['pekerjaan']
                     
-                    st.subheader("OSPH Distribution by Pekerjaan per Segmen")
+                    st.subheader("OSPH by Pekerjaan per Segmen")
+                    st.markdown("**Tabel lengkap dengan Total Apps dan Total Records**")
                     
                     # Summary table
                     st.dataframe(
-                        df_pek.sort_values(['Segmen', 'Count'], ascending=[True, False]),
+                        df_pek.sort_values(['Segmen', 'Total_Apps'], ascending=[True, False]),
                         use_container_width=True,
                         hide_index=True
                     )
                     
-                    # Visualization
+                    st.markdown("---")
+                    
+                    # Sunburst visualization
+                    st.subheader("Visualisasi Hierarki: Segmen → Pekerjaan → OSPH Range")
+                    
                     fig = px.sunburst(
                         df_pek,
                         path=['Segmen', 'Pekerjaan', 'OSPH_Category'],
-                        values='Count',
-                        title="OSPH Hierarchy: Segmen → Pekerjaan → OSPH Range",
+                        values='Total_Apps',
+                        title="OSPH Distribution by Pekerjaan per Segmen",
                         color='Avg_OSPH',
                         color_continuous_scale='RdYlGn_r'
                     )
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Bar chart per segmen
-                    for segmen in df_pek['Segmen'].unique():
+                    st.markdown("---")
+                    
+                    # Bar charts per segmen
+                    st.subheader("Detail per Segmen")
+                    
+                    for segmen in sorted(df_pek['Segmen'].unique()):
                         df_seg = df_pek[df_pek['Segmen'] == segmen]
                         
                         fig = px.bar(
                             df_seg,
                             x='Pekerjaan',
-                            y='Count',
+                            y='Total_Apps',
                             color='OSPH_Category',
-                            title=f"Pekerjaan Distribution - {segmen}",
-                            barmode='stack'
+                            title=f"Segmen: {segmen} - Pekerjaan Distribution",
+                            barmode='stack',
+                            text='Total_Apps'
                         )
+                        fig.update_xaxes(tickangle=45)
                         st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No data available for Pekerjaan analysis")
             
-            # Dimension 2: Jenis Kendaraan
-            with osph_tab2:
+            # DIMENSION 2: Jenis Kendaraan
+            with dim_tab2:
                 if 'kendaraan' in osph_analyses:
                     df_ken = osph_analyses['kendaraan']
                     
-                    st.subheader("OSPH Distribution by Jenis Kendaraan per Segmen")
+                    st.subheader("OSPH by Jenis Kendaraan per Segmen")
+                    st.markdown("**Tabel lengkap dengan Total Apps dan Total Records**")
                     
                     # Summary table
                     st.dataframe(
-                        df_ken.sort_values(['Segmen', 'Count'], ascending=[True, False]),
+                        df_ken.sort_values(['Segmen', 'Total_Apps'], ascending=[True, False]),
                         use_container_width=True,
                         hide_index=True
                     )
                     
-                    # Visualization
+                    st.markdown("---")
+                    
+                    # Sunburst visualization
+                    st.subheader("Visualisasi Hierarki: Segmen → Jenis Kendaraan → OSPH Range")
+                    
                     fig = px.sunburst(
                         df_ken,
                         path=['Segmen', 'JenisKendaraan', 'OSPH_Category'],
-                        values='Count',
-                        title="OSPH Hierarchy: Segmen → Jenis Kendaraan → OSPH Range",
+                        values='Total_Apps',
+                        title="OSPH Distribution by Jenis Kendaraan per Segmen",
                         color='Avg_OSPH',
                         color_continuous_scale='RdYlGn_r'
                     )
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Bar chart per segmen
-                    for segmen in df_ken['Segmen'].unique():
+                    st.markdown("---")
+                    
+                    # Bar charts per segmen
+                    st.subheader("Detail per Segmen")
+                    
+                    for segmen in sorted(df_ken['Segmen'].unique()):
                         df_seg = df_ken[df_ken['Segmen'] == segmen]
                         
                         fig = px.bar(
                             df_seg,
                             x='JenisKendaraan',
-                            y='Count',
+                            y='Total_Apps',
                             color='OSPH_Category',
-                            title=f"Jenis Kendaraan Distribution - {segmen}",
-                            barmode='stack'
+                            title=f"Segmen: {segmen} - Jenis Kendaraan Distribution",
+                            barmode='stack',
+                            text='Total_Apps'
                         )
+                        fig.update_xaxes(tickangle=45)
                         st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No data available for Jenis Kendaraan analysis")
             
-            # Dimension 3: Hasil Scoring
-            with osph_tab3:
+            # DIMENSION 3: Hasil Scoring
+            with dim_tab3:
                 if 'scoring' in osph_analyses:
                     df_scr = osph_analyses['scoring']
                     
-                    st.subheader("OSPH Distribution by Hasil Scoring per Segmen")
+                    st.subheader("OSPH by Hasil Scoring per Segmen")
+                    st.markdown("**Tabel lengkap dengan Total Apps dan Total Records**")
                     
                     # Summary table
                     st.dataframe(
-                        df_scr.sort_values(['Segmen', 'Count'], ascending=[True, False]),
+                        df_scr.sort_values(['Segmen', 'Total_Apps'], ascending=[True, False]),
                         use_container_width=True,
                         hide_index=True
                     )
                     
-                    # Visualization
+                    st.markdown("---")
+                    
+                    # Sunburst visualization
+                    st.subheader("Visualisasi Hierarki: Segmen → Hasil Scoring → OSPH Range")
+                    
                     fig = px.sunburst(
                         df_scr,
-                        path=['Segmen', 'Scoring_Result', 'OSPH_Category'],
-                        values='Count',
-                        title="OSPH Hierarchy: Segmen → Scoring Result → OSPH Range",
+                        path=['Segmen', 'Hasil_Scoring', 'OSPH_Category'],
+                        values='Total_Apps',
+                        title="OSPH Distribution by Hasil Scoring per Segmen",
                         color='Avg_OSPH',
                         color_continuous_scale='RdYlGn_r'
                     )
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Bar chart per segmen
-                    for segmen in df_scr['Segmen'].unique():
+                    st.markdown("---")
+                    
+                    # Bar charts per segmen
+                    st.subheader("Detail per Segmen")
+                    
+                    for segmen in sorted(df_scr['Segmen'].unique()):
                         df_seg = df_scr[df_scr['Segmen'] == segmen]
                         
                         fig = px.bar(
                             df_seg,
-                            x='Scoring_Result',
-                            y='Count',
+                            x='Hasil_Scoring',
+                            y='Total_Apps',
                             color='OSPH_Category',
-                            title=f"Scoring Result Distribution - {segmen}",
-                            barmode='stack'
+                            title=f"Segmen: {segmen} - Hasil Scoring Distribution",
+                            barmode='stack',
+                            text='Total_Apps'
                         )
                         fig.update_xaxes(tickangle=45)
                         st.plotly_chart(fig, use_container_width=True)
@@ -1006,42 +1084,8 @@ def main():
         else:
             st.info("No applications available with current filters")
     
-    # Tab 4: Examples
+    # Tab 4: Raw Data
     with tab4:
-        st.header("SLA Calculation Examples")
-        st.info("Contoh perhitungan SLA untuk berbagai skenario")
-        
-        # Show examples for each logic type
-        if 'SLA_Logic' in df_filtered.columns:
-            logic_types = df_filtered[df_filtered['SLA_Days'].notna()]['SLA_Logic'].unique()
-            
-            for logic in sorted(logic_types):
-                with st.expander(f" {logic}"):
-                    examples = df_filtered[
-                        (df_filtered['SLA_Logic'] == logic) & 
-                        (df_filtered['SLA_Days'].notna())
-                    ].head(5)
-                    
-                    if len(examples) > 0:
-                        display_cols = [
-                            'apps_id', 'apps_status_clean', 
-                            'action_on_parsed', 'Recommendation_parsed',
-                            'SLA_Start', 'SLA_End',
-                            'SLA_Days', 'SLA_Formatted'
-                        ]
-                        
-                        available_cols = [c for c in display_cols if c in examples.columns]
-                        
-                        st.dataframe(
-                            examples[available_cols],
-                            use_container_width=True,
-                            hide_index=True
-                        )
-                    else:
-                        st.info("No examples available")
-    
-    # Tab 5: Raw Data
-    with tab5:
         st.header("Raw Data Export")
         st.info("View and download filtered data")
         
@@ -1084,6 +1128,7 @@ def main():
         
         with col2:
             # Create OSPH analysis export
+            osph_analyses = create_osph_analysis_3d(df_filtered)
             if osph_analyses:
                 # Combine all dimensions
                 export_data = []
@@ -1099,7 +1144,7 @@ def main():
                     st.download_button(
                         " Download OSPH Analysis (CSV)",
                         csv_osph,
-                        "osph_analysis.csv",
+                        "osph_analysis_3d.csv",
                         "text/csv"
                     )
     
