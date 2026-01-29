@@ -524,7 +524,7 @@ def generate_analytical_insights(df):
 
 def main():
     """Main application"""
-    st.title(" CA Analytics Dashboard - Final Version")
+    st.title(" CA Analytics Dashboard ")
     st.markdown("** Correct Per-Row SLA | OSPH Pivot Tables per Segmen**")
     st.markdown("---")
     
@@ -542,11 +542,17 @@ def main():
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric(" Total Records", f"{total_records:,}")
+        st.caption("Total kontrak/apps (semua rows)")
     with col2:
         st.metric(" Unique Applications", f"{unique_apps:,}")
+        st.caption("Distinct apps_id")
     with col3:
+        st.metric(" SLA Calculated", f"{sla_calculated:,}")
+        st.caption("Rows dengan SLA")
+    with col4:
         avg_sla = df[df['SLA_Days'].notna()]['SLA_Days'].mean()
         st.metric(" Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
+        st.caption("Rata-rata working days")
     
     st.markdown("---")
     
@@ -650,6 +656,8 @@ def main():
             with col2:
                 st.metric("Median SLA", f"{sla_valid['SLA_Days'].median():.2f} days")
             with col3:
+                st.metric("90th Percentile", f"{sla_valid['SLA_Days'].quantile(0.9):.2f} days")
+            with col4:
                 exceed_5 = (sla_valid['SLA_Days'] > 5).sum()
                 pct = exceed_5 / len(sla_valid) * 100
                 st.metric("Exceed 5 Days", f"{exceed_5} ({pct:.1f}%)")
@@ -706,7 +714,7 @@ def main():
     # Tab 2: OSPH Pivot Analysis
     with tab2:
         st.header("OSPH Pivot Tables per Segmen")
-        st.info(" Pivot tables showing unique apps count for each combination")
+        st.info(" Pivot tables menampilkan **jumlah unique apps_id** untuk setiap kombinasi")
         
         osph_pivots = create_osph_pivot_analysis(df_filtered)
         
@@ -720,11 +728,16 @@ def main():
             # PIVOT 1: OSPH x Pekerjaan
             with pivot_tab1:
                 if 'pekerjaan' in osph_pivots:
-                    st.subheader("Pivot: OSPH Range (Rows) x Pekerjaan (Columns) per Segmen")
+                    st.subheader("Pivot: OSPH Range (Rows) x Pekerjaan (Columns)")
+                    st.caption(" Angka = Jumlah Distinct Apps | TOTAL = Row/Column totals")
                     
                     for segmen, pivot_table in osph_pivots['pekerjaan'].items():
                         st.markdown(f"### Segmen: **{segmen}**")
                         st.dataframe(pivot_table, use_container_width=True)
+                        
+                        # Show summary
+                        total_apps = pivot_table.loc['TOTAL', 'TOTAL'] if 'TOTAL' in pivot_table.index and 'TOTAL' in pivot_table.columns else 0
+                        st.caption(f"Total Distinct Apps untuk segmen {segmen}: **{int(total_apps):,}**")
                         st.markdown("---")
                 else:
                     st.info("No data available")
@@ -732,11 +745,16 @@ def main():
             # PIVOT 2: OSPH x Jenis Kendaraan
             with pivot_tab2:
                 if 'kendaraan' in osph_pivots:
-                    st.subheader("Pivot: OSPH Range (Rows) x Jenis Kendaraan (Columns) per Segmen")
+                    st.subheader("Pivot: OSPH Range (Rows) x Jenis Kendaraan (Columns)")
+                    st.caption(" Angka = Jumlah Distinct Apps | TOTAL = Row/Column totals")
                     
                     for segmen, pivot_table in osph_pivots['kendaraan'].items():
                         st.markdown(f"### Segmen: **{segmen}**")
                         st.dataframe(pivot_table, use_container_width=True)
+                        
+                        # Show summary
+                        total_apps = pivot_table.loc['TOTAL', 'TOTAL'] if 'TOTAL' in pivot_table.index and 'TOTAL' in pivot_table.columns else 0
+                        st.caption(f"Total Distinct Apps untuk segmen {segmen}: **{int(total_apps):,}**")
                         st.markdown("---")
                 else:
                     st.info("No data available")
@@ -744,11 +762,16 @@ def main():
             # PIVOT 3: OSPH x Hasil Scoring
             with pivot_tab3:
                 if 'scoring' in osph_pivots:
-                    st.subheader("Pivot: OSPH Range (Rows) x Hasil Scoring (Columns) per Segmen")
+                    st.subheader("Pivot: OSPH Range (Rows) x Hasil Scoring (Columns)")
+                    st.caption(" Angka = Jumlah Distinct Apps | TOTAL = Row/Column totals")
                     
                     for segmen, pivot_table in osph_pivots['scoring'].items():
                         st.markdown(f"### Segmen: **{segmen}**")
                         st.dataframe(pivot_table, use_container_width=True)
+                        
+                        # Show summary
+                        total_apps = pivot_table.loc['TOTAL', 'TOTAL'] if 'TOTAL' in pivot_table.index and 'TOTAL' in pivot_table.columns else 0
+                        st.caption(f"Total Distinct Apps untuk segmen {segmen}: **{int(total_apps):,}**")
                         st.markdown("---")
                 else:
                     st.info("No data available")
