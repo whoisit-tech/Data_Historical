@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -23,6 +24,13 @@ st.markdown("""
         padding: 15px;
         border-radius: 8px;
         border-left: 4px solid #003366;
+    }
+    .history-row {
+        background: #f8f9fa;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 5px;
+        border-left: 3px solid #007bff;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -240,6 +248,11 @@ def preprocess_data(df):
         df['JenisKendaraan_clean'] = df['JenisKendaraan'].fillna('Unknown').astype(str).str.strip()
         df['JenisKendaraan_clean'] = df['JenisKendaraan_clean'].replace('-', 'Unknown')
     
+    # Clean Pekerjaan
+    if 'Pekerjaan' in df.columns:
+        df['Pekerjaan_clean'] = df['Pekerjaan'].fillna('Unknown').astype(str).str.strip()
+        df['Pekerjaan_clean'] = df['Pekerjaan_clean'].replace('-', 'Unknown')
+    
     # Time features
     if 'action_on_parsed' in df.columns:
         df['Hour'] = df['action_on_parsed'].dt.hour
@@ -251,7 +264,7 @@ def preprocess_data(df):
     
     # Clean categorical fields
     categorical_fields = [
-        'desc_status_apps', 'Pekerjaan', 'Jabatan',
+        'desc_status_apps', 'Jabatan',
         'branch_name', 'Tujuan_Kredit', 'user_name', 'position_name'
     ]
     
@@ -262,10 +275,7 @@ def preprocess_data(df):
     return df
 
 def calculate_sla_per_status(df):
-    """
-    Calculate SLA per status (simplified approach)
-    For each record, calculate time from Recommendation to action_on
-    """
+    """Calculate SLA from Recommendation to action_on"""
     df_with_sla = df.copy()
     
     sla_hours_list = []
@@ -337,7 +347,7 @@ def load_data():
 def main():
     """Main Streamlit application"""
     st.title("CA Analytics Dashboard")
-    st.markdown("**Credit Application Analytics - Fixed Version**")
+    st.markdown("**Credit Application Analytics - Comprehensive Version**")
     st.markdown("---")
     
     with st.spinner("Loading data..."):
@@ -428,158 +438,429 @@ def main():
     st.sidebar.info(f"📝 {df_filtered['apps_id'].nunique():,} unique applications")
     
     # TABS
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Outstanding PH Analysis",
-        "Status & Scoring",
-        "OD Impact Analysis",
-        "CA Performance",
-        "SLA Analysis",
-        "Data Export"
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        "🔍 Detail Raw Data",
+        "📊 OSPH Multi-Level Pivot",
+        "🏢 Branch & CA Performance",
+        "📋 Status & Scoring",
+        "⏰ OD Impact",
+        "⏱️ SLA Analysis",
+        "💾 Export"
     ])
     
-    # ====== TAB 1: OUTSTANDING PH ======
+    # ====== TAB 1: DETAIL RAW DATA (SEARCH) ======
     with tab1:
-        st.header("📊 Outstanding PH Distribution Analysis")
+        st.header("🔍 Detail Raw Data - Application History")
         
-        # 1. OSPH vs Segmen
-        st.subheader("1. Outstanding PH vs Segmen/Produk")
+        st.markdown("""
+        **Search untuk melihat:**
+        - Full chronological history per application
+        - Semua timestamps (action_on, Recommendation, Initiation, dll)
+        - SLA calculation per record
+        - Status transitions
+        """)
         
-        if 'OSPH_Category' in df_filtered.columns and 'Segmen_clean' in df_filtered.columns:
-            osph_segmen_data = []
-            
-            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
-                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
-                
-                row = {
-                    'Outstanding PH': osph,
-                    'Total Apps': df_osph['apps_id'].nunique(),
-                    'Total Records': len(df_osph)
-                }
-                
-                for segmen in sorted([x for x in df_filtered['Segmen_clean'].unique() if x != 'Unknown']):
-                    count = len(df_osph[df_osph['Segmen_clean'] == segmen])
-                    if count > 0:
-                        row[segmen] = count
-                
-                osph_segmen_data.append(row)
-            
-            osph_segmen_df = pd.DataFrame(osph_segmen_data)
-            st.dataframe(osph_segmen_df, use_container_width=True, hide_index=True)
-            
-            # Visualization
-            if len(osph_segmen_df) > 0:
-                plot_data = []
-                for _, row in osph_segmen_df.iterrows():
-                    osph = row['Outstanding PH']
-                    for col in osph_segmen_df.columns:
-                        if col not in ['Outstanding PH', 'Total Apps', 'Total Records']:
-                            if col in row and pd.notna(row[col]):
-                                plot_data.append({
-                                    'OSPH': osph,
-                                    'Segmen': col,
-                                    'Count': row[col]
-                                })
-                
-                if plot_data:
-                    plot_df = pd.DataFrame(plot_data)
-                    fig = px.bar(
-                        plot_df,
-                        x='OSPH',
-                        y='Count',
-                        color='Segmen',
-                        title="Outstanding PH vs Segmen Distribution",
-                        barmode='group'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+        # Search box
+        col1, col2 = st.columns([3, 1])
         
-        st.markdown("---")
+        with col1:
+            search_input = st.text_input("🔎 Search Application ID:", placeholder="Enter apps_id (e.g., 4769760)")
         
-        # 2. OSPH vs JenisKendaraan
-        st.subheader("2. Outstanding PH vs Jenis Kendaraan")
+        with col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            search_button = st.button("Search", type="primary")
         
-        if 'OSPH_Category' in df_filtered.columns and 'JenisKendaraan_clean' in df_filtered.columns:
-            osph_vehicle_data = []
+        if search_input and search_button:
+            try:
+                search_id = int(search_input)
+                app_history = df[df['apps_id'] == search_id].sort_values('action_on_parsed')
+                
+                if len(app_history) > 0:
+                    st.success(f"✅ Found {len(app_history)} record(s) for Application ID: **{search_id}**")
+                    
+                    # Summary Info
+                    st.markdown("---")
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        if 'Segmen_clean' in app_history.columns:
+                            st.info(f"**Segmen:** {app_history['Segmen_clean'].iloc[0]}")
+                    
+                    with col2:
+                        if 'OSPH_Category' in app_history.columns:
+                            st.info(f"**OSPH:** {app_history['OSPH_Category'].iloc[0]}")
+                    
+                    with col3:
+                        if 'branch_name_clean' in app_history.columns:
+                            st.info(f"**Branch:** {app_history['branch_name_clean'].iloc[0]}")
+                    
+                    with col4:
+                        if 'user_name_clean' in app_history.columns:
+                            st.info(f"**CA:** {app_history['user_name_clean'].iloc[0]}")
+                    
+                    st.markdown("---")
+                    
+                    # Chronological History
+                    st.subheader("📅 Chronological History")
+                    
+                    for idx, row in app_history.iterrows():
+                        status = row.get('apps_status_clean', 'N/A')
+                        action_on = row.get('action_on_parsed', 'N/A')
+                        recommendation = row.get('Recommendation_parsed', 'N/A')
+                        scoring = row.get('Scoring_Detail', 'N/A')
+                        sla_formatted = row.get('SLA_Formatted', 'N/A')
+                        sla_hours = row.get('SLA_Hours', 'N/A')
+                        
+                        action_str = action_on.strftime('%Y-%m-%d %H:%M:%S') if isinstance(action_on, datetime) else str(action_on)
+                        rec_str = recommendation.strftime('%Y-%m-%d %H:%M:%S') if isinstance(recommendation, datetime) else str(recommendation)
+                        
+                        st.markdown(f"""
+                        <div class="history-row">
+                            <strong>Status:</strong> {status}<br>
+                            <strong>Action On:</strong> {action_str}<br>
+                            <strong>Recommendation:</strong> {rec_str}<br>
+                            <strong>Scoring:</strong> {scoring}<br>
+                            <strong>SLA:</strong> {sla_formatted} ({sla_hours} hours)
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("---")
+                    
+                    # Full Data Table
+                    st.subheader("📋 Complete Data Table")
+                    
+                    display_cols = [
+                        'apps_status_clean', 'action_on_parsed', 'Recommendation_parsed',
+                        'Initiation_parsed', 'RealisasiDate_parsed',
+                        'SLA_Hours', 'SLA_Formatted', 'Scoring_Detail',
+                        'OSPH_clean', 'LastOD_clean', 'max_OD_clean',
+                        'user_name_clean', 'branch_name_clean'
+                    ]
+                    
+                    available_cols = [c for c in display_cols if c in app_history.columns]
+                    st.dataframe(app_history[available_cols].reset_index(drop=True), use_container_width=True)
+                    
+                else:
+                    st.warning(f"⚠️ No records found for Application ID: {search_id}")
             
-            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
-                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
-                
-                row = {
-                    'Outstanding PH': osph,
-                    'Total Apps': df_osph['apps_id'].nunique(),
-                    'Total Records': len(df_osph)
-                }
-                
-                for vehicle in sorted([x for x in df_filtered['JenisKendaraan_clean'].unique() if x != 'Unknown']):
-                    count = len(df_osph[df_osph['JenisKendaraan_clean'] == vehicle])
-                    if count > 0:
-                        row[vehicle] = count
-                
-                osph_vehicle_data.append(row)
-            
-            osph_vehicle_df = pd.DataFrame(osph_vehicle_data)
-            st.dataframe(osph_vehicle_df, use_container_width=True, hide_index=True)
-            
-            # Visualization
-            if len(osph_vehicle_df) > 0:
-                plot_data = []
-                for _, row in osph_vehicle_df.iterrows():
-                    osph = row['Outstanding PH']
-                    for col in osph_vehicle_df.columns:
-                        if col not in ['Outstanding PH', 'Total Apps', 'Total Records']:
-                            if col in row and pd.notna(row[col]):
-                                plot_data.append({
-                                    'OSPH': osph,
-                                    'Vehicle': col,
-                                    'Count': row[col]
-                                })
-                
-                if plot_data:
-                    plot_df = pd.DataFrame(plot_data)
-                    fig = px.bar(
-                        plot_df,
-                        x='OSPH',
-                        y='Count',
-                        color='Vehicle',
-                        title="Outstanding PH vs Jenis Kendaraan Distribution",
-                        barmode='group'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+            except ValueError:
+                st.error("❌ Please enter a valid numeric Application ID")
         
-        st.markdown("---")
-        
-        # 3. OSPH vs Scoring
-        st.subheader("3. Outstanding PH vs Scoring Result")
-        
-        if 'OSPH_Category' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
-            osph_scoring_data = []
+        elif not search_input:
+            st.info("👆 Enter an Application ID above to view detailed history")
             
-            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
-                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
-                
-                row = {
-                    'Outstanding PH': osph,
-                    'Total Apps': df_osph['apps_id'].nunique(),
-                    'Total Records': len(df_osph)
-                }
-                
-                for scoring in ['APPROVE', 'APPROVE 1', 'APPROVE 2', 'REGULER', 'REGULER 1', 'REGULER 2', 'REJECT', 'REJECT 1', 'REJECT 2']:
-                    count = len(df_osph[df_osph['Scoring_Detail'] == scoring])
-                    if count > 0:
-                        row[scoring] = count
-                
-                # Calculate approval rate
-                approve = df_osph['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                total = len(df_osph[df_osph['Scoring_Detail'] != '(Pilih Semua)'])
-                row['Approval Rate'] = f"{approve/total*100:.1f}%" if total > 0 else "0%"
-                
-                osph_scoring_data.append(row)
+            # Show sample app IDs
+            st.markdown("---")
+            st.subheader("📝 Sample Application IDs")
+            sample_ids = df['apps_id'].unique()[:20]
             
-            osph_scoring_df = pd.DataFrame(osph_scoring_data)
-            st.dataframe(osph_scoring_df, use_container_width=True, hide_index=True)
+            cols = st.columns(5)
+            for i, app_id in enumerate(sample_ids):
+                with cols[i % 5]:
+                    st.code(str(app_id))
     
-    # ====== TAB 2: STATUS & SCORING ======
+    # ====== TAB 2: OSPH MULTI-LEVEL PIVOT ======
     with tab2:
-        st.header("📋 Application Status & Scoring Cross-Tabulation")
+        st.header("📊 Outstanding PH Multi-Level Pivot Analysis")
+        
+        st.markdown("""
+        **Hierarki Analisis:**
+        1. **Segmen** (CS NEW, CS USED, KKB)
+        2. **OSPH Range** (0-250 Juta, 250-500 Juta, 500 Juta+)
+        3. **Breakdown by:** Jenis Kendaraan, Pekerjaan, Scoring
+        """)
+        
+        # Level 1: Select Segmen
+        st.subheader("📌 Step 1: Select Segmen")
+        
+        if 'Segmen_clean' in df_filtered.columns:
+            segmen_options = sorted([x for x in df_filtered['Segmen_clean'].unique() if x != 'Unknown'])
+            selected_segmen_pivot = st.selectbox("Choose Segmen:", ['All Segmen'] + segmen_options, key='pivot_segmen')
+            
+            if selected_segmen_pivot == 'All Segmen':
+                df_segmen = df_filtered.copy()
+            else:
+                df_segmen = df_filtered[df_filtered['Segmen_clean'] == selected_segmen_pivot]
+            
+            st.info(f"Selected: **{selected_segmen_pivot}** | Records: **{len(df_segmen):,}**")
+            
+            st.markdown("---")
+            
+            # Level 2: OSPH Range Summary
+            st.subheader("📌 Step 2: OSPH Range Distribution")
+            
+            if 'OSPH_Category' in df_segmen.columns:
+                osph_summary = df_segmen.groupby('OSPH_Category').agg({
+                    'apps_id': 'nunique',
+                    'OSPH_clean': 'sum'
+                }).reset_index()
+                osph_summary.columns = ['OSPH Range', 'Total Applications', 'Total Outstanding (Rp)']
+                osph_summary['Total Outstanding (Rp)'] = osph_summary['Total Outstanding (Rp)'].apply(lambda x: f"Rp {x:,.0f}")
+                
+                st.dataframe(osph_summary, use_container_width=True, hide_index=True)
+                
+                # Select OSPH Range
+                osph_options = sorted([x for x in df_segmen['OSPH_Category'].unique() if x != 'Unknown'])
+                selected_osph_range = st.selectbox("Choose OSPH Range for detailed breakdown:", osph_options, key='pivot_osph')
+                
+                df_osph = df_segmen[df_segmen['OSPH_Category'] == selected_osph_range]
+                
+                st.info(f"Selected: **{selected_osph_range}** | Records: **{len(df_osph):,}**")
+                
+                st.markdown("---")
+                
+                # Level 3: Breakdown Options
+                st.subheader("📌 Step 3: Detailed Breakdown")
+                
+                breakdown_tab1, breakdown_tab2, breakdown_tab3 = st.tabs([
+                    "🚗 Jenis Kendaraan",
+                    "💼 Pekerjaan",
+                    "📊 Scoring Result"
+                ])
+                
+                # Breakdown 1: Jenis Kendaraan
+                with breakdown_tab1:
+                    st.markdown(f"### {selected_segmen_pivot} → {selected_osph_range} → **Jenis Kendaraan**")
+                    
+                    if 'JenisKendaraan_clean' in df_osph.columns:
+                        vehicle_breakdown = df_osph.groupby('JenisKendaraan_clean').agg({
+                            'apps_id': 'nunique',
+                            'OSPH_clean': ['sum', 'mean']
+                        }).reset_index()
+                        
+                        vehicle_breakdown.columns = ['Jenis Kendaraan', 'Total Apps', 'Total OSPH', 'Avg OSPH']
+                        vehicle_breakdown['Total OSPH'] = vehicle_breakdown['Total OSPH'].apply(lambda x: f"Rp {x:,.0f}")
+                        vehicle_breakdown['Avg OSPH'] = vehicle_breakdown['Avg OSPH'].apply(lambda x: f"Rp {x:,.0f}")
+                        vehicle_breakdown = vehicle_breakdown.sort_values('Total Apps', ascending=False)
+                        
+                        st.dataframe(vehicle_breakdown, use_container_width=True, hide_index=True)
+                        
+                        # Chart
+                        chart_data = df_osph.groupby('JenisKendaraan_clean')['apps_id'].nunique().reset_index()
+                        chart_data.columns = ['Jenis Kendaraan', 'Count']
+                        
+                        fig = px.pie(
+                            chart_data,
+                            values='Count',
+                            names='Jenis Kendaraan',
+                            title=f"Distribution by Vehicle Type ({selected_osph_range})"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                
+                # Breakdown 2: Pekerjaan
+                with breakdown_tab2:
+                    st.markdown(f"### {selected_segmen_pivot} → {selected_osph_range} → **Pekerjaan**")
+                    
+                    if 'Pekerjaan_clean' in df_osph.columns:
+                        job_breakdown = df_osph.groupby('Pekerjaan_clean').agg({
+                            'apps_id': 'nunique',
+                            'OSPH_clean': ['sum', 'mean']
+                        }).reset_index()
+                        
+                        job_breakdown.columns = ['Pekerjaan', 'Total Apps', 'Total OSPH', 'Avg OSPH']
+                        job_breakdown['Total OSPH'] = job_breakdown['Total OSPH'].apply(lambda x: f"Rp {x:,.0f}")
+                        job_breakdown['Avg OSPH'] = job_breakdown['Avg OSPH'].apply(lambda x: f"Rp {x:,.0f}")
+                        job_breakdown = job_breakdown.sort_values('Total Apps', ascending=False)
+                        
+                        st.dataframe(job_breakdown.head(15), use_container_width=True, hide_index=True)
+                        st.caption("Showing top 15 professions")
+                        
+                        # Chart
+                        chart_data = df_osph.groupby('Pekerjaan_clean')['apps_id'].nunique().reset_index()
+                        chart_data.columns = ['Pekerjaan', 'Count']
+                        chart_data = chart_data.sort_values('Count', ascending=False).head(10)
+                        
+                        fig = px.bar(
+                            chart_data,
+                            x='Count',
+                            y='Pekerjaan',
+                            orientation='h',
+                            title=f"Top 10 Professions ({selected_osph_range})"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                
+                # Breakdown 3: Scoring
+                with breakdown_tab3:
+                    st.markdown(f"### {selected_segmen_pivot} → {selected_osph_range} → **Scoring Result**")
+                    
+                    if 'Scoring_Detail' in df_osph.columns:
+                        scoring_breakdown = df_osph.groupby('Scoring_Detail').agg({
+                            'apps_id': 'nunique',
+                            'OSPH_clean': ['sum', 'mean']
+                        }).reset_index()
+                        
+                        scoring_breakdown.columns = ['Scoring', 'Total Apps', 'Total OSPH', 'Avg OSPH']
+                        scoring_breakdown['Total OSPH'] = scoring_breakdown['Total OSPH'].apply(lambda x: f"Rp {x:,.0f}")
+                        scoring_breakdown['Avg OSPH'] = scoring_breakdown['Avg OSPH'].apply(lambda x: f"Rp {x:,.0f}")
+                        
+                        # Calculate percentage
+                        total_apps = scoring_breakdown['Total Apps'].sum()
+                        scoring_breakdown['Percentage'] = scoring_breakdown['Total Apps'].apply(
+                            lambda x: f"{x/total_apps*100:.1f}%"
+                        )
+                        
+                        scoring_breakdown = scoring_breakdown.sort_values('Total Apps', ascending=False)
+                        
+                        st.dataframe(scoring_breakdown, use_container_width=True, hide_index=True)
+                        
+                        # Chart
+                        chart_data = df_osph.groupby('Scoring_Detail')['apps_id'].nunique().reset_index()
+                        chart_data.columns = ['Scoring', 'Count']
+                        
+                        fig = px.bar(
+                            chart_data,
+                            x='Scoring',
+                            y='Count',
+                            title=f"Scoring Distribution ({selected_osph_range})",
+                            color='Count',
+                            color_continuous_scale='RdYlGn'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+    
+    # ====== TAB 3: BRANCH & CA PERFORMANCE (COMBINED) ======
+    with tab3:
+        st.header("🏢 Branch & CA Performance")
+        
+        subtab1, subtab2 = st.tabs(["🏢 Branch Analysis", "👥 CA Analysis"])
+        
+        # Branch Performance
+        with subtab1:
+            st.subheader("Branch Performance Summary")
+            
+            if 'branch_name_clean' in df_filtered.columns:
+                branch_perf = []
+                
+                for branch in sorted(df_filtered['branch_name_clean'].unique()):
+                    if branch == 'Unknown':
+                        continue
+                    
+                    df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
+                    
+                    approve = df_branch['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+                    total_scored = len(df_branch[df_branch['Scoring_Detail'] != '(Pilih Semua)'])
+                    approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
+                    
+                    avg_risk = f"{df_branch['Risk_Score'].mean():.0f}" if df_branch['Risk_Score'].notna().any() else "-"
+                    
+                    branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
+                    avg_sla = convert_hours_to_hm(branch_sla['SLA_Hours'].mean()) if len(branch_sla) > 0 else "-"
+                    
+                    total_osph = df_branch['OSPH_clean'].sum()
+                    
+                    branch_perf.append({
+                        'Branch': branch,
+                        'Total Apps': df_branch['apps_id'].nunique(),
+                        'Total Records': len(df_branch),
+                        'Approved': approve,
+                        'Approval Rate': approval_pct,
+                        'Avg Risk Score': avg_risk,
+                        'Avg SLA': avg_sla,
+                        'Total OSPH': f"Rp {total_osph:,.0f}"
+                    })
+                
+                branch_df = pd.DataFrame(branch_perf).sort_values('Total Apps', ascending=False)
+                st.dataframe(branch_df, use_container_width=True, hide_index=True)
+                
+                # Top 10 Branches Chart
+                if len(branch_df) > 0:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        fig1 = px.bar(
+                            branch_df.head(10),
+                            x='Branch',
+                            y='Total Apps',
+                            title="Top 10 Branches by Volume"
+                        )
+                        st.plotly_chart(fig1, use_container_width=True)
+                    
+                    with col2:
+                        # Extract numeric approval rate
+                        branch_df_plot = branch_df.copy()
+                        branch_df_plot['Approval_Numeric'] = branch_df_plot['Approval Rate'].str.rstrip('%').astype(float)
+                        
+                        fig2 = px.bar(
+                            branch_df_plot.head(10),
+                            x='Branch',
+                            y='Approval_Numeric',
+                            title="Top 10 Branches by Approval Rate",
+                            color='Approval_Numeric',
+                            color_continuous_scale='RdYlGn'
+                        )
+                        fig2.update_layout(yaxis_title="Approval Rate (%)")
+                        st.plotly_chart(fig2, use_container_width=True)
+        
+        # CA Performance
+        with subtab2:
+            st.subheader("Credit Analyst Performance Summary")
+            
+            if 'user_name_clean' in df_filtered.columns:
+                ca_perf = []
+                
+                for ca in sorted(df_filtered['user_name_clean'].unique()):
+                    if ca == 'Unknown':
+                        continue
+                    
+                    df_ca = df_filtered[df_filtered['user_name_clean'] == ca]
+                    
+                    approve = df_ca['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+                    total_scored = len(df_ca[df_ca['Scoring_Detail'] != '(Pilih Semua)'])
+                    approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
+                    
+                    avg_risk = f"{df_ca['Risk_Score'].mean():.0f}" if df_ca['Risk_Score'].notna().any() else "-"
+                    
+                    ca_sla = df_ca[df_ca['SLA_Hours'].notna()]
+                    avg_sla = convert_hours_to_hm(ca_sla['SLA_Hours'].mean()) if len(ca_sla) > 0 else "-"
+                    
+                    # Get branch info
+                    branches = df_ca['branch_name_clean'].unique()
+                    main_branch = branches[0] if len(branches) > 0 else "Unknown"
+                    
+                    ca_perf.append({
+                        'CA Name': ca,
+                        'Branch': main_branch,
+                        'Total Apps': df_ca['apps_id'].nunique(),
+                        'Total Records': len(df_ca),
+                        'Approved': approve,
+                        'Approval Rate': approval_pct,
+                        'Avg Risk Score': avg_risk,
+                        'Avg SLA': avg_sla
+                    })
+                
+                ca_df = pd.DataFrame(ca_perf).sort_values('Total Apps', ascending=False)
+                st.dataframe(ca_df, use_container_width=True, hide_index=True)
+                
+                # Charts
+                if len(ca_df) > 0:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        fig1 = px.bar(
+                            ca_df.head(10),
+                            x='CA Name',
+                            y='Total Apps',
+                            title="Top 10 CAs by Application Volume"
+                        )
+                        st.plotly_chart(fig1, use_container_width=True)
+                    
+                    with col2:
+                        ca_df_plot = ca_df.copy()
+                        ca_df_plot['Approval_Numeric'] = ca_df_plot['Approval Rate'].str.rstrip('%').astype(float)
+                        
+                        fig2 = px.bar(
+                            ca_df_plot.head(10),
+                            x='CA Name',
+                            y='Approval_Numeric',
+                            title="Top 10 CAs by Approval Rate",
+                            color='Approval_Numeric',
+                            color_continuous_scale='RdYlGn'
+                        )
+                        fig2.update_layout(yaxis_title="Approval Rate (%)")
+                        st.plotly_chart(fig2, use_container_width=True)
+    
+    # ====== TAB 4: STATUS & SCORING ======
+    with tab4:
+        st.header("📋 Application Status & Scoring Analysis")
         
         if 'apps_status_clean' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
             cross_tab = pd.crosstab(
@@ -603,8 +884,8 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
-    # ====== TAB 3: OD IMPACT ======
-    with tab3:
+    # ====== TAB 5: OD IMPACT ======
+    with tab5:
         st.header("⏰ Overdue Days Impact Analysis")
         
         col1, col2 = st.columns(2)
@@ -675,57 +956,8 @@ def main():
                 maxod_df = pd.DataFrame(maxod_analysis)
                 st.dataframe(maxod_df, use_container_width=True, hide_index=True)
     
-    # ====== TAB 4: CA PERFORMANCE ======
-    with tab4:
-        st.header("👥 Credit Analyst Performance Summary")
-        
-        if 'user_name_clean' in df_filtered.columns:
-            ca_perf = []
-            
-            for ca in sorted(df_filtered['user_name_clean'].unique()):
-                if ca == 'Unknown':
-                    continue
-                
-                df_ca = df_filtered[df_filtered['user_name_clean'] == ca]
-                
-                approve = df_ca['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                total_scored = len(df_ca[df_ca['Scoring_Detail'] != '(Pilih Semua)'])
-                
-                approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
-                avg_risk = f"{df_ca['Risk_Score'].mean():.0f}" if df_ca['Risk_Score'].notna().any() else "-"
-                
-                # Calculate avg SLA for this CA
-                ca_sla = df_ca[df_ca['SLA_Hours'].notna()]
-                if len(ca_sla) > 0:
-                    avg_sla = convert_hours_to_hm(ca_sla['SLA_Hours'].mean())
-                else:
-                    avg_sla = "-"
-                
-                ca_perf.append({
-                    'CA Name': ca,
-                    'Total Apps': df_ca['apps_id'].nunique(),
-                    'Total Records': len(df_ca),
-                    'Approved': approve,
-                    'Approval Rate': approval_pct,
-                    'Avg Risk Score': avg_risk,
-                    'Avg SLA': avg_sla
-                })
-            
-            ca_df = pd.DataFrame(ca_perf).sort_values('Total Apps', ascending=False)
-            st.dataframe(ca_df, use_container_width=True, hide_index=True)
-            
-            # Chart
-            if len(ca_df) > 0:
-                fig = px.bar(
-                    ca_df.head(10),
-                    x='CA Name',
-                    y='Total Apps',
-                    title="Top 10 Credit Analysts by Application Volume"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-    
-    # ====== TAB 5: SLA ANALYSIS (SIMPLIFIED) ======
-    with tab5:
+    # ====== TAB 6: SLA ANALYSIS ======
+    with tab6:
         st.header("⏱️ SLA Performance Analysis")
         
         st.info("""
@@ -773,7 +1005,7 @@ def main():
         
         st.markdown("---")
         
-        # SLA by Status (SIMPLIFIED - Main request)
+        # SLA by Status
         st.subheader("📊 SLA Statistics by Application Status")
         
         if 'apps_status_clean' in df_filtered.columns:
@@ -807,10 +1039,9 @@ def main():
                 status_sla_df = pd.DataFrame(status_sla)
                 st.dataframe(status_sla_df, use_container_width=True, hide_index=True)
                 
-                # Visualization
+                # Chart
                 plot_data = []
                 for _, row in status_sla_df.iterrows():
-                    # Extract hours from formatted string
                     avg_str = row['Avg SLA']
                     if avg_str and 'h' in avg_str:
                         hours = float(avg_str.split('h')[0])
@@ -831,39 +1062,9 @@ def main():
                     )
                     fig.add_hline(y=35, line_dash="dash", line_color="red", annotation_text="Target: 35h")
                     st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown("---")
-        
-        # Monthly trend
-        st.subheader("📈 SLA Monthly Trend")
-        
-        if len(sla_valid) > 0 and 'action_on_parsed' in sla_valid.columns:
-            sla_valid_copy = sla_valid.copy()
-            sla_valid_copy['YearMonth'] = sla_valid_copy['action_on_parsed'].dt.to_period('M').astype(str)
-            
-            monthly_sla = sla_valid_copy.groupby('YearMonth').agg({
-                'SLA_Hours': ['mean', 'count']
-            }).reset_index()
-            
-            monthly_sla.columns = ['Month', 'Avg_SLA', 'Count']
-            monthly_sla = monthly_sla.sort_values('Month')
-            monthly_sla['Avg_SLA_Formatted'] = monthly_sla['Avg_SLA'].apply(convert_hours_to_hm)
-            
-            st.dataframe(monthly_sla[['Month', 'Avg_SLA_Formatted', 'Count']], use_container_width=True, hide_index=True)
-            
-            # Line chart
-            fig = px.line(
-                monthly_sla,
-                x='Month',
-                y='Avg_SLA',
-                title="Average SLA Trend by Month",
-                markers=True
-            )
-            fig.add_hline(y=35, line_dash="dash", line_color="red", annotation_text="Target: 35 hours")
-            st.plotly_chart(fig, use_container_width=True)
     
-    # ====== TAB 6: DATA EXPORT ======
-    with tab6:
+    # ====== TAB 7: DATA EXPORT ======
+    with tab7:
         st.header("💾 Data Export")
         
         st.subheader("Filtered Data Preview")
@@ -872,7 +1073,7 @@ def main():
             'apps_id', 'apps_status_clean', 'action_on_parsed',
             'Recommendation_parsed', 'SLA_Formatted', 'SLA_Hours',
             'Scoring_Detail', 'OSPH_Category', 'Segmen_clean',
-            'JenisKendaraan_clean', 'LastOD_clean',
+            'JenisKendaraan_clean', 'Pekerjaan_clean', 'LastOD_clean',
             'user_name_clean', 'branch_name_clean'
         ]
         
@@ -901,22 +1102,19 @@ def main():
             )
         
         with col2:
-            # Summary stats for download
             summary_data = {
                 'Metric': [
                     'Total Records',
                     'Unique Applications',
                     'SLA Calculated',
                     'Average SLA (hours)',
-                    'Records with Recommendation',
                     'Approval Rate'
                 ],
                 'Value': [
                     len(df_filtered),
                     df_filtered['apps_id'].nunique(),
                     df_filtered['SLA_Hours'].notna().sum(),
-                    df_filtered['SLA_Hours'].mean() if df_filtered['SLA_Hours'].notna().any() else 0,
-                    df_filtered['Recommendation_parsed'].notna().sum(),
+                    f"{df_filtered['SLA_Hours'].mean():.2f}" if df_filtered['SLA_Hours'].notna().any() else "0",
                     f"{df_filtered['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() / len(df_filtered[df_filtered['Scoring_Detail'] != '(Pilih Semua)']) * 100:.1f}%"
                 ]
             }
@@ -930,7 +1128,7 @@ def main():
             )
     
     st.markdown("---")
-    st.caption(f"Dashboard last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total records in database: {len(df):,}")
+    st.caption(f"Dashboard last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total records: {len(df):,}")
 
 if __name__ == "__main__":
     main()
