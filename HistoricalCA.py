@@ -155,7 +155,7 @@ def calculate_sla_working_hours(start_dt, end_dt):
         return None
 
 def calculate_historical_sla(df):
-    """Calculate SLA per transition"""
+    """Calculate SLA per transition - untuk SEMUA rows"""
     df_sorted = df.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
     sla_list = []
     
@@ -168,77 +168,55 @@ def calculate_historical_sla(df):
             current_time = row.get('action_on_parsed')
             recommendation_time = row.get('Recommendation_parsed')
             
+            sla_result = None
+            sla_formatted = None
+            start_time = None
+            transition = None
+            
+            # FIRST ROW
             if idx == 0:
-                if current_status.upper() == 'PENDING CA' and pd.notna(recommendation_time):
+                # Jika Recommendation ada gunakan Recommendation, kalau tidak gunakan current_time
+                if pd.notna(recommendation_time):
                     sla_result = calculate_sla_working_hours(recommendation_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-                        sla_hours = sla_result['total_hours']
-                    else:
-                        sla_formatted = None
-                        sla_hours = None
-                    transition = f"START to {current_status}"
                     start_time = recommendation_time
+                else:
+                    # Jika tidak ada Recommendation, SLA = 0 (baru mulai)
+                    sla_result = None
+                    start_time = None
+                
+                if sla_result:
+                    sla_formatted = sla_result['formatted']
+                    sla_hours = sla_result['total_hours']
                 else:
                     sla_formatted = None
                     sla_hours = None
-                    transition = f"START to {current_status}"
-                    start_time = None
                 
-                sla_list.append({
-                    'idx': row.name,
-                    'apps_id': app_id,
-                    'Transition': transition,
-                    'SLA_Hours': sla_hours,
-                    'SLA_Formatted': sla_formatted,
-                    'Start_Time': start_time,
-                    'End_Time': current_time,
-                })
-                continue
+                transition = f"START to {current_status}"
             
-            prev_row = group.iloc[idx - 1]
-            prev_status = prev_row.get('apps_status_clean', 'Unknown')
-            prev_time = prev_row.get('action_on_parsed')
-            
-            sla_result = None
-            sla_formatted = None
-            start_time = prev_time
-            transition = f"{prev_status} to {current_status}"
-            
-            if current_status.upper() == 'PENDING CA':
-                if pd.notna(recommendation_time):
-                    sla_result = calculate_sla_working_hours(recommendation_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-                    start_time = recommendation_time
-                else:
-                    sla_result = calculate_sla_working_hours(prev_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-            
-            elif current_status.upper() == 'PENDING CA COMPLETED':
-                pending_ca_rows = group[group['apps_status_clean'].str.upper() == 'PENDING CA']
-                if len(pending_ca_rows) > 0:
-                    last_pending_ca = pending_ca_rows.iloc[-1]
-                    last_pending_ca_time = last_pending_ca.get('action_on_parsed')
-                    sla_result = calculate_sla_working_hours(last_pending_ca_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
-                    start_time = last_pending_ca_time
-                else:
-                    sla_result = calculate_sla_working_hours(prev_time, current_time)
-                    if sla_result:
-                        sla_formatted = sla_result['formatted']
+            # ROW BERIKUTNYA - CALCULATE DARI PREVIOUS ACTION TIME
             else:
+                prev_row = group.iloc[idx - 1]
+                prev_status = prev_row.get('apps_status_clean', 'Unknown')
+                prev_time = prev_row.get('action_on_parsed')
+                
+                transition = f"{prev_status} to {current_status}"
+                
+                # SEMUA status dihitung dari previous action time
                 sla_result = calculate_sla_working_hours(prev_time, current_time)
+                start_time = prev_time
+                
                 if sla_result:
                     sla_formatted = sla_result['formatted']
+                    sla_hours = sla_result['total_hours']
+                else:
+                    sla_formatted = None
+                    sla_hours = None
             
             sla_list.append({
                 'idx': row.name,
                 'apps_id': app_id,
                 'Transition': transition,
-                'SLA_Hours': sla_result['total_hours'] if sla_result else None,
+                'SLA_Hours': sla_hours if sla_result else None,
                 'SLA_Formatted': sla_formatted,
                 'Start_Time': start_time,
                 'End_Time': current_time,
@@ -698,6 +676,27 @@ def main():
     # TAB 5: SLA ANALYSIS
     with tab5:
         st.header("SLA Performance Analysis")
+        
+        # Search detail
+        st.subheader("Search Application Detail")
+        search_app_id = st.text_input("Enter Application ID to view SLA details:")
+        
+        if search_app_id:
+            try:
+                search_id = int(search_app_id)
+                app_sla_detail = df_sla_history_filtered[df_sla_history_filtered['apps_id'] == search_id]
+                
+                if len(app_sla_detail) > 0:
+                    st.success(f"Found {len(app_sla_detail)} records for App ID {search_id}")
+                    
+                    detail_cols = ['Transition', 'SLA_Hours', 'SLA_Formatted', 'Start_Time', 'End_Time']
+                    st.dataframe(app_sla_detail[detail_cols], use_container_width=True, hide_index=True)
+                else:
+                    st.warning(f"No records found for App ID {search_id}")
+            except:
+                st.error("Please enter a valid numeric App ID")
+        
+        st.markdown("---")
         
         sla_valid = df_sla_history_filtered[df_sla_history_filtered['SLA_Hours'].notna()]
         
