@@ -104,7 +104,7 @@ def calculate_sla_working_hours(start_dt, end_dt):
     Working hours: 8:30 AM - 3:30 PM (7 hours/day)
     Excludes weekends and holidays (TANGGAL_MERAH)
     
-    ✅ PRECISE: Calculates down to the second
+     PRECISE: Calculates down to the second
     """
     if pd.isna(start_dt) or pd.isna(end_dt):
         return None
@@ -173,7 +173,7 @@ def calculate_sla_working_hours(start_dt, end_dt):
 
 def calculate_row_sla(df):
     """
-    ✅ FIXED: Calculate SLA per row per apps_id dengan logika yang BENAR
+     FIXED: Calculate SLA per row per apps_id dengan logika yang BENAR
     
     Logika perhitungan SLA:
     
@@ -449,7 +449,7 @@ def create_osph_pivot_analysis(df):
     - Pivot 2: OSPH_Category (rows) x JenisKendaraan (columns) per Segmen
     - Pivot 3: OSPH_Category (rows) x Hasil_Scoring (columns) per Segmen
     
-    ✅ Menghitung DISTINCT apps_id untuk setiap kombinasi
+     Menghitung DISTINCT apps_id untuk setiap kombinasi
     """
     pivots = {}
     
@@ -510,7 +510,7 @@ def create_osph_pivot_analysis(df):
                 df_seg['OSPH_Category'],
                 df_seg['Scoring_Detail'],
                 values=df_seg['apps_id'],
-                aggfunc='nunique',  
+                aggfunc='nunique',  # ✅ Count distinct apps_id
                 margins=True,
                 margins_name='TOTAL'
             )
@@ -809,7 +809,7 @@ def main():
     # Tab 3: CA Performance Analysis
     with tab3:
         st.header("CA Performance Analysis")
-        st.info(" Detailed performance metrics per Credit Analyst")
+        st.info("📊 Detailed performance metrics per Credit Analyst")
         
         if 'user_name_clean' in df_filtered.columns:
             # Create comprehensive CA performance data
@@ -964,7 +964,7 @@ def main():
             st.markdown("---")
             
             # SLA Performance by CA
-            st.subheader(" CA SLA Performance")
+            st.subheader("⏱️ CA SLA Performance")
             
             # Filter CAs with valid SLA data
             ca_df_sla = ca_df[ca_df['Avg SLA'] != 'N/A'].copy()
