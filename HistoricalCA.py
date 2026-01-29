@@ -666,22 +666,11 @@ def main():
             with col2:
                 st.metric("Median SLA", f"{sla_valid['SLA_Days'].median():.2f} days")
             with col3:
-                st.metric("90th Percentile", f"{sla_valid['SLA_Days'].quantile(0.9):.2f} days")
-            with col4:
                 exceed_5 = (sla_valid['SLA_Days'] > 5).sum()
                 pct = exceed_5 / len(sla_valid) * 100
                 st.metric("Exceed 5 Days", f"{exceed_5} ({pct:.1f}%)")
             
-            st.markdown("---")
-            
-            fig = px.histogram(
-                sla_valid, x='SLA_Days', nbins=50,
-                title="SLA Distribution (Working Days)",
-                color_discrete_sequence=['#667eea']
-            )
-            fig.add_vline(x=5, line_dash="dash", line_color="red", annotation_text="5 Days Target")
-            st.plotly_chart(fig, use_container_width=True)
-            
+        
             st.markdown("---")
             st.subheader("Average SLA by Status")
             
@@ -709,17 +698,6 @@ def main():
             fig.update_xaxes(tickangle=45)
             st.plotly_chart(fig, use_container_width=True)
             
-            st.markdown("---")
-            st.subheader("SLA Calculation Logic Distribution")
-            
-            logic_counts = sla_valid['SLA_Logic'].value_counts().reset_index()
-            logic_counts.columns = ['Logic', 'Count']
-            
-            fig = px.pie(logic_counts, values='Count', names='Logic',
-                        title="Distribution of SLA Calculation Methods")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No SLA data available")
     
     # Tab 2: OSPH Pivot Analysis
     with tab2:
