@@ -842,24 +842,6 @@ def main():
             
             ca_df = pd.DataFrame(ca_performance)
             
-            # Summary metrics
-            st.subheader(" CA Performance Summary")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Total CAs", len(ca_df))
-            with col2:
-                total_apps_all = ca_df['Total Apps'].sum()
-                st.metric("Total Apps Handled", f"{total_apps_all:,}")
-            with col3:
-                total_approve = ca_df['APPROVE'].sum()
-                st.metric("Total Approvals", f"{total_approve:,}")
-            with col4:
-                total_reject = ca_df['REJECT'].sum()
-                st.metric("Total Rejections", f"{total_reject:,}")
-            
-            st.markdown("---")
-            
             # Detailed table
             st.subheader(" Detailed CA Performance Table")
             st.dataframe(ca_df, use_container_width=True, hide_index=True)
