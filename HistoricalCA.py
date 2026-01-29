@@ -682,10 +682,10 @@ def main():
             # Add total records count
             record_counts = sla_valid.groupby('apps_status_clean').size().reset_index(name='Total_Records')
             
-            sla_by_status.columns = ['Status', 'Avg_SLA', 'Median_SLA', 'Distinct_Apps']
+            sla_by_status.columns = ['Status', 'Avg_SLA', 'Median_SLA']
             sla_by_status = sla_by_status.merge(record_counts, left_on='Status', right_on='apps_status_clean', how='left')
             sla_by_status = sla_by_status.drop('apps_status_clean', axis=1)
-            sla_by_status = sla_by_status[['Status', 'Avg_SLA', 'Median_SLA', 'Distinct_Apps', 'Total_Records']]
+            sla_by_status = sla_by_status[['Status', 'Avg_SLA', 'Median_SLA', 'Total_Records']]
             sla_by_status = sla_by_status.sort_values('Avg_SLA', ascending=False)
             
             st.dataframe(sla_by_status, use_container_width=True, hide_index=True)
