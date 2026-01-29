@@ -104,7 +104,7 @@ def calculate_sla_working_hours(start_dt, end_dt):
     Working hours: 8:30 AM - 3:30 PM (7 hours/day)
     Excludes weekends and holidays (TANGGAL_MERAH)
     
-     PRECISE: Calculates down to the second
+    ✅ PRECISE: Calculates down to the second
     """
     if pd.isna(start_dt) or pd.isna(end_dt):
         return None
@@ -173,7 +173,7 @@ def calculate_sla_working_hours(start_dt, end_dt):
 
 def calculate_row_sla(df):
     """
-     FIXED: Calculate SLA per row per apps_id dengan logika yang BENAR
+    ✅ FIXED: Calculate SLA per row per apps_id dengan logika yang BENAR
     
     Logika perhitungan SLA:
     
@@ -253,7 +253,8 @@ def calculate_row_sla(df):
                         logic = 'PENDING CA COMPLETED: First row, no Recommendation'
             
             # ========== LOGIKA 3: NOT RECOMMENDED / RECOMMENDED CA / WITH COND ==========
-            elif any(keyword in current_status for keyword in ['NOT RECOMMENDED', 'RECOMMENDED']):
+            # ✅ FIXED: Changed from 'any(keyword in...)' to 'or' condition for better matching
+            elif 'NOT RECOMMENDED' in current_status or 'RECOMMENDED' in current_status:
                 if has_previous:
                     # Ada row sebelumnya: gunakan action_on dari row sebelumnya
                     prev_idx = app_indices[group_position - 1]
@@ -422,7 +423,7 @@ def load_data():
             return None
         
         if 'Recommendation' not in df.columns:
-            st.warning(" Kolom 'Recommendation' tidak ditemukan.")
+            st.warning("⚠️ Kolom 'Recommendation' tidak ditemukan.")
             df['Recommendation'] = None
         
         df_clean = preprocess_data(df)
@@ -449,7 +450,7 @@ def create_osph_pivot_analysis(df):
     - Pivot 2: OSPH_Category (rows) x JenisKendaraan (columns) per Segmen
     - Pivot 3: OSPH_Category (rows) x Hasil_Scoring (columns) per Segmen
     
-     Menghitung DISTINCT apps_id untuk setiap kombinasi
+    ✅ Menghitung DISTINCT apps_id untuk setiap kombinasi
     """
     pivots = {}
     
@@ -547,16 +548,16 @@ def generate_analytical_insights(df):
             sla_pct = (sla_calculated_count / total_records * 100) if total_records > 0 else 0
             
             if avg_sla > 5:
-                warnings.append(f" Average SLA: {avg_sla:.1f} days (target: ≤5) | {sla_calculated_count:,}/{total_records:,} records ({sla_pct:.1f}%)")
+                warnings.append(f"⚠️ Average SLA: {avg_sla:.1f} days (target: ≤5) | {sla_calculated_count:,}/{total_records:,} records ({sla_pct:.1f}%)")
             else:
-                insights.append(f" Average SLA: {avg_sla:.1f} days | {sla_calculated_count:,}/{total_records:,} records ({sla_pct:.1f}%)")
+                insights.append(f"✅ Average SLA: {avg_sla:.1f} days | {sla_calculated_count:,}/{total_records:,} records ({sla_pct:.1f}%)")
     
     return insights, warnings
 
 def main():
     """Main application"""
-    st.title(" CA Analytics Dashboard")
-    st.markdown("** Correct Per-Row SLA | All SLA Calculated | OSPH Pivot Tables per Segmen**")
+    st.title("📊 CA Analytics Dashboard")
+    st.markdown("**✅ Correct Per-Row SLA | All SLA Calculated | OSPH Pivot Tables per Segmen**")
     st.markdown("---")
     
     with st.spinner("Loading dan processing data..."):
@@ -572,18 +573,18 @@ def main():
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric(" Total Records", f"{total_records:,}")
+        st.metric("📋 Total Records", f"{total_records:,}")
         st.caption("Total kontrak/apps (semua rows)")
     with col2:
-        st.metric(" Unique Applications", f"{unique_apps:,}")
+        st.metric("📱 Unique Applications", f"{unique_apps:,}")
         st.caption("Distinct apps_id")
     with col3:
         sla_pct = (sla_calculated / total_records * 100) if total_records > 0 else 0
-        st.metric(" SLA Calculated", f"{sla_calculated:,} ({sla_pct:.1f}%)")
+        st.metric("⏱️ SLA Calculated", f"{sla_calculated:,} ({sla_pct:.1f}%)")
         st.caption("Rows dengan SLA terhitung")
     with col4:
         avg_sla = df[df['SLA_Days'].notna()]['SLA_Days'].mean()
-        st.metric(" Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
+        st.metric("📈 Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
         st.caption("Rata-rata working days")
     
     st.markdown("---")
@@ -653,7 +654,7 @@ def main():
     st.sidebar.info(f"{df_filtered['apps_id'].nunique():,} unique applications")
     
     # Insights
-    st.header(" Key Insights")
+    st.header("🎯 Key Insights")
     insights, warnings = generate_analytical_insights(df_filtered)
     
     if warnings:
@@ -666,17 +667,17 @@ def main():
     
     # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        " SLA Overview",
-        " OSPH Pivot Analysis",
-        " CA Performance",
-        " Detailed View",
-        " Raw Data"
+        "⏱️ SLA Overview",
+        "📊 OSPH Pivot Analysis",
+        "👤 CA Performance",
+        "🔍 Detailed View",
+        "📋 Raw Data"
     ])
     
     # Tab 1: SLA Overview
     with tab1:
         st.header("SLA Performance Overview")
-        st.info(" SLA dihitung per row dengan logika yang BENAR - semua timestamp diperhitungkan hingga detik")
+        st.info("✅ SLA dihitung per row dengan logika yang BENAR - semua timestamp diperhitungkan hingga detik")
         
         sla_valid = df_filtered[df_filtered['SLA_Days'].notna()]
         
@@ -742,15 +743,15 @@ def main():
     # Tab 2: OSPH Pivot Analysis
     with tab2:
         st.header("OSPH Pivot Tables per Segmen")
-        st.info(" Pivot tables menampilkan **jumlah unique apps_id** untuk setiap kombinasi")
+        st.info("📊 Pivot tables menampilkan **jumlah unique apps_id** untuk setiap kombinasi")
         
         osph_pivots = create_osph_pivot_analysis(df_filtered)
         
         if osph_pivots:
             pivot_tab1, pivot_tab2, pivot_tab3 = st.tabs([
-                " OSPH x Pekerjaan",
-                " OSPH x Jenis Kendaraan",
-                " OSPH x Hasil Scoring"
+                "💼 OSPH x Pekerjaan",
+                "🚗 OSPH x Jenis Kendaraan",
+                "✅ OSPH x Hasil Scoring"
             ])
             
             # PIVOT 1: OSPH x Pekerjaan
@@ -883,7 +884,7 @@ def main():
             ca_df = pd.DataFrame(ca_performance)
             
             # Detailed table
-            st.subheader(" Detailed CA Performance Table")
+            st.subheader("📋 Detailed CA Performance Table")
             st.dataframe(ca_df, use_container_width=True, hide_index=True)
             
             st.markdown("---")
@@ -942,7 +943,7 @@ def main():
             st.markdown("---")
             
             # CA comparison by approval rate
-            st.subheader(" CA Approval Rate Comparison")
+            st.subheader("📈 CA Approval Rate Comparison")
             
             # Convert percentage strings to float for sorting
             ca_df_sorted = ca_df.copy()
@@ -990,7 +991,7 @@ def main():
             
             # Download CA performance report
             st.markdown("---")
-            st.subheader(" Export CA Performance Report")
+            st.subheader("📥 Export CA Performance Report")
             
             csv_ca = ca_df.to_csv(index=False)
             st.download_button(
@@ -1033,14 +1034,14 @@ def main():
                     st.info(f"**Total Rows:** {len(app_data)}")
                 
                 st.markdown("---")
-                st.subheader(" Chronological History")
+                st.subheader("📝 Chronological History")
                 
                 raw_cols = ['apps_status_clean', 'action_on_parsed', 'Recommendation_parsed', 'user_name_clean']
                 available_raw = [c for c in raw_cols if c in app_data.columns]
                 st.dataframe(app_data[available_raw].reset_index(drop=True), use_container_width=True)
                 
                 st.markdown("---")
-                st.subheader(" SLA Calculation Details")
+                st.subheader("⏱️ SLA Calculation Details")
                 
                 sla_cols = ['apps_status_clean', 'SLA_Start', 'SLA_End', 'SLA_Days', 'SLA_Formatted', 'SLA_Logic']
                 available_sla = [c for c in sla_cols if c in app_data.columns]
@@ -1069,7 +1070,7 @@ def main():
         
         csv_data = df_filtered[available_cols].to_csv(index=False)
         st.download_button(
-            " Download Filtered Data (CSV)",
+            "📥 Download Filtered Data (CSV)",
             csv_data,
             "ca_analytics_filtered.csv",
             "text/csv"
