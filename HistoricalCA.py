@@ -9,7 +9,7 @@ from pathlib import Path
 
 st.set_page_config(page_title="CA Analytics", layout="wide")
 
-FILE_NAME = "Historical_CA (1).xlsx"
+FILE_NAME = "HistoricalCA.xlsx"
 
 st.markdown("""
 <style>
@@ -417,9 +417,11 @@ def load_data():
 def create_osph_pivot_analysis(df):
     """
     Create OSPH PIVOT tables per Segmen:
-    - Pivot 1: Pekerjaan x OSPH_Category (per Segmen)
-    - Pivot 2: JenisKendaraan x OSPH_Category (per Segmen)
-    - Pivot 3: Hasil_Scoring x OSPH_Category (per Segmen)
+    - Pivot 1: OSPH_Category (rows) x Pekerjaan (columns) per Segmen
+    - Pivot 2: OSPH_Category (rows) x JenisKendaraan (columns) per Segmen
+    - Pivot 3: OSPH_Category (rows) x Hasil_Scoring (columns) per Segmen
+    
+    OSPH Range sebagai ROW, dimensi lain sebagai COLUMN
     """
     pivots = {}
     
@@ -432,15 +434,15 @@ def create_osph_pivot_analysis(df):
     if len(df_valid) == 0:
         return pivots
     
-    # PIVOT 1: Pekerjaan x OSPH_Category per Segmen
+    # PIVOT 1: OSPH_Category (rows) x Pekerjaan (columns) per Segmen
     if 'Pekerjaan_clean' in df_valid.columns:
         pivot1 = {}
         for segmen in sorted(df_valid['Segmen_clean'].unique()):
             df_seg = df_valid[df_valid['Segmen_clean'] == segmen]
             
             pivot_table = pd.crosstab(
-                df_seg['Pekerjaan_clean'],
                 df_seg['OSPH_Category'],
+                df_seg['Pekerjaan_clean'],
                 values=df_seg['apps_id'],
                 aggfunc='nunique',
                 margins=True,
@@ -450,15 +452,15 @@ def create_osph_pivot_analysis(df):
         
         pivots['pekerjaan'] = pivot1
     
-    # PIVOT 2: JenisKendaraan x OSPH_Category per Segmen
+    # PIVOT 2: OSPH_Category (rows) x JenisKendaraan (columns) per Segmen
     if 'JenisKendaraan_clean' in df_valid.columns:
         pivot2 = {}
         for segmen in sorted(df_valid['Segmen_clean'].unique()):
             df_seg = df_valid[df_valid['Segmen_clean'] == segmen]
             
             pivot_table = pd.crosstab(
-                df_seg['JenisKendaraan_clean'],
                 df_seg['OSPH_Category'],
+                df_seg['JenisKendaraan_clean'],
                 values=df_seg['apps_id'],
                 aggfunc='nunique',
                 margins=True,
@@ -468,7 +470,7 @@ def create_osph_pivot_analysis(df):
         
         pivots['kendaraan'] = pivot2
     
-    # PIVOT 3: Hasil_Scoring x OSPH_Category per Segmen
+    # PIVOT 3: OSPH_Category (rows) x Hasil_Scoring (columns) per Segmen
     if 'Scoring_Detail' in df_valid.columns:
         df_scoring = df_valid[df_valid['Scoring_Detail'] != '(Pilih Semua)']
         
@@ -477,8 +479,8 @@ def create_osph_pivot_analysis(df):
             df_seg = df_scoring[df_scoring['Segmen_clean'] == segmen]
             
             pivot_table = pd.crosstab(
-                df_seg['Scoring_Detail'],
                 df_seg['OSPH_Category'],
+                df_seg['Scoring_Detail'],
                 values=df_seg['apps_id'],
                 aggfunc='nunique',
                 margins=True,
@@ -506,10 +508,8 @@ def generate_analytical_insights(df):
                 
                 if total > 0:
                     rate = approve / total * 100
-                    if rate < 30:
-                        warnings.append(f"Low approval rate {rate:.1f}% in {osph} segment")
-                    elif rate > 60:
-                        insights.append(f"Strong approval rate {rate:.1f}% in {osph} segment")
+                    # Always show approval rate without "Low" or "Strong" label
+                    insights.append(f"Approval rate {rate:.1f}% in {osph} segment")
     
     if 'SLA_Days' in df.columns:
         sla_valid = df[df['SLA_Days'].notna()]
@@ -518,13 +518,13 @@ def generate_analytical_insights(df):
             if avg_sla > 5:
                 warnings.append(f"Average SLA is {avg_sla:.1f} working days (target: ≤5 days)")
             else:
-                insights.append(f"Good SLA performance: {avg_sla:.1f} working days average")
+                insights.append(f"Average SLA: {avg_sla:.1f} working days")
     
     return insights, warnings
 
 def main():
     """Main application"""
-    st.title(" CA Analytics Dashboard - Final Version")
+    st.title(" CA Analytics Dashboard ")
     st.markdown("** Correct Per-Row SLA | OSPH Pivot Tables per Segmen**")
     st.markdown("---")
     
@@ -545,6 +545,8 @@ def main():
     with col2:
         st.metric(" Unique Applications", f"{unique_apps:,}")
     with col3:
+        st.metric(" SLA Calculated", f"{sla_calculated:,}")
+    with col4:
         avg_sla = df[df['SLA_Days'].notna()]['SLA_Days'].mean()
         st.metric(" Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
     
@@ -669,15 +671,23 @@ def main():
             st.subheader("Average SLA by Status")
             
             sla_by_status = sla_valid.groupby('apps_status_clean').agg({
-                'SLA_Days': ['mean', 'median', 'count']
+                'SLA_Days': ['mean', 'median'],
+                'apps_id': 'nunique'
             }).reset_index()
-            sla_by_status.columns = ['Status', 'Avg_SLA', 'Median_SLA', 'Count']
+            
+            # Add total records count
+            record_counts = sla_valid.groupby('apps_status_clean').size().reset_index(name='Total_Records')
+            
+            sla_by_status.columns = ['Status', 'Avg_SLA', 'Median_SLA', 'Distinct_Apps']
+            sla_by_status = sla_by_status.merge(record_counts, left_on='Status', right_on='apps_status_clean', how='left')
+            sla_by_status = sla_by_status.drop('apps_status_clean', axis=1)
+            sla_by_status = sla_by_status[['Status', 'Avg_SLA', 'Median_SLA', 'Distinct_Apps', 'Total_Records']]
             sla_by_status = sla_by_status.sort_values('Avg_SLA', ascending=False)
             
             st.dataframe(sla_by_status, use_container_width=True, hide_index=True)
             
             fig = px.bar(
-                sla_by_status, x='Status', y='Avg_SLA', text='Count',
+                sla_by_status, x='Status', y='Avg_SLA', text='Total_Records',
                 title="Average SLA by Application Status",
                 color='Avg_SLA', color_continuous_scale='RdYlGn_r'
             )
@@ -705,15 +715,15 @@ def main():
         
         if osph_pivots:
             pivot_tab1, pivot_tab2, pivot_tab3 = st.tabs([
-                " Pekerjaan x OSPH",
-                " Jenis Kendaraan x OSPH",
-                " Hasil Scoring x OSPH"
+                " OSPH x Pekerjaan",
+                " OSPH x Jenis Kendaraan",
+                " OSPH x Hasil Scoring"
             ])
             
-            # PIVOT 1: Pekerjaan
+            # PIVOT 1: OSPH x Pekerjaan
             with pivot_tab1:
                 if 'pekerjaan' in osph_pivots:
-                    st.subheader("Pivot: Pekerjaan x OSPH Category per Segmen")
+                    st.subheader("Pivot: OSPH Range (Rows) x Pekerjaan (Columns) per Segmen")
                     
                     for segmen, pivot_table in osph_pivots['pekerjaan'].items():
                         st.markdown(f"### Segmen: **{segmen}**")
@@ -722,10 +732,10 @@ def main():
                 else:
                     st.info("No data available")
             
-            # PIVOT 2: Jenis Kendaraan
+            # PIVOT 2: OSPH x Jenis Kendaraan
             with pivot_tab2:
                 if 'kendaraan' in osph_pivots:
-                    st.subheader("Pivot: Jenis Kendaraan x OSPH Category per Segmen")
+                    st.subheader("Pivot: OSPH Range (Rows) x Jenis Kendaraan (Columns) per Segmen")
                     
                     for segmen, pivot_table in osph_pivots['kendaraan'].items():
                         st.markdown(f"### Segmen: **{segmen}**")
@@ -734,10 +744,10 @@ def main():
                 else:
                     st.info("No data available")
             
-            # PIVOT 3: Hasil Scoring
+            # PIVOT 3: OSPH x Hasil Scoring
             with pivot_tab3:
                 if 'scoring' in osph_pivots:
-                    st.subheader("Pivot: Hasil Scoring x OSPH Category per Segmen")
+                    st.subheader("Pivot: OSPH Range (Rows) x Hasil Scoring (Columns) per Segmen")
                     
                     for segmen, pivot_table in osph_pivots['scoring'].items():
                         st.markdown(f"### Segmen: **{segmen}**")
@@ -786,7 +796,7 @@ def main():
                 st.dataframe(app_data[available_raw].reset_index(drop=True), use_container_width=True)
                 
                 st.markdown("---")
-                st.subheader(" SLA Calculation Details")
+                st.subheader("⏱️ SLA Calculation Details")
                 
                 sla_cols = ['apps_status_clean', 'SLA_Start', 'SLA_End', 'SLA_Days', 'SLA_Formatted', 'SLA_Logic']
                 available_sla = [c for c in sla_cols if c in app_data.columns]
@@ -815,7 +825,7 @@ def main():
         
         csv_data = df_filtered[available_cols].to_csv(index=False)
         st.download_button(
-            " Download Filtered Data (CSV)",
+            "📥 Download Filtered Data (CSV)",
             csv_data,
             "ca_analytics_filtered.csv",
             "text/csv"
