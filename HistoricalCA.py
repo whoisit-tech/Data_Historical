@@ -1,24 +1,7 @@
-"""
-CA ANALYTICS DASHBOARD - MERGED VERSION
-Kombinasi TERBAIK dari V3 (Kode Kiri) + V4 (Kode Kanan)
-
-Features:
-- V3's complete analyses (OSPH, Status×Scoring, OD Impact, CA Performance, SLA)
-- V4's detail view dengan search + chronological history
-- V4's SLA_Logic column untuk audit trail
-- V4's professional styling (gradient cards)
-- V4's sidebar filters
-- SLA dalam HOURS (granular) - V3 style
-- 7 complete tabs
-
-Ready to use: Just copy-paste this file!
-"""
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import numpy as np
 from pathlib import Path
@@ -28,7 +11,7 @@ st.set_page_config(page_title="CA Analytics Dashboard", layout="wide")
 FILE_NAME = "Historical_CA (1).xlsx"
 
 # ============================================================================
-# STYLING (Professional - from V4)
+# STYLING
 # ============================================================================
 st.markdown("""
 <style>
@@ -89,7 +72,7 @@ def parse_date(date_str):
         return None
 
 def is_working_day(date):
-    """Check if date is a working day (exclude weekends and holidays)"""
+    """Check if date is a working day"""
     if pd.isna(date):
         return False
     if not isinstance(date, datetime):
@@ -109,11 +92,7 @@ def convert_hours_to_hm(total_hours):
     return f"{hours}h {minutes}m"
 
 def calculate_sla_working_hours(start_dt, end_dt):
-    """
-    Calculate SLA dalam working hours (08:30 - 15:30)
-    Exclude weekend dan tanggal merah
-    Returns: dict dengan total_hours (float), formatted (string)
-    """
+    """Calculate SLA in working hours (08:30 - 15:30)"""
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
     
@@ -173,86 +152,10 @@ def calculate_sla_working_hours(start_dt, end_dt):
         total_hours = total_seconds / 3600
         return {
             'total_hours': round(total_hours, 2),
-            'total_seconds': total_seconds,
             'formatted': convert_hours_to_hm(total_hours)
         }
-    except Exception as e:
+    except:
         return None
-
-def calculate_historical_sla(df):
-    """
-    Calculate SLA per transition
-    V3 Logic: Simple 2-step approach
-    V4 Enhancement: Add SLA_Logic column untuk audit trail
-    """
-    df_sorted = df.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
-    sla_list = []
-    
-    for app_id, group in df_sorted.groupby('apps_id'):
-        group = group.reset_index(drop=True)
-        
-        for idx in range(len(group)):
-            row = group.iloc[idx]
-            current_status = row.get('apps_status_clean', 'Unknown')
-            current_time = row.get('action_on_parsed')
-            recommendation_time = row.get('Recommendation_parsed')
-            
-            sla_result = None
-            sla_formatted = None
-            start_time = None
-            transition = None
-            sla_logic = 'N/A'
-            
-            # FIRST ROW
-            if idx == 0:
-                if pd.notna(recommendation_time):
-                    sla_result = calculate_sla_working_hours(recommendation_time, current_time)
-                    start_time = recommendation_time
-                    sla_logic = 'First row: Recommendation → action_on'
-                else:
-                    sla_result = None
-                    start_time = None
-                    sla_logic = 'First row: No Recommendation available'
-                
-                if sla_result:
-                    sla_formatted = sla_result['formatted']
-                    sla_hours = sla_result['total_hours']
-                else:
-                    sla_formatted = None
-                    sla_hours = None
-                
-                transition = f"START to {current_status}"
-            
-            # SUBSEQUENT ROWS
-            else:
-                prev_row = group.iloc[idx - 1]
-                prev_status = prev_row.get('apps_status_clean', 'Unknown')
-                prev_time = prev_row.get('action_on_parsed')
-                
-                transition = f"{prev_status} to {current_status}"
-                sla_result = calculate_sla_working_hours(prev_time, current_time)
-                start_time = prev_time
-                sla_logic = f'{prev_status} → {current_status}'
-                
-                if sla_result:
-                    sla_formatted = sla_result['formatted']
-                    sla_hours = sla_result['total_hours']
-                else:
-                    sla_formatted = None
-                    sla_hours = None
-            
-            sla_list.append({
-                'idx': row.name,
-                'apps_id': app_id,
-                'Transition': transition,
-                'SLA_Hours': sla_hours if sla_result else None,
-                'SLA_Formatted': sla_formatted,
-                'Start_Time': start_time,
-                'End_Time': current_time,
-                'SLA_Logic': sla_logic,
-            })
-    
-    return pd.DataFrame(sla_list)
 
 def get_osph_category(osph_value):
     """Categorize Outstanding PH"""
@@ -297,44 +200,20 @@ def calculate_risk_score(row):
     
     return min(score, 100)
 
-def generate_analytical_insights(df):
-    """Generate insights and warnings from data (V4 style)"""
-    insights = []
-    warnings = []
-    
-    if 'OSPH_Category' in df.columns and 'Scoring_Detail' in df.columns:
-        for osph in ['0 - 250 Juta', '250 - 500 Juta', '500 Juta+']:
-            df_osph = df[df['OSPH_Category'] == osph]
-            if len(df_osph) > 0:
-                approve = df_osph['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                total = len(df_osph[df_osph['Scoring_Detail'] != '(Pilih Semua)'])
-                if total > 0:
-                    rate = approve / total * 100
-                    insights.append(f"Approval rate {rate:.1f}% in {osph} segment")
-    
-    if 'SLA_Hours' in df.columns:
-        sla_valid = df[df['SLA_Hours'].notna()]
-        if len(sla_valid) > 0:
-            avg_sla = sla_valid['SLA_Hours'].mean()
-            sla_pct = (len(sla_valid) / len(df) * 100) if len(df) > 0 else 0
-            if avg_sla > 35:
-                warnings.append(f"⚠️ Average SLA: {avg_sla:.1f} hours (target: ≤35h) | {sla_pct:.1f}% calculated")
-            else:
-                insights.append(f"✓ Average SLA: {avg_sla:.1f} hours | {sla_pct:.1f}% calculated")
-    
-    return insights, warnings
-
 def preprocess_data(df):
-    """Clean and prepare data (V3 base, removed Produk inconsistency)"""
+    """Clean and prepare data"""
     df = df.copy()
     
+    # Parse dates
     for col in ['action_on', 'Initiation', 'RealisasiDate', 'Recommendation', 'ApprovalCC1', 'ApprovalCC2']:
         if col in df.columns:
             df[f'{col}_parsed'] = df[col].apply(parse_date)
     
+    # Clean status
     if 'apps_status' in df.columns:
         df['apps_status_clean'] = df['apps_status'].fillna('Unknown').astype(str).str.strip()
     
+    # Clean OSPH
     if 'Outstanding_PH' in df.columns:
         df['OSPH_clean'] = pd.to_numeric(
             df['Outstanding_PH'].astype(str).str.replace(',', ''), 
@@ -342,16 +221,26 @@ def preprocess_data(df):
         )
         df['OSPH_Category'] = df['OSPH_clean'].apply(get_osph_category)
     
+    # Clean OD
     for col in ['LastOD', 'max_OD']:
         if col in df.columns:
             df[f'{col}_clean'] = pd.to_numeric(df[col], errors='coerce')
     
+    # Clean Scoring
     if 'Hasil_Scoring' in df.columns:
         df['Scoring_Detail'] = df['Hasil_Scoring'].fillna('(Pilih Semua)').astype(str).str.strip()
     
+    # Clean Segmen
     if 'Segmen' in df.columns:
         df['Segmen_clean'] = df['Segmen'].fillna('Unknown').astype(str).str.strip()
+        df['Segmen_clean'] = df['Segmen_clean'].replace('-', 'Unknown')
     
+    # Clean JenisKendaraan
+    if 'JenisKendaraan' in df.columns:
+        df['JenisKendaraan_clean'] = df['JenisKendaraan'].fillna('Unknown').astype(str).str.strip()
+        df['JenisKendaraan_clean'] = df['JenisKendaraan_clean'].replace('-', 'Unknown')
+    
+    # Time features
     if 'action_on_parsed' in df.columns:
         df['Hour'] = df['action_on_parsed'].dt.hour
         df['DayOfWeek'] = df['action_on_parsed'].dt.dayofweek
@@ -360,10 +249,10 @@ def preprocess_data(df):
         df['YearMonth'] = df['action_on_parsed'].dt.to_period('M').astype(str)
         df['Quarter'] = df['action_on_parsed'].dt.quarter
     
+    # Clean categorical fields
     categorical_fields = [
         'desc_status_apps', 'Pekerjaan', 'Jabatan',
-        'JenisKendaraan', 'branch_name', 
-        'Tujuan_Kredit', 'user_name', 'position_name'
+        'branch_name', 'Tujuan_Kredit', 'user_name', 'position_name'
     ]
     
     for field in categorical_fields:
@@ -372,13 +261,44 @@ def preprocess_data(df):
     
     return df
 
+def calculate_sla_per_status(df):
+    """
+    Calculate SLA per status (simplified approach)
+    For each record, calculate time from Recommendation to action_on
+    """
+    df_with_sla = df.copy()
+    
+    sla_hours_list = []
+    sla_formatted_list = []
+    
+    for idx, row in df_with_sla.iterrows():
+        recommendation_time = row.get('Recommendation_parsed')
+        action_time = row.get('action_on_parsed')
+        
+        if pd.notna(recommendation_time) and pd.notna(action_time):
+            sla_result = calculate_sla_working_hours(recommendation_time, action_time)
+            if sla_result:
+                sla_hours_list.append(sla_result['total_hours'])
+                sla_formatted_list.append(sla_result['formatted'])
+            else:
+                sla_hours_list.append(None)
+                sla_formatted_list.append(None)
+        else:
+            sla_hours_list.append(None)
+            sla_formatted_list.append(None)
+    
+    df_with_sla['SLA_Hours'] = sla_hours_list
+    df_with_sla['SLA_Formatted'] = sla_formatted_list
+    
+    return df_with_sla
+
 @st.cache_data
 def load_data():
     """Load and preprocess data"""
     try:
         if not Path(FILE_NAME).exists():
             st.error(f"File not found: {FILE_NAME}")
-            return None, None
+            return None
         
         df = pd.read_excel(FILE_NAME)
         
@@ -393,17 +313,10 @@ def load_data():
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
             st.error(f"Missing columns: {', '.join(missing)}")
-            return None, None
+            return None
         
         df_clean = preprocess_data(df)
-        sla_history = calculate_historical_sla(df_clean)
-        
-        for _, sla_row in sla_history.iterrows():
-            idx = sla_row['idx']
-            if idx < len(df_clean):
-                df_clean.at[idx, 'SLA_Hours'] = sla_row['SLA_Hours']
-                df_clean.at[idx, 'SLA_Formatted'] = sla_row['SLA_Formatted']
-                df_clean.at[idx, 'SLA_Logic'] = sla_row['SLA_Logic']
+        df_clean = calculate_sla_per_status(df_clean)
         
         df_clean['Risk_Score'] = df_clean.apply(calculate_risk_score, axis=1)
         df_clean['Risk_Category'] = pd.cut(
@@ -412,10 +325,10 @@ def load_data():
             labels=['Low Risk', 'Medium Risk', 'High Risk']
         )
         
-        return df_clean, sla_history
+        return df_clean
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        return None, None
+        return None
 
 # ============================================================================
 # MAIN APPLICATION
@@ -424,17 +337,15 @@ def load_data():
 def main():
     """Main Streamlit application"""
     st.title("CA Analytics Dashboard")
-    st.markdown("**Application Credit Analysis - MERGED VERSION (V3+V4)**")
+    st.markdown("**Credit Application Analytics - Fixed Version**")
     st.markdown("---")
     
     with st.spinner("Loading data..."):
-        result = load_data()
+        df = load_data()
     
-    if result[0] is None or result[0].empty:
+    if df is None or df.empty:
         st.error("Unable to load data")
         st.stop()
-    
-    df, df_sla_history = result
     
     # TOP METRICS
     total_records = len(df)
@@ -455,7 +366,8 @@ def main():
     
     with col3:
         st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-        st.metric("SLA Calculated", f"{sla_with_data:,}")
+        sla_pct = f"{sla_with_data/total_records*100:.1f}%"
+        st.metric("SLA Calculated", f"{sla_with_data:,} ({sla_pct})")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col4:
@@ -469,8 +381,8 @@ def main():
     
     st.markdown("---")
     
-    # SIDEBAR FILTERS (from V4)
-    st.sidebar.title("Analytics Control Panel")
+    # SIDEBAR FILTERS
+    st.sidebar.title("Filters")
     
     if 'apps_status_clean' in df.columns:
         all_status = sorted([x for x in df['apps_status_clean'].unique() if x != 'Unknown'])
@@ -496,18 +408,6 @@ def main():
     else:
         selected_branch = 'All'
     
-    if 'user_name_clean' in df.columns:
-        all_cas = sorted(df['user_name_clean'].unique().tolist())
-        selected_ca = st.sidebar.selectbox("CA Name", ['All'] + all_cas)
-    else:
-        selected_ca = 'All'
-    
-    if 'OSPH_Category' in df.columns:
-        all_osph = sorted([x for x in df['OSPH_Category'].unique() if x != 'Unknown'])
-        selected_osph = st.sidebar.selectbox("Outstanding PH", ['All'] + all_osph)
-    else:
-        selected_osph = 'All'
-    
     # Apply filters
     df_filtered = df.copy()
     
@@ -523,49 +423,135 @@ def main():
     if selected_branch != 'All':
         df_filtered = df_filtered[df_filtered['branch_name_clean'] == selected_branch]
     
-    if selected_ca != 'All':
-        df_filtered = df_filtered[df_filtered['user_name_clean'] == selected_ca]
-    
-    if selected_osph != 'All':
-        df_filtered = df_filtered[df_filtered['OSPH_Category'] == selected_osph]
-    
-    filtered_app_ids = df_filtered['apps_id'].unique()
-    df_sla_history_filtered = df_sla_history[df_sla_history['apps_id'].isin(filtered_app_ids)]
-    
     st.sidebar.markdown("---")
-    st.sidebar.info(f"{len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)")
-    st.sidebar.info(f"{df_filtered['apps_id'].nunique():,} unique applications")
-    
-    # INSIGHTS (V4 style)
-    insights, warnings = generate_analytical_insights(df_filtered)
-    
-    st.header(" Key Insights")
-    if warnings:
-        st.warning("\n".join([f"• {w}" for w in warnings]))
-    if insights:
-        st.success("\n".join([f"• {i}" for i in insights]))
-    
-    st.markdown("---")
+    st.sidebar.info(f"📊 {len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)")
+    st.sidebar.info(f"📝 {df_filtered['apps_id'].nunique():,} unique applications")
     
     # TABS
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Outstanding PH Analysis",
         "Status & Scoring",
         "OD Impact Analysis",
         "CA Performance",
         "SLA Analysis",
-        "Detailed View",
         "Data Export"
     ])
     
-    # ====== TAB 1: OUTSTANDING PH (V3) ======
+    # ====== TAB 1: OUTSTANDING PH ======
     with tab1:
-        st.header("Outstanding PH Distribution Analysis")
+        st.header("📊 Outstanding PH Distribution Analysis")
         
-        st.subheader("1. Outstanding PH vs Scoring Result")
+        # 1. OSPH vs Segmen
+        st.subheader("1. Outstanding PH vs Segmen/Produk")
+        
+        if 'OSPH_Category' in df_filtered.columns and 'Segmen_clean' in df_filtered.columns:
+            osph_segmen_data = []
+            
+            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                
+                row = {
+                    'Outstanding PH': osph,
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                for segmen in sorted([x for x in df_filtered['Segmen_clean'].unique() if x != 'Unknown']):
+                    count = len(df_osph[df_osph['Segmen_clean'] == segmen])
+                    if count > 0:
+                        row[segmen] = count
+                
+                osph_segmen_data.append(row)
+            
+            osph_segmen_df = pd.DataFrame(osph_segmen_data)
+            st.dataframe(osph_segmen_df, use_container_width=True, hide_index=True)
+            
+            # Visualization
+            if len(osph_segmen_df) > 0:
+                plot_data = []
+                for _, row in osph_segmen_df.iterrows():
+                    osph = row['Outstanding PH']
+                    for col in osph_segmen_df.columns:
+                        if col not in ['Outstanding PH', 'Total Apps', 'Total Records']:
+                            if col in row and pd.notna(row[col]):
+                                plot_data.append({
+                                    'OSPH': osph,
+                                    'Segmen': col,
+                                    'Count': row[col]
+                                })
+                
+                if plot_data:
+                    plot_df = pd.DataFrame(plot_data)
+                    fig = px.bar(
+                        plot_df,
+                        x='OSPH',
+                        y='Count',
+                        color='Segmen',
+                        title="Outstanding PH vs Segmen Distribution",
+                        barmode='group'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # 2. OSPH vs JenisKendaraan
+        st.subheader("2. Outstanding PH vs Jenis Kendaraan")
+        
+        if 'OSPH_Category' in df_filtered.columns and 'JenisKendaraan_clean' in df_filtered.columns:
+            osph_vehicle_data = []
+            
+            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                
+                row = {
+                    'Outstanding PH': osph,
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                for vehicle in sorted([x for x in df_filtered['JenisKendaraan_clean'].unique() if x != 'Unknown']):
+                    count = len(df_osph[df_osph['JenisKendaraan_clean'] == vehicle])
+                    if count > 0:
+                        row[vehicle] = count
+                
+                osph_vehicle_data.append(row)
+            
+            osph_vehicle_df = pd.DataFrame(osph_vehicle_data)
+            st.dataframe(osph_vehicle_df, use_container_width=True, hide_index=True)
+            
+            # Visualization
+            if len(osph_vehicle_df) > 0:
+                plot_data = []
+                for _, row in osph_vehicle_df.iterrows():
+                    osph = row['Outstanding PH']
+                    for col in osph_vehicle_df.columns:
+                        if col not in ['Outstanding PH', 'Total Apps', 'Total Records']:
+                            if col in row and pd.notna(row[col]):
+                                plot_data.append({
+                                    'OSPH': osph,
+                                    'Vehicle': col,
+                                    'Count': row[col]
+                                })
+                
+                if plot_data:
+                    plot_df = pd.DataFrame(plot_data)
+                    fig = px.bar(
+                        plot_df,
+                        x='OSPH',
+                        y='Count',
+                        color='Vehicle',
+                        title="Outstanding PH vs Jenis Kendaraan Distribution",
+                        barmode='group'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # 3. OSPH vs Scoring
+        st.subheader("3. Outstanding PH vs Scoring Result")
         
         if 'OSPH_Category' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
-            dim1_data = []
+            osph_scoring_data = []
             
             for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
                 df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
@@ -581,61 +567,19 @@ def main():
                     if count > 0:
                         row[scoring] = count
                 
-                dim1_data.append(row)
-            
-            dim1_df = pd.DataFrame(dim1_data)
-            st.dataframe(dim1_df, use_container_width=True, hide_index=True)
-        
-        st.subheader("2. Outstanding PH vs Application Status")
-        
-        if 'OSPH_Category' in df_filtered.columns and 'apps_status_clean' in df_filtered.columns:
-            status_data = []
-            
-            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
-                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
-                row = {
-                    'Outstanding PH': osph,
-                    'Total Apps': df_osph['apps_id'].nunique(),
-                    'Total Records': len(df_osph)
-                }
+                # Calculate approval rate
+                approve = df_osph['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+                total = len(df_osph[df_osph['Scoring_Detail'] != '(Pilih Semua)'])
+                row['Approval Rate'] = f"{approve/total*100:.1f}%" if total > 0 else "0%"
                 
-                for status in sorted(df_filtered['apps_status_clean'].unique()):
-                    if status != 'Unknown':
-                        count = len(df_osph[df_osph['apps_status_clean'] == status])
-                        if count > 0:
-                            row[status] = count
-                
-                status_data.append(row)
+                osph_scoring_data.append(row)
             
-            status_df = pd.DataFrame(status_data)
-            st.dataframe(status_df, use_container_width=True, hide_index=True)
-        
-        st.subheader("3. Outstanding PH vs Vehicle Type")
-        
-        if 'OSPH_Category' in df_filtered.columns and 'JenisKendaraan_clean' in df_filtered.columns:
-            vehicle_data = []
-            
-            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
-                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
-                row = {
-                    'Outstanding PH': osph,
-                    'Total Apps': df_osph['apps_id'].nunique(),
-                    'Total Records': len(df_osph)
-                }
-                
-                for vehicle in sorted([x for x in df_filtered['JenisKendaraan_clean'].unique() if x != 'Unknown']):
-                    count = len(df_osph[df_osph['JenisKendaraan_clean'] == vehicle])
-                    if count > 0:
-                        row[vehicle] = count
-                
-                vehicle_data.append(row)
-            
-            vehicle_df = pd.DataFrame(vehicle_data)
-            st.dataframe(vehicle_df, use_container_width=True, hide_index=True)
+            osph_scoring_df = pd.DataFrame(osph_scoring_data)
+            st.dataframe(osph_scoring_df, use_container_width=True, hide_index=True)
     
-    # ====== TAB 2: STATUS & SCORING (V3) ======
+    # ====== TAB 2: STATUS & SCORING ======
     with tab2:
-        st.header("Application Status & Scoring Cross-Tabulation")
+        st.header("📋 Application Status & Scoring Cross-Tabulation")
         
         if 'apps_status_clean' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
             cross_tab = pd.crosstab(
@@ -653,15 +597,15 @@ def main():
                 fig = px.imshow(
                     cross_tab_no_total,
                     text_auto=True,
-                    title="Status vs Scoring Distribution",
+                    title="Status vs Scoring Distribution Heatmap",
                     color_continuous_scale="Blues",
                     aspect="auto"
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
-    # ====== TAB 3: OD IMPACT (V3) ======
+    # ====== TAB 3: OD IMPACT ======
     with tab3:
-        st.header("Overdue Days Impact Analysis")
+        st.header("⏰ Overdue Days Impact Analysis")
         
         col1, col2 = st.columns(2)
         
@@ -731,9 +675,9 @@ def main():
                 maxod_df = pd.DataFrame(maxod_analysis)
                 st.dataframe(maxod_df, use_container_width=True, hide_index=True)
     
-    # ====== TAB 4: CA PERFORMANCE (V3) ======
+    # ====== TAB 4: CA PERFORMANCE ======
     with tab4:
-        st.header("Credit Analyst Performance Summary")
+        st.header("👥 Credit Analyst Performance Summary")
         
         if 'user_name_clean' in df_filtered.columns:
             ca_perf = []
@@ -750,13 +694,21 @@ def main():
                 approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
                 avg_risk = f"{df_ca['Risk_Score'].mean():.0f}" if df_ca['Risk_Score'].notna().any() else "-"
                 
+                # Calculate avg SLA for this CA
+                ca_sla = df_ca[df_ca['SLA_Hours'].notna()]
+                if len(ca_sla) > 0:
+                    avg_sla = convert_hours_to_hm(ca_sla['SLA_Hours'].mean())
+                else:
+                    avg_sla = "-"
+                
                 ca_perf.append({
                     'CA Name': ca,
                     'Total Apps': df_ca['apps_id'].nunique(),
                     'Total Records': len(df_ca),
                     'Approved': approve,
                     'Approval Rate': approval_pct,
-                    'Avg Risk Score': avg_risk
+                    'Avg Risk Score': avg_risk,
+                    'Avg SLA': avg_sla
                 })
             
             ca_df = pd.DataFrame(ca_perf).sort_values('Total Apps', ascending=False)
@@ -772,34 +724,21 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
-    # ====== TAB 5: SLA ANALYSIS (V3) ======
+    # ====== TAB 5: SLA ANALYSIS (SIMPLIFIED) ======
     with tab5:
-        st.header("SLA Performance Analysis")
+        st.header("⏱️ SLA Performance Analysis")
         
-        # Search detail
-        st.subheader("Search Application Detail")
-        search_app_id = st.text_input("Enter Application ID to view SLA details:")
+        st.info("""
+        **SLA Calculation Method:**
+        - SLA dihitung dari waktu Recommendation sampai action_on
+        - Hanya dihitung jika kedua timestamp tersedia
+        - Menggunakan working hours (08:30 - 15:30)
+        - Exclude weekend dan tanggal merah
+        """)
         
-        if search_app_id:
-            try:
-                search_id = int(search_app_id)
-                app_sla_detail = df_sla_history_filtered[df_sla_history_filtered['apps_id'] == search_id]
-                
-                if len(app_sla_detail) > 0:
-                    st.success(f"Found {len(app_sla_detail)} records for App ID {search_id}")
-                    
-                    detail_cols = ['Transition', 'SLA_Hours', 'SLA_Formatted', 'Start_Time', 'End_Time']
-                    st.dataframe(app_sla_detail[detail_cols], use_container_width=True, hide_index=True)
-                else:
-                    st.warning(f"No records found for App ID {search_id}")
-            except:
-                st.error("Please enter a valid numeric App ID")
+        # Overall SLA stats
+        sla_valid = df_filtered[df_filtered['SLA_Hours'].notna()]
         
-        st.markdown("---")
-        
-        sla_valid = df_sla_history_filtered[df_sla_history_filtered['SLA_Hours'].notna()]
-        
-        # Summary stats
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
@@ -820,7 +759,8 @@ def main():
         
         with col3:
             st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-            st.metric("SLA Count", f"{len(sla_valid):,}")
+            sla_pct = f"{len(sla_valid)/len(df_filtered)*100:.1f}%" if len(df_filtered) > 0 else "0%"
+            st.metric("Data Coverage", f"{len(sla_valid):,} ({sla_pct})")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col4:
@@ -828,17 +768,78 @@ def main():
                 exceed = (sla_valid['SLA_Hours'] > 35).sum()
                 exceed_pct = f"{exceed/len(sla_valid)*100:.1f}%"
                 st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-                st.metric("Exceed Target (35h)", exceed_pct)
+                st.metric("Exceed Target (>35h)", exceed_pct)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("---")
         
-        # Monthly trend
-        st.subheader("SLA Monthly Trend")
+        # SLA by Status (SIMPLIFIED - Main request)
+        st.subheader("📊 SLA Statistics by Application Status")
         
-        if len(sla_valid) > 0 and 'End_Time' in sla_valid.columns:
+        if 'apps_status_clean' in df_filtered.columns:
+            status_sla = []
+            
+            for status in sorted(df_filtered['apps_status_clean'].unique()):
+                if status == 'Unknown':
+                    continue
+                
+                df_status = df_filtered[df_filtered['apps_status_clean'] == status]
+                sla_status = df_status[df_status['SLA_Hours'].notna()]
+                
+                if len(sla_status) > 0:
+                    avg_sla = sla_status['SLA_Hours'].mean()
+                    median_sla = sla_status['SLA_Hours'].median()
+                    max_sla = sla_status['SLA_Hours'].max()
+                    min_sla = sla_status['SLA_Hours'].min()
+                    
+                    status_sla.append({
+                        'Status': status,
+                        'Total Records': len(df_status),
+                        'With SLA': len(sla_status),
+                        'Coverage': f"{len(sla_status)/len(df_status)*100:.1f}%",
+                        'Avg SLA': convert_hours_to_hm(avg_sla),
+                        'Median SLA': convert_hours_to_hm(median_sla),
+                        'Min SLA': convert_hours_to_hm(min_sla),
+                        'Max SLA': convert_hours_to_hm(max_sla),
+                    })
+            
+            if status_sla:
+                status_sla_df = pd.DataFrame(status_sla)
+                st.dataframe(status_sla_df, use_container_width=True, hide_index=True)
+                
+                # Visualization
+                plot_data = []
+                for _, row in status_sla_df.iterrows():
+                    # Extract hours from formatted string
+                    avg_str = row['Avg SLA']
+                    if avg_str and 'h' in avg_str:
+                        hours = float(avg_str.split('h')[0])
+                        plot_data.append({
+                            'Status': row['Status'],
+                            'Avg SLA (hours)': hours
+                        })
+                
+                if plot_data:
+                    plot_df = pd.DataFrame(plot_data)
+                    fig = px.bar(
+                        plot_df,
+                        x='Status',
+                        y='Avg SLA (hours)',
+                        title="Average SLA by Application Status",
+                        color='Avg SLA (hours)',
+                        color_continuous_scale='RdYlGn_r'
+                    )
+                    fig.add_hline(y=35, line_dash="dash", line_color="red", annotation_text="Target: 35h")
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # Monthly trend
+        st.subheader("📈 SLA Monthly Trend")
+        
+        if len(sla_valid) > 0 and 'action_on_parsed' in sla_valid.columns:
             sla_valid_copy = sla_valid.copy()
-            sla_valid_copy['YearMonth'] = pd.to_datetime(sla_valid_copy['End_Time']).dt.to_period('M').astype(str)
+            sla_valid_copy['YearMonth'] = sla_valid_copy['action_on_parsed'].dt.to_period('M').astype(str)
             
             monthly_sla = sla_valid_copy.groupby('YearMonth').agg({
                 'SLA_Hours': ['mean', 'count']
@@ -846,8 +847,6 @@ def main():
             
             monthly_sla.columns = ['Month', 'Avg_SLA', 'Count']
             monthly_sla = monthly_sla.sort_values('Month')
-            
-            # Convert to hm for display
             monthly_sla['Avg_SLA_Formatted'] = monthly_sla['Avg_SLA'].apply(convert_hours_to_hm)
             
             st.dataframe(monthly_sla[['Month', 'Avg_SLA_Formatted', 'Count']], use_container_width=True, hide_index=True)
@@ -857,94 +856,23 @@ def main():
                 monthly_sla,
                 x='Month',
                 y='Avg_SLA',
-                title="Average SLA by Month",
+                title="Average SLA Trend by Month",
                 markers=True
             )
             fig.add_hline(y=35, line_dash="dash", line_color="red", annotation_text="Target: 35 hours")
             st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown("---")
-        
-        # SLA by transition
-        st.subheader("SLA Statistics by Transition")
-        
-        stats_data = []
-        for transition in sorted(df_sla_history_filtered['Transition'].unique()):
-            trans_data = df_sla_history_filtered[df_sla_history_filtered['Transition'] == transition]
-            valid_sla = trans_data[trans_data['SLA_Hours'].notna()]
-            
-            if len(valid_sla) > 0:
-                avg = convert_hours_to_hm(valid_sla['SLA_Hours'].mean())
-                stats_data.append({
-                    'Transition': transition,
-                    'Total': len(trans_data),
-                    'With SLA': len(valid_sla),
-                    'Avg SLA': avg,
-                })
-        
-        if stats_data:
-            stats_df = pd.DataFrame(stats_data)
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
     
-    # ====== TAB 6: DETAILED VIEW (V4) ======
+    # ====== TAB 6: DATA EXPORT ======
     with tab6:
-        st.header("Detailed SLA View per Application")
-        
-        sample_apps = sorted(df_filtered['apps_id'].unique())
-        
-        if len(sample_apps) > 0:
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                selected_app = st.selectbox("Select Application ID:", sample_apps, key='app_select')
-            with col2:
-                search_app = st.text_input("Or search:", key='search_app')
-                try:
-                    if search_app and int(search_app) in sample_apps:
-                        selected_app = int(search_app)
-                except:
-                    pass
-            
-            if selected_app:
-                app_data = df_filtered[df_filtered['apps_id'] == selected_app].sort_values('action_on_parsed')
-                
-                st.subheader(f"Application ID: {selected_app}")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    if 'Segmen_clean' in app_data.columns:
-                        st.info(f"**Segmen:** {app_data['Segmen_clean'].iloc[0]}")
-                with col2:
-                    if 'OSPH_Category' in app_data.columns:
-                        st.info(f"**OSPH:** {app_data['OSPH_Category'].iloc[0]}")
-                with col3:
-                    st.info(f"**Total Rows:** {len(app_data)}")
-                
-                st.markdown("---")
-                st.subheader(" Chronological History")
-                
-                raw_cols = ['apps_status_clean', 'action_on_parsed', 'Recommendation_parsed', 'user_name_clean']
-                available_raw = [c for c in raw_cols if c in app_data.columns]
-                st.dataframe(app_data[available_raw].reset_index(drop=True), use_container_width=True)
-                
-                st.markdown("---")
-                st.subheader(" SLA Calculation Details")
-                
-                sla_cols = ['apps_status_clean', 'SLA_Hours', 'SLA_Formatted', 'SLA_Logic']
-                available_sla = [c for c in sla_cols if c in app_data.columns]
-                st.dataframe(app_data[available_sla].reset_index(drop=True), use_container_width=True)
-        else:
-            st.info("No applications available")
-    
-    # ====== TAB 7: DATA EXPORT (V3) ======
-    with tab7:
-        st.header("Data Export")
+        st.header("💾 Data Export")
         
         st.subheader("Filtered Data Preview")
         
         display_cols = [
             'apps_id', 'apps_status_clean', 'action_on_parsed',
             'Recommendation_parsed', 'SLA_Formatted', 'SLA_Hours',
-            'Scoring_Detail', 'OSPH_Category', 'LastOD_clean',
+            'Scoring_Detail', 'OSPH_Category', 'Segmen_clean',
+            'JenisKendaraan_clean', 'LastOD_clean',
             'user_name_clean', 'branch_name_clean'
         ]
         
@@ -959,30 +887,50 @@ def main():
         st.markdown(f"Showing first 100 of {len(df_filtered):,} records")
         
         st.markdown("---")
-        st.subheader("Download Data")
+        st.subheader("Download Options")
         
         col1, col2 = st.columns(2)
         
         with col1:
             csv_data = df_filtered[available_cols].to_csv(index=False)
             st.download_button(
-                "Download Filtered Data (CSV)",
+                "📥 Download Filtered Data (CSV)",
                 csv_data,
                 "ca_analytics_data.csv",
                 "text/csv"
             )
         
         with col2:
-            csv_sla = df_sla_history_filtered.to_csv(index=False)
+            # Summary stats for download
+            summary_data = {
+                'Metric': [
+                    'Total Records',
+                    'Unique Applications',
+                    'SLA Calculated',
+                    'Average SLA (hours)',
+                    'Records with Recommendation',
+                    'Approval Rate'
+                ],
+                'Value': [
+                    len(df_filtered),
+                    df_filtered['apps_id'].nunique(),
+                    df_filtered['SLA_Hours'].notna().sum(),
+                    df_filtered['SLA_Hours'].mean() if df_filtered['SLA_Hours'].notna().any() else 0,
+                    df_filtered['Recommendation_parsed'].notna().sum(),
+                    f"{df_filtered['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() / len(df_filtered[df_filtered['Scoring_Detail'] != '(Pilih Semua)']) * 100:.1f}%"
+                ]
+            }
+            summary_df = pd.DataFrame(summary_data)
+            csv_summary = summary_df.to_csv(index=False)
             st.download_button(
-                "Download SLA History (CSV)",
-                csv_sla,
-                "sla_history.csv",
+                "📊 Download Summary Stats (CSV)",
+                csv_summary,
+                "summary_stats.csv",
                 "text/csv"
             )
     
     st.markdown("---")
-    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    st.caption(f"Dashboard last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total records in database: {len(df):,}")
 
 if __name__ == "__main__":
     main()
