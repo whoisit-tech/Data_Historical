@@ -40,23 +40,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 TANGGAL_MERAH = [
-    "01-01-2024", "08-02-2024", "10-02-2024", "11-03-2024",
-    "29-03-2024", "31-03-2024", "10-04-2024", "11-04-2024",
-    "01-05-2024", "09-05-2024", "23-05-2024", "01-06-2024",
-    "17-06-2024", "07-07-2024", "17-08-2024", "16-09-2024",
-    "25-12-2024", "09-02-2024", "12-03-2024", "08-04-2024", 
-    "09-04-2024", "12-04-2024", "10-05-2024", "24-05-2024", 
-    "18-06-2024", "26-12-2024", "01-01-2025", "27-01-2025", 
-    "28-01-2025", "29-01-2025", "28-03-2025", "31-03-2025",
-    "01-04-2025", "02-04-2025", "03-04-2025", "04-04-2025", 
-    "07-04-2025", "18-04-2025", "01-05-2025", "12-05-2025", 
-    "29-05-2025", "06-06-2025", "09-06-2025", "27-06-2025",
-    "18-08-2025", "05-09-2025", "25-12-2025", "26-12-2025", 
-    "31-12-2025", "01-01-2026", "02-01-2026", "16-01-2026", 
-    "16-02-2026", "17-02-2026", "18-03-2026", "19-03-2026", 
-    "20-03-2026", "23-03-2026", "24-03-2026", "03-04-2026", 
-    "01-05-2026", "14-05-2026", "27-05-2026", "28-05-2026", 
-    "01-06-2026", "16-06-2026", "17-08-2026", "25-08-2026", 
+    "01-01-2025", "27-01-2025", "28-01-2025", "29-01-2025", "28-03-2025", "31-03-2025",
+    "01-04-2025", "02-04-2025", "03-04-2025", "04-04-2025", "07-04-2025", "18-04-2025",
+    "01-05-2025", "12-05-2025", "29-05-2025", "06-06-2025", "09-06-2025", "27-06-2025",
+    "18-08-2025", "05-09-2025", "25-12-2025", "26-12-2025", "31-12-2025", "01-01-2026", 
+    "02-01-2026", "16-01-2026", "16-02-2026", "17-02-2026", "18-03-2026", "19-03-2026", 
+    "20-03-2026", "23-03-2026", "24-03-2026", "03-04-2026", "01-05-2026", "14-05-2026",
+    "27-05-2026", "28-05-2026", "01-06-2026", "16-06-2026", "17-08-2026", "25-08-2026", 
     "25-12-2026", "31-12-2026"
 ]
 TANGGAL_MERAH_DT = [datetime.strptime(d, "%d-%m-%Y").date() for d in TANGGAL_MERAH]
@@ -100,200 +90,250 @@ def is_working_day(date):
 
 def calculate_sla_working_hours(start_dt, end_dt):
     """
-    Calculate working hours between two timestamps
-    Working hours: 8:30 AM - 3:30 PM (7 hours/day)
-    Excludes weekends and holidays (TANGGAL_MERAH)
+    Hitung SLA dalam working hours (08:30 - 15:30)
+    Exclude weekend dan tanggal merah
     
-    ✅ PRECISE: Calculates down to the second
+    PENTING: Jika start_dt di luar jam kerja, akan dimulai dari jam kerja berikutnya
+    - Jika start > 15:30 → mulai dari 08:30 hari kerja berikutnya
+    - Jika start < 08:30 → mulai dari 08:30 hari yang sama
+    
+    Returns: dict dengan total_hours (float), formatted (string dalam jam)
     """
-    if pd.isna(start_dt) or pd.isna(end_dt):
+    if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
-
-    start_dt = pd.to_datetime(start_dt)
-    end_dt = pd.to_datetime(end_dt)
-
-    if end_dt <= start_dt:
-        return None
-
-    WORK_START = timedelta(hours=8, minutes=30)
-    WORK_END = timedelta(hours=15, minutes=30)
-    WORK_SECONDS_PER_DAY = 7 * 3600  # 25,200 seconds = 7 hours
-
-    current = start_dt
-    working_seconds = 0
-
-    while current < end_dt:
-        if not is_working_day(current):
-            # Skip to next working day at start
-            current = datetime.combine(
-                current.date() + timedelta(days=1),
-                datetime.min.time()
-            )
-            continue
-
-        # Define working hours for current day
-        day_start = datetime.combine(current.date(), datetime.min.time()) + WORK_START
-        day_end = datetime.combine(current.date(), datetime.min.time()) + WORK_END
-
-        # If current time is before work start, jump to work start
-        if current < day_start:
-            current = day_start
+    
+    try:
+        if not isinstance(start_dt, datetime):
+            start_dt = pd.to_datetime(start_dt)
+        if not isinstance(end_dt, datetime):
+            end_dt = pd.to_datetime(end_dt)
         
-        # If current time is at or after work end, move to next day
-        if current >= day_end:
-            current = datetime.combine(
-                current.date() + timedelta(days=1),
-                datetime.min.time()
-            )
-            continue
-
-        # Calculate working seconds for this interval
-        interval_end = min(day_end, end_dt)
-        working_seconds += max((interval_end - current).total_seconds(), 0)
-        current = interval_end
-
-    if working_seconds < 0:       # < (less than)  ✅ FIXED
-        return None
-
-    # ✅ SINGLE SOURCE OF TRUTH: working_days adalah satu-satunya reference
-    working_days = round(working_seconds / WORK_SECONDS_PER_DAY, 4)
-
-    # Format berdasarkan 7 jam kerja per hari
-    total_hours = int(working_seconds // 3600)
-    minutes = int((working_seconds % 3600) // 60)
-    seconds = int(working_seconds % 60)
-    days, hours = divmod(total_hours, 7)
-
-    return {
-        "working_seconds": working_seconds,
-        "working_days": working_days,
-        "formatted": f"{days}d {hours}h {minutes}m {seconds}s"
-    }
-
-
-def calculate_row_sla(df):
-    """
-    ✅ FIXED: Calculate SLA per row per apps_id dengan logika yang BENAR
-    
-    Logika perhitungan SLA:
-    
-    1. PENDING CA (tanpa COMPLETED): 
-       SLA_Start = Recommendation (baris yang sama)
-       SLA_End = action_on (baris yang sama)
-    
-    2. PENDING CA COMPLETED:
-       - Jika ada row sebelumnya: SLA_Start = action_on (row sebelumnya)
-       - Jika TIDAK ada row sebelumnya (first row): SLA_Start = Recommendation
-       - SLA_End = action_on (baris ini)
-    
-    3. NOT RECOMMENDED / RECOMMENDED CA / RECOMMENDED CA WITH COND:
-       - Jika ada row sebelumnya: SLA_Start = action_on (row sebelumnya)
-       - Jika TIDAK ada row sebelumnya (first row): SLA_Start = Recommendation
-       - SLA_End = action_on (baris ini)
-    
-    ✅ SEMUA SLA AKAN TERHITUNG jika ada timestamp yang valid
-    """
-    df_sorted = df.sort_values(['apps_id', 'action_on_parsed'], na_position='last').copy()
-    df_sorted = df_sorted.reset_index(drop=True)
-    
-    # Initialize SLA columns
-    df_sorted['SLA_Start'] = None
-    df_sorted['SLA_End'] = None
-    df_sorted['SLA_Days'] = None
-    df_sorted['SLA_Formatted'] = '—'
-    df_sorted['SLA_Logic'] = 'N/A'
-    
-    # Check if Recommendation_parsed exists
-    has_recommendation = 'Recommendation_parsed' in df_sorted.columns
-    
-    # Process each apps_id group
-    for app_id in df_sorted['apps_id'].unique():
-        mask = df_sorted['apps_id'] == app_id
-        app_indices = df_sorted[mask].index.tolist()
+        # Jika end sebelum start, return None
+        if end_dt <= start_dt:
+            return None
         
-        for group_position, current_idx in enumerate(app_indices):
-            current_status = str(df_sorted.at[current_idx, 'apps_status_clean']).upper()
-            current_action = df_sorted.at[current_idx, 'action_on_parsed']
+        # Working hours: 08:30 - 15:30 (7 jam per hari)
+        WORK_START = timedelta(hours=8, minutes=30)
+        WORK_END = timedelta(hours=15, minutes=30)
+        WORK_SECONDS_PER_DAY = 7 * 3600  # 7 jam = 25200 detik
+        
+        current = start_dt
+        total_seconds = 0
+        
+        # Loop per hari
+        while current.date() <= end_dt.date():
+            # Skip jika weekend atau holiday
+            if not is_working_day(current):
+                current = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
+                continue
             
-            if has_recommendation:
-                current_recommendation = df_sorted.at[current_idx, 'Recommendation_parsed']
+            # Tentukan start dan end untuk hari ini
+            day_start = datetime.combine(current.date(), datetime.min.time()) + WORK_START
+            day_end = datetime.combine(current.date(), datetime.min.time()) + WORK_END
+            
+            # Sesuaikan dengan actual start/end time
+            if current.date() == start_dt.date():
+                # Hari pertama
+                if start_dt.time() < day_start.time():
+                    # Start sebelum jam kerja → mulai dari 08:30
+                    day_actual_start = day_start
+                elif start_dt.time() >= day_end.time():
+                    # Start setelah/sama dengan jam kerja selesai (>= 15:30) → skip hari ini, mulai besok 08:30
+                    current = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
+                    continue
+                else:
+                    # Start di dalam jam kerja
+                    day_actual_start = start_dt
             else:
-                current_recommendation = None
+                day_actual_start = day_start
             
-            sla_start = None
-            sla_end = current_action
-            logic = 'N/A'
-            
-            # Check if there's a previous row
-            has_previous = group_position > 0
-            
-            # ========== LOGIKA 1: PENDING CA (tanpa COMPLETED) ==========
-            if 'PENDING CA' in current_status and 'COMPLETED' not in current_status:
-                # Selalu gunakan Recommendation untuk PENDING CA
-                if has_recommendation and pd.notna(current_recommendation):
-                    sla_start = current_recommendation
-                    logic = 'PENDING CA: Recommendation → action_on (same row)'
+            if current.date() == end_dt.date():
+                # Hari terakhir
+                if end_dt.time() < day_start.time():
+                    # End sebelum jam kerja mulai, skip hari ini
+                    break
+                elif end_dt.time() > day_end.time():
+                    # End setelah jam kerja → potong sampai 15:30
+                    day_actual_end = day_end
                 else:
-                    logic = 'PENDING CA: No Recommendation available'
+                    day_actual_end = end_dt
+            else:
+                day_actual_end = day_end
             
-            # ========== LOGIKA 2: PENDING CA COMPLETED ==========
-            elif 'COMPLETED' in current_status and 'PENDING' in current_status:
-                if has_previous:
-                    # Ada row sebelumnya: gunakan action_on dari row sebelumnya
-                    prev_idx = app_indices[group_position - 1]
-                    prev_action = df_sorted.at[prev_idx, 'action_on_parsed']
-                    sla_start = prev_action
-                    logic = 'PENDING CA COMPLETED: prev action_on → current action_on'
-                else:
-                    # First row - gunakan Recommendation
-                    if has_recommendation and pd.notna(current_recommendation):
-                        sla_start = current_recommendation
-                        logic = 'PENDING CA COMPLETED: Recommendation → action_on (first row)'
+            # Hitung detik untuk hari ini
+            if day_actual_end > day_actual_start:
+                day_seconds = (day_actual_end - day_actual_start).total_seconds()
+                total_seconds += day_seconds
+            
+            # Next day
+            current = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
+        
+        if total_seconds < 0:
+            return None
+        
+        # Convert ke jam (float)
+        total_hours = total_seconds / 3600
+        
+        # Format dalam jam, menit, detik
+        hours = int(total_seconds // 3600)
+        remaining = int(total_seconds % 3600)
+        minutes = remaining // 60
+        seconds = remaining % 60
+        
+        return {
+            'total_hours': round(total_hours, 2),
+            'total_seconds': total_seconds,
+            'formatted': f"{hours}h {minutes}m {seconds}s"
+        }
+    except Exception as e:
+        return None
+
+# ============================================================
+# FIXED: Logika calculate_historical_sla yang BENAR
+# Berdasarkan kolom Recommendation untuk PENDING CA
+# ============================================================
+def calculate_historical_sla(df):
+    """
+    Calculate SLA per transition yang SEBENARNYA terjadi
+    
+    LOGIKA BENAR:
+    1. Sort by apps_id dan action_on_parsed
+    2. Untuk PENDING CA: SLA = action_on - Recommendation
+    3. Untuk PENDING CA COMPLETED: SLA = action_on - action_on PENDING CA sebelumnya
+    4. Untuk RECOMMENDATION CA: SLA = action_on - action_on PENDING CA COMPLETED sebelumnya
+    5. Status lain: SLA = action_on current - action_on previous
+    
+    ✅ SLA dalam JAM (bukan days)
+    """
+    # Sort dulu
+    df_sorted = df.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
+    sla_list = []
+    
+    # Group by apps_id untuk efisiensi
+    for app_id, group in df_sorted.groupby('apps_id'):
+        group = group.reset_index(drop=True)
+        
+        for idx in range(len(group)):
+            row = group.iloc[idx]
+            current_status = row.get('apps_status_clean', 'Unknown')
+            current_time = row.get('action_on_parsed')
+            recommendation_time = row.get('Recommendation_parsed')
+            
+            # Jika ini row pertama untuk app ini
+            if idx == 0:
+                # Untuk row pertama, cek apakah PENDING CA dengan Recommendation
+                if current_status.upper() == 'PENDING CA' and pd.notna(recommendation_time):
+                    # PENDING CA dengan Recommendation: SLA = action_on - Recommendation
+                    sla_result = calculate_sla_working_hours(recommendation_time, current_time)
+                    if sla_result:
+                        sla_formatted = sla_result['formatted']
+                        sla_hours = sla_result['total_hours']
                     else:
-                        logic = 'PENDING CA COMPLETED: First row, no Recommendation'
-            
-            # ========== LOGIKA 3: NOT RECOMMENDED / RECOMMENDED CA / WITH COND ==========
-            # ✅ FIXED: Changed from 'any(keyword in...)' to 'or' condition for better matching
-            elif 'NOT RECOMMENDED' in current_status or 'RECOMMENDED' in current_status:
-                if has_previous:
-                    # Ada row sebelumnya: gunakan action_on dari row sebelumnya
-                    prev_idx = app_indices[group_position - 1]
-                    prev_action = df_sorted.at[prev_idx, 'action_on_parsed']
-                    sla_start = prev_action
-                    logic = f'{current_status}: prev action_on → current action_on'
+                        sla_formatted = '—'
+                        sla_hours = None
+                    transition = f"START → {current_status}"
+                    start_time = recommendation_time
                 else:
-                    # First row - gunakan Recommendation
-                    if has_recommendation and pd.notna(current_recommendation):
-                        sla_start = current_recommendation
-                        logic = f'{current_status}: Recommendation → action_on (first row)'
-                    else:
-                        logic = f'{current_status}: First row, no Recommendation'
+                    # Row pertama tanpa Recommendation atau bukan PENDING CA
+                    sla_formatted = '—'
+                    sla_hours = None
+                    transition = f"START → {current_status}"
+                    start_time = None
+                
+                sla_list.append({
+                    'idx': row.name,  # original index
+                    'apps_id': app_id,
+                    'Transition': transition,
+                    'From_Status': 'START',
+                    'To_Status': current_status,
+                    'SLA_Hours': sla_hours,
+                    'SLA_Formatted': sla_formatted,
+                    'Start_Time': start_time,
+                    'End_Time': current_time,
+                    'Recommendation': recommendation_time
+                })
+                continue
             
-            # ========== HITUNG SLA (FIXED INDENTATION) ==========
-            # Check if both timestamps exist and are valid
-            if (
-                sla_start is not None
-                and sla_end is not None
-                and pd.notna(sla_start)
-                and pd.notna(sla_end)
-                and sla_end > sla_start
-            ):
-                # Calculate SLA
-                sla_result = calculate_sla_working_hours(sla_start, sla_end)
+            # Ada previous row
+            prev_row = group.iloc[idx - 1]
+            prev_status = prev_row.get('apps_status_clean', 'Unknown')
+            prev_time = prev_row.get('action_on_parsed')
+            
+            # Hitung SLA berdasarkan status
+            sla_result = None
+            sla_formatted = '—'
+            start_time = prev_time
+            transition = f"{prev_status} → {current_status}"
+            
+            # LOGIKA KHUSUS UNTUK PENDING CA
+            if current_status.upper() == 'PENDING CA':
+                if pd.notna(recommendation_time):
+                    # PENDING CA dengan Recommendation: SLA = action_on - Recommendation
+                    sla_result = calculate_sla_working_hours(recommendation_time, current_time)
+                    if sla_result:
+                        sla_formatted = sla_result['formatted']
+                    start_time = recommendation_time
+                    transition += " (from Rec)"
+                else:
+                    # PENDING CA tanpa Recommendation: pakai previous action
+                    sla_result = calculate_sla_working_hours(prev_time, current_time)
+                    if sla_result:
+                        sla_formatted = sla_result['formatted']
+            
+            # LOGIKA KHUSUS UNTUK PENDING CA COMPLETED
+            elif current_status.upper() == 'PENDING CA COMPLETED':
+                # Cari PENDING CA terakhir
+                pending_ca_rows = group[group['apps_status_clean'].str.upper() == 'PENDING CA']
+                if len(pending_ca_rows) > 0:
+                    last_pending_ca = pending_ca_rows.iloc[-1]
+                    last_pending_ca_time = last_pending_ca.get('action_on_parsed')
+                    sla_result = calculate_sla_working_hours(last_pending_ca_time, current_time)
+                    if sla_result:
+                        sla_formatted = sla_result['formatted']
+                    start_time = last_pending_ca_time
+                else:
+                    # Fallback: pakai previous action
+                    sla_result = calculate_sla_working_hours(prev_time, current_time)
+                    if sla_result:
+                        sla_formatted = sla_result['formatted']
+            
+            # LOGIKA KHUSUS UNTUK RECOMMENDATION CA
+            elif current_status.upper() == 'RECOMMENDATION CA':
+                # Cari PENDING CA COMPLETED terakhir
+                pending_ca_comp_rows = group[group['apps_status_clean'].str.upper() == 'PENDING CA COMPLETED']
+                if len(pending_ca_comp_rows) > 0:
+                    last_pending_ca_comp = pending_ca_comp_rows.iloc[-1]
+                    last_pending_ca_comp_time = last_pending_ca_comp.get('action_on_parsed')
+                    sla_result = calculate_sla_working_hours(last_pending_ca_comp_time, current_time)
+                    if sla_result:
+                        sla_formatted = sla_result['formatted']
+                    start_time = last_pending_ca_comp_time
+                else:
+                    # Fallback: pakai previous action
+                    sla_result = calculate_sla_working_hours(prev_time, current_time)
+                    if sla_result:
+                        sla_formatted = sla_result['formatted']
+            
+            # STATUS LAINNYA: SLA normal (current - previous)
+            else:
+                sla_result = calculate_sla_working_hours(prev_time, current_time)
                 if sla_result:
-                    df_sorted.at[current_idx, 'SLA_Start'] = sla_start
-                    df_sorted.at[current_idx, 'SLA_End'] = sla_end
-                    df_sorted.at[current_idx, 'SLA_Days'] = sla_result['working_days']
-                    df_sorted.at[current_idx, 'SLA_Formatted'] = sla_result['formatted']
-                    df_sorted.at[current_idx, 'SLA_Logic'] = logic
-                else:
-                    # Timestamps are invalid (e.g., same time)
-                    df_sorted.at[current_idx, 'SLA_Logic'] = logic + ' (calculation failed)'
-            else:
-                # Missing or invalid timestamps
-                df_sorted.at[current_idx, 'SLA_Logic'] = logic + ' (missing timestamps)'
+                    sla_formatted = sla_result['formatted']
+            
+            sla_list.append({
+                'idx': row.name,  # original index
+                'apps_id': app_id,
+                'Transition': transition,
+                'From_Status': prev_status,
+                'To_Status': current_status,
+                'SLA_Hours': sla_result['total_hours'] if sla_result else None,
+                'SLA_Formatted': sla_formatted,
+                'Start_Time': start_time,
+                'End_Time': current_time,
+                'Recommendation': recommendation_time
+            })
     
-    return df_sorted
+    return pd.DataFrame(sla_list)
 
 def get_osph_category(osph_value):
     """Categorize Outstanding PH into ranges"""
@@ -316,6 +356,7 @@ def calculate_risk_score(row):
     """Calculate risk score based on multiple factors"""
     score = 0
     
+    # OSPH risk contribution
     if pd.notna(row.get('OSPH_clean')):
         if row['OSPH_clean'] > 500000000:
             score += 30
@@ -324,6 +365,7 @@ def calculate_risk_score(row):
         else:
             score += 10
     
+    # LastOD risk contribution
     if pd.notna(row.get('LastOD_clean')):
         if row['LastOD_clean'] > 30:
             score += 40
@@ -332,10 +374,11 @@ def calculate_risk_score(row):
         elif row['LastOD_clean'] > 0:
             score += 15
     
-    if pd.notna(row.get('SLA_Days')):
-        if row['SLA_Days'] > 5:
+    # SLA risk contribution (dalam jam, 35 jam = 5 hari kerja x 7 jam)
+    if pd.notna(row.get('SLA_Hours')):
+        if row['SLA_Hours'] > 35:  # > 5 hari kerja
             score += 20
-        elif row['SLA_Days'] > 3:
+        elif row['SLA_Hours'] > 21:  # > 3 hari kerja
             score += 10
     
     return min(score, 100)
@@ -344,18 +387,16 @@ def preprocess_data(df):
     """Clean and prepare data for analysis"""
     df = df.copy()
     
-    # Parse dates
-    for col in ['action_on', 'Initiation', 'RealisasiDate', 'Recommendation']:
+    # Parse dates - INCLUDING RECOMMENDATION
+    for col in ['action_on', 'Initiation', 'RealisasiDate', 'Recommendation', 'ApprovalCC1', 'ApprovalCC2']:
         if col in df.columns:
             df[f'{col}_parsed'] = df[col].apply(parse_date)
-        else:
-            df[f'{col}_parsed'] = None
     
-    # Clean status
+    # Clean apps_status
     if 'apps_status' in df.columns:
         df['apps_status_clean'] = df['apps_status'].fillna('Unknown').astype(str).str.strip()
     
-    # Clean OSPH
+    # Clean Outstanding PH
     if 'Outstanding_PH' in df.columns:
         df['OSPH_clean'] = pd.to_numeric(
             df['Outstanding_PH'].astype(str).str.replace(',', ''), 
@@ -363,20 +404,18 @@ def preprocess_data(df):
         )
         df['OSPH_Category'] = df['OSPH_clean'].apply(get_osph_category)
     
-    # Clean numeric fields
+    # Clean OD columns
     for col in ['LastOD', 'max_OD']:
         if col in df.columns:
             df[f'{col}_clean'] = pd.to_numeric(df[col], errors='coerce')
     
-    # Clean scoring
+    # Clean Hasil_Scoring
     if 'Hasil_Scoring' in df.columns:
         df['Scoring_Detail'] = df['Hasil_Scoring'].fillna('(Pilih Semua)').astype(str).str.strip()
     
-    # Clean segmen
+    # Clean Segmen
     if 'Segmen' in df.columns:
         df['Segmen_clean'] = df['Segmen'].fillna('Unknown').astype(str).str.strip()
-    else:
-        df['Segmen_clean'] = 'Unknown'
     
     # Extract time features
     if 'action_on_parsed' in df.columns:
@@ -387,10 +426,10 @@ def preprocess_data(df):
         df['YearMonth'] = df['action_on_parsed'].dt.to_period('M').astype(str)
         df['Quarter'] = df['action_on_parsed'].dt.quarter
     
-    # Clean categorical fields
+    # Clean categorical columns
     categorical_fields = [
-        'desc_status_apps', 'Produk', 'Pekerjaan', 'Jabatan',
-        'Pekerjaan_Pasangan', 'JenisKendaraan', 'branch_name', 
+        'desc_status_apps', 'Pekerjaan', 'Jabatan',
+        'JenisKendaraan', 'branch_name', 
         'Tujuan_Kredit', 'user_name', 'position_name'
     ]
     
@@ -412,9 +451,10 @@ def load_data():
         
         required_cols = [
             'apps_id', 'position_name', 'user_name', 'apps_status', 'desc_status_apps',
-            'action_on', 'Initiation', 'RealisasiDate', 'Outstanding_PH',
+            'Segmen', 'action_on', 'Initiation', 'RealisasiDate', 'Outstanding_PH',
             'Pekerjaan', 'Jabatan', 'Hasil_Scoring',
-            'JenisKendaraan', 'branch_name', 'Tujuan_Kredit', 'LastOD', 'max_OD'
+            'JenisKendaraan', 'branch_name', 'Tujuan_Kredit',
+            'Recommendation', 'LastOD', 'max_OD'
         ]
         
         missing = [c for c in required_cols if c not in df.columns]
@@ -422,13 +462,20 @@ def load_data():
             st.error(f"Kolom tidak ditemukan: {', '.join(missing)}")
             return None
         
-        if 'Recommendation' not in df.columns:
-            st.warning(" Kolom 'Recommendation' tidak ditemukan.")
-            df['Recommendation'] = None
-        
         df_clean = preprocess_data(df)
-        df_clean = calculate_row_sla(df_clean)
         
+        # Calculate SLA setelah preprocessing
+        sla_history = calculate_historical_sla(df_clean)
+        
+        # Merge SLA ke original dataframe
+        for _, sla_row in sla_history.iterrows():
+            idx = sla_row['idx']
+            if idx < len(df_clean):
+                df_clean.at[idx, 'SLA_Hours'] = sla_row['SLA_Hours']
+                df_clean.at[idx, 'SLA_Formatted'] = sla_row['SLA_Formatted']
+                df_clean.at[idx, 'Transition'] = sla_row['Transition']
+        
+        # Calculate risk score SETELAH SLA
         df_clean['Risk_Score'] = df_clean.apply(calculate_risk_score, axis=1)
         df_clean['Risk_Category'] = pd.cut(
             df_clean['Risk_Score'], 
@@ -443,89 +490,12 @@ def load_data():
         st.code(traceback.format_exc())
         return None
 
-def create_osph_pivot_analysis(df):
-    """
-    Create OSPH PIVOT tables per Segmen:
-    - Pivot 1: OSPH_Category (rows) x Pekerjaan (columns) per Segmen
-    - Pivot 2: OSPH_Category (rows) x JenisKendaraan (columns) per Segmen
-    - Pivot 3: OSPH_Category (rows) x Hasil_Scoring (columns) per Segmen
-    
-    ✅ Menghitung DISTINCT apps_id untuk setiap kombinasi
-    """
-    pivots = {}
-    
-    df_valid = df[
-        (df['OSPH_clean'].notna()) & 
-        (df['OSPH_Category'] != 'Unknown') &
-        (df['Segmen_clean'] != 'Unknown')
-    ].copy()
-    
-    if len(df_valid) == 0:
-        return pivots
-    
-    # PIVOT 1: OSPH_Category (rows) x Pekerjaan (columns) per Segmen
-    if 'Pekerjaan_clean' in df_valid.columns:
-        pivot1 = {}
-        for segmen in sorted(df_valid['Segmen_clean'].unique()):
-            df_seg = df_valid[df_valid['Segmen_clean'] == segmen]
-            
-            pivot_table = pd.crosstab(
-                df_seg['OSPH_Category'],
-                df_seg['Pekerjaan_clean'],
-                values=df_seg['apps_id'],
-                aggfunc='nunique',  # ✅ Count distinct apps_id
-                margins=True,
-                margins_name='TOTAL'
-            )
-            pivot1[segmen] = pivot_table
-        
-        pivots['pekerjaan'] = pivot1
-    
-    # PIVOT 2: OSPH_Category (rows) x JenisKendaraan (columns) per Segmen
-    if 'JenisKendaraan_clean' in df_valid.columns:
-        pivot2 = {}
-        for segmen in sorted(df_valid['Segmen_clean'].unique()):
-            df_seg = df_valid[df_valid['Segmen_clean'] == segmen]
-            
-            pivot_table = pd.crosstab(
-                df_seg['OSPH_Category'],
-                df_seg['JenisKendaraan_clean'],
-                values=df_seg['apps_id'],
-                aggfunc='nunique',  # ✅ Count distinct apps_id
-                margins=True,
-                margins_name='TOTAL'
-            )
-            pivot2[segmen] = pivot_table
-        
-        pivots['kendaraan'] = pivot2
-    
-    # PIVOT 3: OSPH_Category (rows) x Hasil_Scoring (columns) per Segmen
-    if 'Scoring_Detail' in df_valid.columns:
-        df_scoring = df_valid[df_valid['Scoring_Detail'] != '(Pilih Semua)']
-        
-        pivot3 = {}
-        for segmen in sorted(df_scoring['Segmen_clean'].unique()):
-            df_seg = df_scoring[df_scoring['Segmen_clean'] == segmen]
-            
-            pivot_table = pd.crosstab(
-                df_seg['OSPH_Category'],
-                df_seg['Scoring_Detail'],
-                values=df_seg['apps_id'],
-                aggfunc='nunique',  # ✅ Count distinct apps_id
-                margins=True,
-                margins_name='TOTAL'
-            )
-            pivot3[segmen] = pivot_table
-        
-        pivots['scoring'] = pivot3
-    
-    return pivots
-
 def generate_analytical_insights(df):
     """Generate insights and warnings from data"""
     insights = []
     warnings = []
     
+    # Insight 1: OSPH vs Approval Rate
     if 'OSPH_Category' in df.columns and 'Scoring_Detail' in df.columns:
         for osph in ['0 - 250 Juta', '250 - 500 Juta', '500 Juta+']:
             df_osph = df[df['OSPH_Category'] == osph]
@@ -537,29 +507,37 @@ def generate_analytical_insights(df):
                 
                 if total > 0:
                     rate = approve / total * 100
-                    insights.append(f"Approval rate {rate:.1f}% in {osph} segment")
+                    if rate < 30:
+                        warnings.append(
+                            f"Low approval rate {rate:.1f}% in {osph} segment"
+                        )
+                    elif rate > 60:
+                        insights.append(
+                            f"Strong approval rate {rate:.1f}% in {osph} segment"
+                        )
     
-    if 'SLA_Days' in df.columns:
-        sla_valid = df[df['SLA_Days'].notna()]
-        if len(sla_valid) > 0:
-            avg_sla = sla_valid['SLA_Days'].mean()
-            sla_calculated_count = len(sla_valid)
-            total_records = len(df)
-            sla_pct = (sla_calculated_count / total_records * 100) if total_records > 0 else 0
-            
-            if avg_sla > 5:
-                warnings.append(f" Average SLA: {avg_sla:.1f} days (target: ≤5) | {sla_calculated_count:,}/{total_records:,} records ({sla_pct:.1f}%)")
+    # Insight 2: SLA Performance (dalam jam, target 35 jam = 5 hari x 7 jam)
+    if 'SLA_Hours' in df.columns:
+        avg_sla = df['SLA_Hours'].mean()
+        if pd.notna(avg_sla):
+            if avg_sla > 35:  # > 5 hari kerja
+                warnings.append(
+                    f"Average SLA is {avg_sla:.1f} hours (target: ≤35 hours / 5 working days)"
+                )
             else:
-                insights.append(f" Average SLA: {avg_sla:.1f} days | {sla_calculated_count:,}/{total_records:,} records ({sla_pct:.1f}%)")
+                insights.append(
+                    f"Good SLA performance: {avg_sla:.1f} hours average"
+                )
     
     return insights, warnings
 
 def main():
     """Main application"""
-    st.title(" CA Analytics Dashboard")
-    st.markdown("** Correct Per-Row SLA | All SLA Calculated | OSPH Pivot Tables per Segmen**")
+    st.title("🎯 CA Analytics Dashboard (SLA FIXED v2)")
+    st.markdown("**✅ SLA Calculation FIXED - Based on Recommendation Column**")
     st.markdown("---")
     
+    # Load data
     with st.spinner("Loading dan processing data..."):
         df = load_data()
     
@@ -567,64 +545,95 @@ def main():
         st.error("Data tidak dapat dimuat")
         st.stop()
     
+    # Calculate historical SLA
+    df_sla_history = calculate_historical_sla(df)
+    
+    # Display data summary
     total_records = len(df)
     unique_apps = df['apps_id'].nunique()
-    sla_calculated = df['SLA_Days'].notna().sum()
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(" Total Records", f"{total_records:,}")
-        st.caption("Total kontrak/apps (semua rows)")
+        st.metric("📊 Total Records", f"{total_records:,}")
     with col2:
-        st.metric(" Unique Applications", f"{unique_apps:,}")
-        st.caption("Distinct apps_id")
+        st.metric("📝 Unique Applications", f"{unique_apps:,}")
     with col3:
-        sla_pct = (sla_calculated / total_records * 100) if total_records > 0 else 0
-        st.metric(" SLA Calculated", f"{sla_calculated:,} ({sla_pct:.1f}%)")
-        st.caption("Rows dengan SLA terhitung")
-    with col4:
-        avg_sla = df[df['SLA_Days'].notna()]['SLA_Days'].mean()
-        st.metric(" Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
-        st.caption("Rata-rata working days")
+        avg_sla = df_sla_history['SLA_Hours'].mean()
+        st.metric("⏱️ Average SLA", f"{avg_sla:.1f} hours" if pd.notna(avg_sla) else "N/A")
     
     st.markdown("---")
     
     # Sidebar filters
     st.sidebar.title("Analytics Control Panel")
     
+    # Status filter
     if 'apps_status_clean' in df.columns:
-        all_status = sorted([x for x in df['apps_status_clean'].unique() if x != 'Unknown'])
-        selected_status = st.sidebar.multiselect("Application Status", all_status, default=all_status)
+        all_status = sorted([
+            x for x in df['apps_status_clean'].unique() 
+            if x != 'Unknown'
+        ])
+        selected_status = st.sidebar.multiselect(
+            "Application Status",
+            all_status,
+            default=all_status
+        )
     else:
         selected_status = []
     
+    # Scoring filter
     if 'Scoring_Detail' in df.columns:
-        all_scoring = sorted([x for x in df['Scoring_Detail'].unique() if x != '(Pilih Semua)'])
-        selected_scoring = st.sidebar.multiselect("Scoring Result", all_scoring, default=all_scoring)
+        all_scoring = sorted([
+            x for x in df['Scoring_Detail'].unique() 
+            if x != '(Pilih Semua)'
+        ])
+        selected_scoring = st.sidebar.multiselect(
+            "Scoring Result",
+            all_scoring,
+            default=all_scoring
+        )
     else:
         selected_scoring = []
     
+    # Segmen filter
     if 'Segmen_clean' in df.columns:
         all_segmen = sorted([x for x in df['Segmen_clean'].unique() if x != 'Unknown'])
-        selected_segmen = st.sidebar.selectbox("Segmen", ['All'] + all_segmen)
+        selected_segmen = st.sidebar.selectbox(
+            "Segmen",
+            ['All'] + all_segmen
+        )
     else:
         selected_segmen = 'All'
     
+    # Branch filter
     if 'branch_name_clean' in df.columns:
         all_branches = sorted(df['branch_name_clean'].unique().tolist())
-        selected_branch = st.sidebar.selectbox("Branch", ['All'] + all_branches)
+        selected_branch = st.sidebar.selectbox(
+            "Branch",
+            ['All'] + all_branches
+        )
     else:
         selected_branch = 'All'
     
+    # CA filter
     if 'user_name_clean' in df.columns:
         all_cas = sorted(df['user_name_clean'].unique().tolist())
-        selected_ca = st.sidebar.selectbox("CA Name", ['All'] + all_cas)
+        selected_ca = st.sidebar.selectbox(
+            "CA Name",
+            ['All'] + all_cas
+        )
     else:
         selected_ca = 'All'
     
+    # Outstanding PH filter
     if 'OSPH_Category' in df.columns:
-        all_osph = sorted([x for x in df['OSPH_Category'].unique() if x != 'Unknown'])
-        selected_osph = st.sidebar.selectbox("Outstanding PH", ['All'] + all_osph)
+        all_osph = sorted([
+            x for x in df['OSPH_Category'].unique() 
+            if x != 'Unknown'
+        ])
+        selected_osph = st.sidebar.selectbox(
+            "Outstanding PH",
+            ['All'] + all_osph
+        )
     else:
         selected_osph = 'All'
     
@@ -632,189 +641,619 @@ def main():
     df_filtered = df.copy()
     
     if selected_status:
-        df_filtered = df_filtered[df_filtered['apps_status_clean'].isin(selected_status)]
+        df_filtered = df_filtered[
+            df_filtered['apps_status_clean'].isin(selected_status)
+        ]
     
     if selected_scoring:
-        df_filtered = df_filtered[df_filtered['Scoring_Detail'].isin(selected_scoring)]
+        df_filtered = df_filtered[
+            df_filtered['Scoring_Detail'].isin(selected_scoring)
+        ]
     
     if selected_segmen != 'All':
-        df_filtered = df_filtered[df_filtered['Segmen_clean'] == selected_segmen]
+        df_filtered = df_filtered[
+            df_filtered['Segmen_clean'] == selected_segmen
+        ]
     
     if selected_branch != 'All':
-        df_filtered = df_filtered[df_filtered['branch_name_clean'] == selected_branch]
+        df_filtered = df_filtered[
+            df_filtered['branch_name_clean'] == selected_branch
+        ]
     
     if selected_ca != 'All':
-        df_filtered = df_filtered[df_filtered['user_name_clean'] == selected_ca]
+        df_filtered = df_filtered[
+            df_filtered['user_name_clean'] == selected_ca
+        ]
     
     if selected_osph != 'All':
-        df_filtered = df_filtered[df_filtered['OSPH_Category'] == selected_osph]
+        df_filtered = df_filtered[
+            df_filtered['OSPH_Category'] == selected_osph
+        ]
     
+    
+    # Filter SLA history based on apps that passed filters
+    filtered_app_ids = df_filtered['apps_id'].unique()
+    df_sla_history_filtered = df_sla_history[
+        df_sla_history['apps_id'].isin(filtered_app_ids)
+    ]
+    
+    # Sidebar summary
     st.sidebar.markdown("---")
-    st.sidebar.info(f"{len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)")
-    st.sidebar.info(f"{df_filtered['apps_id'].nunique():,} unique applications")
+    st.sidebar.info(
+        f"{len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)"
+    )
+    st.sidebar.info(
+        f"{df_filtered['apps_id'].nunique():,} unique applications"
+    )
     
     # Insights
-    st.header(" Key Insights")
+    st.header("💡 Key Insights")
     insights, warnings = generate_analytical_insights(df_filtered)
     
     if warnings:
-        st.warning("\n".join([f"• {w}" for w in warnings]))
+        st.warning("⚠️ **Alerts:**\n" + "\n".join([f"• {w}" for w in warnings]))
     
     if insights:
-        st.success("\n".join([f"• {i}" for i in insights]))
+        st.success("✅ **Positive Findings:**\n" + "\n".join([f"• {i}" for i in insights]))
     
     st.markdown("---")
     
-    # Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        " SLA Overview",
-        " OSPH Pivot Analysis",
-        " CA Performance",
-        " Detailed View",
-        " Raw Data"
+    # Tabs - SEMUA TAB ORIGINAL
+    (
+        tab1, tab2, tab3, tab4, tab5, 
+        tab6, tab7, tab8, tab9
+    ) = st.tabs([
+        "Outstanding PH Analysis",
+        "OD Impact Analysis",
+        "Status & Scoring Matrix",
+        "CA Performance",
+        "Predictive Patterns",
+        "Trends & Forecasting",
+        "SLA Transitions",
+        "Duplicate Applications",
+        "Raw Data"
     ])
     
-    # Tab 1: SLA Overview
+    # Tab 1: Outstanding PH Analysis
     with tab1:
-        st.header("SLA Performance Overview")
+        st.header("Outstanding PH Analysis - 4 Dimensions")
+        st.info(
+            "Comprehensive analysis of Outstanding PH "
+            "with 4 analytical dimensions"
+        )
         
+        # Dimension 1
+        st.subheader("Dimension 1: Outstanding PH vs Scoring Result")
+        st.markdown(
+            "**Purpose**: Understand scoring decision patterns "
+            "across Outstanding PH ranges"
+        )
         
-        sla_valid = df_filtered[df_filtered['SLA_Days'].notna()]
-        
-        if len(sla_valid) > 0:
-            col1, col2, col3, col4 = st.columns(4)
+        if 'OSPH_Category' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
+            dim1_data = []
             
-            with col1:
-                st.metric("Average SLA", f"{sla_valid['SLA_Days'].mean():.2f} days")
-            with col2:
-                st.metric("Median SLA", f"{sla_valid['SLA_Days'].median():.2f} days")
-            with col3:
-                exceed_5 = (sla_valid['SLA_Days'] > 5).sum()
-                pct = exceed_5 / len(sla_valid) * 100 if len(sla_valid) > 0 else 0
-                st.metric("Exceed 5 Days", f"{exceed_5} ({pct:.1f}%)")
-            with col4:
-                within_target = (sla_valid['SLA_Days'] <= 5).sum()
-                pct = within_target / len(sla_valid) * 100 if len(sla_valid) > 0 else 0
-                st.metric("Within Target", f"{within_target} ({pct:.1f}%)")
-            
-            st.markdown("---")
-            st.subheader("Average SLA by Status")
-            
-            sla_by_status = sla_valid.groupby('apps_status_clean').agg({
-                'SLA_Days': ['mean', 'median', 'max', 'min'],
-                'apps_id': 'nunique'
-            }).reset_index()
-            
-            # Add total records count
-            record_counts = sla_valid.groupby('apps_status_clean').size().reset_index(name='Total_Records')
-            
-            sla_by_status.columns = ['Status', 'Avg_SLA', 'Median_SLA', 'Max_SLA', 'Min_SLA', 'Distinct_Apps']
-            sla_by_status = sla_by_status.merge(record_counts, left_on='Status', right_on='apps_status_clean', how='left')
-            sla_by_status = sla_by_status.drop('apps_status_clean', axis=1)
-            sla_by_status = sla_by_status[['Status', 'Avg_SLA', 'Median_SLA', 'Min_SLA', 'Max_SLA', 'Total_Records', 'Distinct_Apps']]
-            sla_by_status = sla_by_status.sort_values('Avg_SLA', ascending=False)
-            
-            st.dataframe(sla_by_status, use_container_width=True, hide_index=True)
-            
-            fig = px.bar(
-                sla_by_status, x='Status', y='Avg_SLA', 
-                title="Average SLA by Application Status",
-                color='Avg_SLA', color_continuous_scale='RdYlGn_r',
-                hover_data={'Total_Records': True, 'Median_SLA': ':.2f'}
-            )
-            fig.update_xaxes(tickangle=45)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Distribution chart
-            st.subheader("SLA Distribution")
-            fig_dist = px.histogram(
-                sla_valid, x='SLA_Days', nbins=50,
-                title='Distribution of SLA Days',
-                labels={'SLA_Days': 'SLA (working days)'},
-                color_discrete_sequence=['#1f77b4']
-            )
-            fig_dist.add_vline(x=5, line_dash="dash", line_color="red", annotation_text="Target: 5 days")
-            fig_dist.add_vline(x=sla_valid['SLA_Days'].mean(), line_dash="dot", line_color="green", 
-                             annotation_text=f"Mean: {sla_valid['SLA_Days'].mean():.2f} days")
-            st.plotly_chart(fig_dist, use_container_width=True)
-        else:
-            st.warning("No SLA data available")
-    
-    # Tab 2: OSPH Pivot Analysis
-    with tab2:
-        st.header("OSPH Pivot Tables per Segmen")
-        st.info(" Pivot tables menampilkan **jumlah unique apps_id** untuk setiap kombinasi")
-        
-        osph_pivots = create_osph_pivot_analysis(df_filtered)
-        
-        if osph_pivots:
-            pivot_tab1, pivot_tab2, pivot_tab3 = st.tabs([
-                " OSPH x Pekerjaan",
-                " OSPH x Jenis Kendaraan",
-                " OSPH x Hasil Scoring"
+            osph_ranges = sorted([
+                x for x in df_filtered['OSPH_Category'].unique() 
+                if x != 'Unknown'
             ])
             
-            # PIVOT 1: OSPH x Pekerjaan
-            with pivot_tab1:
-                if 'pekerjaan' in osph_pivots:
-                    st.subheader("Pivot: OSPH Range (Rows) x Pekerjaan (Columns)")
-                    st.caption("Angka = Jumlah Distinct Apps | TOTAL = Row/Column totals")
-                    
-                    for segmen, pivot_table in osph_pivots['pekerjaan'].items():
-                        st.markdown(f"### Segmen: **{segmen}**")
-                        st.dataframe(pivot_table, use_container_width=True)
-                        
-                        # Show summary
-                        total_apps = pivot_table.loc['TOTAL', 'TOTAL'] if 'TOTAL' in pivot_table.index and 'TOTAL' in pivot_table.columns else 0
-                        st.caption(f"Total Distinct Apps untuk segmen {segmen}: **{int(total_apps):,}**")
-                        st.markdown("---")
-                else:
-                    st.info("No data available")
+            for osph in osph_ranges:
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                
+                harga_min = (
+                    df_osph['OSPH_clean'].min() 
+                    if 'OSPH_clean' in df_osph.columns 
+                    else 0
+                )
+                harga_max = (
+                    df_osph['OSPH_clean'].max() 
+                    if 'OSPH_clean' in df_osph.columns 
+                    else 0
+                )
+                
+                row = {
+                    'Range': osph,
+                    'Min Value': f"Rp {harga_min:,.0f}",
+                    'Max Value': f"Rp {harga_max:,.0f}",
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                scoring_values = [
+                    '(Pilih Semua)', '-', 'APPROVE', 'APPROVE 1', 'APPROVE 2',
+                    'REGULER', 'REGULER 1', 'REGULER 2',
+                    'REJECT', 'REJECT 1', 'REJECT 2', 'SCORING IN PROGRESS'
+                ]
+                
+                for scoring in scoring_values:
+                    count = len(df_osph[df_osph['Scoring_Detail'] == scoring])
+                    if count > 0:
+                        row[scoring] = count
+                
+                dim1_data.append(row)
             
-            # PIVOT 2: OSPH x Jenis Kendaraan
-            with pivot_tab2:
-                if 'kendaraan' in osph_pivots:
-                    st.subheader("Pivot: OSPH Range (Rows) x Jenis Kendaraan (Columns)")
-                    st.caption("Angka = Jumlah Distinct Apps | TOTAL = Row/Column totals")
-                    
-                    for segmen, pivot_table in osph_pivots['kendaraan'].items():
-                        st.markdown(f"### Segmen: **{segmen}**")
-                        st.dataframe(pivot_table, use_container_width=True)
-                        
-                        # Show summary
-                        total_apps = pivot_table.loc['TOTAL', 'TOTAL'] if 'TOTAL' in pivot_table.index and 'TOTAL' in pivot_table.columns else 0
-                        st.caption(f"Total Distinct Apps untuk segmen {segmen}: **{int(total_apps):,}**")
-                        st.markdown("---")
-                else:
-                    st.info("No data available")
+            dim1_df = pd.DataFrame(dim1_data)
+            st.dataframe(dim1_df, use_container_width=True, hide_index=True)
             
-            # PIVOT 3: OSPH x Hasil Scoring
-            with pivot_tab3:
-                if 'scoring' in osph_pivots:
-                    st.subheader("Pivot: OSPH Range (Rows) x Hasil Scoring (Columns)")
-                    st.caption("Angka = Jumlah Distinct Apps | TOTAL = Row/Column totals")
-                    
-                    for segmen, pivot_table in osph_pivots['scoring'].items():
-                        st.markdown(f"### Segmen: **{segmen}**")
-                        st.dataframe(pivot_table, use_container_width=True)
-                        
-                        # Show summary
-                        total_apps = pivot_table.loc['TOTAL', 'TOTAL'] if 'TOTAL' in pivot_table.index and 'TOTAL' in pivot_table.columns else 0
-                        st.caption(f"Total Distinct Apps untuk segmen {segmen}: **{int(total_apps):,}**")
-                        st.markdown("---")
-                else:
-                    st.info("No data available")
-        else:
-            st.warning("No data available for pivot analysis")
+            # Heatmap
+            scoring_cols = [
+                c for c in dim1_df.columns 
+                if c not in ['Range', 'Min Value', 'Max Value', 'Total Apps', 'Total Records']
+            ]
+            
+            if scoring_cols:
+                heatmap_data = dim1_df[['Range'] + scoring_cols].set_index('Range')
+                fig = px.imshow(
+                    heatmap_data.T,
+                    text_auto=True,
+                    title="Outstanding PH vs Scoring Result Distribution",
+                    labels=dict(
+                        x="Outstanding PH Range",
+                        y="Scoring Result",
+                        color="Count"
+                    ),
+                    aspect="auto"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Dimension 2
+        st.markdown("---")
+        st.subheader("Dimension 2: Outstanding PH vs Application Status")
+        st.markdown(
+            "**Purpose**: Distribution of application status "
+            "across Outstanding PH ranges"
+        )
+        
+        if 'OSPH_Category' in df_filtered.columns and 'apps_status_clean' in df_filtered.columns:
+            status_data = []
+            
+            for osph in sorted([
+                x for x in df_filtered['OSPH_Category'].unique() 
+                if x != 'Unknown'
+            ]):
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                row = {
+                    'Range': osph, 
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                for status in sorted(df_filtered['apps_status_clean'].unique()):
+                    if status != 'Unknown':
+                        count = len(df_osph[df_osph['apps_status_clean'] == status])
+                        if count > 0:
+                            row[status] = count
+                
+                status_data.append(row)
+            
+            status_df = pd.DataFrame(status_data)
+            st.dataframe(status_df, use_container_width=True, hide_index=True)
+            
+            status_cols = [
+                c for c in status_df.columns 
+                if c not in ['Range', 'Total Apps', 'Total Records']
+            ]
+            
+            if status_cols:
+                heatmap_status = status_df[['Range'] + status_cols].set_index('Range')
+                fig = px.imshow(
+                    heatmap_status.T,
+                    text_auto=True,
+                    title="Outstanding PH vs Application Status",
+                    labels=dict(
+                        x="Outstanding PH Range",
+                        y="Application Status",
+                        color="Count"
+                    ),
+                    aspect="auto"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Dimension 3
+        st.markdown("---")
+        st.subheader("Dimension 3: Outstanding PH vs Job Type (Pekerjaan)")
+        st.markdown(
+            "**Purpose**: Occupation profile across Outstanding PH ranges"
+        )
+        
+        if 'OSPH_Category' in df_filtered.columns and 'Pekerjaan_clean' in df_filtered.columns:
+            dim3_data = []
+            all_pekerjaan = sorted([
+                x for x in df_filtered['Pekerjaan_clean'].unique() 
+                if x != 'Unknown'
+            ])
+            
+            for osph in sorted([
+                x for x in df_filtered['OSPH_Category'].unique() 
+                if x != 'Unknown'
+            ]):
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                
+                harga_min = (
+                    df_osph['OSPH_clean'].min() 
+                    if 'OSPH_clean' in df_osph.columns 
+                    else 0
+                )
+                harga_max = (
+                    df_osph['OSPH_clean'].max() 
+                    if 'OSPH_clean' in df_osph.columns 
+                    else 0
+                )
+                
+                row = {
+                    'Range': osph,
+                    'Min Value': f"Rp {harga_min:,.0f}",
+                    'Max Value': f"Rp {harga_max:,.0f}",
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                for pekerjaan in all_pekerjaan:
+                    count = len(df_osph[df_osph['Pekerjaan_clean'] == pekerjaan])
+                    if count > 0:
+                        row[pekerjaan] = count
+                
+                dim3_data.append(row)
+            
+            dim3_df = pd.DataFrame(dim3_data)
+            st.dataframe(dim3_df, use_container_width=True, hide_index=True)
+            
+            pekerjaan_cols = [
+                c for c in dim3_df.columns 
+                if c not in ['Range', 'Min Value', 'Max Value', 'Total Apps', 'Total Records']
+            ]
+            
+            if pekerjaan_cols:
+                fig = px.bar(
+                    dim3_df,
+                    x='Range',
+                    y=pekerjaan_cols,
+                    title="Job Type Distribution by Outstanding PH Range",
+                    barmode='stack'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Dimension 4
+        st.markdown("---")
+        st.subheader(
+            "Dimension 4: Outstanding PH vs Vehicle Type "
+            "(Mb. Beban / Mb. Penumpang)"
+        )
+        st.markdown(
+            "**Purpose**: Vehicle preference and risk profile "
+            "by Outstanding PH range"
+        )
+        
+        if 'OSPH_Category' in df_filtered.columns and 'JenisKendaraan_clean' in df_filtered.columns:
+            dim4_data = []
+            
+            for osph in sorted([
+                x for x in df_filtered['OSPH_Category'].unique() 
+                if x != 'Unknown'
+            ]):
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                
+                harga_min = (
+                    df_osph['OSPH_clean'].min() 
+                    if 'OSPH_clean' in df_osph.columns 
+                    else 0
+                )
+                harga_max = (
+                    df_osph['OSPH_clean'].max() 
+                    if 'OSPH_clean' in df_osph.columns 
+                    else 0
+                )
+                
+                row = {
+                    'Range': osph,
+                    'Min Value': f"Rp {harga_min:,.0f}",
+                    'Max Value': f"Rp {harga_max:,.0f}",
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                for vehicle_type in sorted(df_filtered['JenisKendaraan_clean'].unique()):
+                    if vehicle_type != 'Unknown':
+                        count = len(df_osph[df_osph['JenisKendaraan_clean'] == vehicle_type])
+                        if count > 0:
+                            row[vehicle_type] = count
+                
+                dim4_data.append(row)
+            
+            dim4_df = pd.DataFrame(dim4_data)
+            st.dataframe(dim4_df, use_container_width=True, hide_index=True)
+            
+            vehicle_cols = [
+                c for c in dim4_df.columns 
+                if c not in ['Range', 'Min Value', 'Max Value', 'Total Apps', 'Total Records']
+            ]
+            
+            if vehicle_cols:
+                fig = px.bar(
+                    dim4_df,
+                    x='Range',
+                    y=vehicle_cols,
+                    title="Vehicle Type Distribution by Outstanding PH Range",
+                    barmode='group'
+                )
+                st.plotly_chart(fig, use_container_width=True)
     
-    # Tab 3: CA Performance Analysis
+    # Tab 2: OD Impact Analysis
+    with tab2:
+        st.header("OD Impact Analysis - LastOD & max_OD")
+        st.info(
+            "Analysis of how Overdue Days (OD) impact scoring "
+            "decisions and risk profiles"
+        )
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("LastOD Analysis")
+            st.markdown(
+                "**Purpose**: Understand LastOD impact on approval rates"
+            )
+            
+            if 'LastOD_clean' in df_filtered.columns:
+                df_filtered['LastOD_Category'] = pd.cut(
+                    df_filtered['LastOD_clean'],
+                    bins=[-np.inf, 0, 10, 30, np.inf],
+                    labels=['0 (No OD)', '1-10 days', '11-30 days', '>30 days']
+                )
+                
+                lastod_analysis = []
+                
+                for cat in ['0 (No OD)', '1-10 days', '11-30 days', '>30 days']:
+                    df_od = df_filtered[df_filtered['LastOD_Category'] == cat]
+                    
+                    if len(df_od) > 0:
+                        approve = df_od['Scoring_Detail'].isin(
+                            ['APPROVE', 'APPROVE 1', 'APPROVE 2']
+                        ).sum()
+                        
+                        reject = df_od['Scoring_Detail'].isin(
+                            ['REJECT', 'REJECT 1', 'REJECT 2']
+                        ).sum()
+                        
+                        total = len(df_od[df_od['Scoring_Detail'] != '(Pilih Semua)'])
+                        
+                        approval_pct = (
+                            f"{approve/total*100:.1f}%" 
+                            if total > 0 
+                            else "-"
+                        )
+                        
+                        avg_risk = (
+                            f"{df_od['Risk_Score'].mean():.1f}" 
+                            if df_od['Risk_Score'].notna().any() 
+                            else "-"
+                        )
+                        
+                        lastod_analysis.append({
+                            'LastOD Range': cat,
+                            'Total Apps': df_od['apps_id'].nunique(),
+                            'Total Records': len(df_od),
+                            'Approve': approve,
+                            'Reject': reject,
+                            'Approval %': approval_pct,
+                            'Avg Risk': avg_risk
+                        })
+                
+                lastod_df = pd.DataFrame(lastod_analysis)
+                st.dataframe(lastod_df, use_container_width=True, hide_index=True)
+        
+        with col2:
+            st.subheader("max_OD Analysis")
+            st.markdown(
+                "**Purpose**: Understand max_OD impact on approval rates"
+            )
+            
+            if 'max_OD_clean' in df_filtered.columns:
+                df_filtered['maxOD_Category'] = pd.cut(
+                    df_filtered['max_OD_clean'],
+                    bins=[-np.inf, 0, 15, 45, np.inf],
+                    labels=['0', '1-15 days', '16-45 days', '>45 days']
+                )
+                
+                maxod_analysis = []
+                
+                for cat in ['0', '1-15 days', '16-45 days', '>45 days']:
+                    df_od = df_filtered[df_filtered['maxOD_Category'] == cat]
+                    
+                    if len(df_od) > 0:
+                        approve = df_od['Scoring_Detail'].isin(
+                            ['APPROVE', 'APPROVE 1', 'APPROVE 2']
+                        ).sum()
+                        
+                        reject = df_od['Scoring_Detail'].isin(
+                            ['REJECT', 'REJECT 1', 'REJECT 2']
+                        ).sum()
+                        
+                        total = len(df_od[df_od['Scoring_Detail'] != '(Pilih Semua)'])
+                        
+                        approval_pct = (
+                            f"{approve/total*100:.1f}%" 
+                            if total > 0 
+                            else "-"
+                        )
+                        
+                        avg_risk = (
+                            f"{df_od['Risk_Score'].mean():.1f}" 
+                            if df_od['Risk_Score'].notna().any() 
+                            else "-"
+                        )
+                        
+                        maxod_analysis.append({
+                            'max_OD Range': cat,
+                            'Total Apps': df_od['apps_id'].nunique(),
+                            'Total Records': len(df_od),
+                            'Approve': approve,
+                            'Reject': reject,
+                            'Approval %': approval_pct,
+                            'Avg Risk': avg_risk
+                        })
+                
+                maxod_df = pd.DataFrame(maxod_analysis)
+                st.dataframe(maxod_df, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        st.subheader("OD Trend Analysis: LastOD vs max_OD")
+        st.markdown(
+            "**Purpose**: Identify if customer OD is improving or worsening"
+        )
+        
+        if 'LastOD_clean' in df_filtered.columns and 'max_OD_clean' in df_filtered.columns:
+            df_filtered['OD_Trend'] = (
+                df_filtered['LastOD_clean'] - df_filtered['max_OD_clean']
+            )
+            
+            df_filtered['OD_Trend_Category'] = pd.cut(
+                df_filtered['OD_Trend'],
+                bins=[-np.inf, -10, -1, 0, 10, np.inf],
+                labels=[
+                    'Significant Improvement',
+                    'Slight Improvement',
+                    'Stable',
+                    'Slight Worsening',
+                    'Significant Worsening'
+                ]
+            )
+            
+            trend_analysis = df_filtered.groupby('OD_Trend_Category').agg({
+                'apps_id': 'nunique',
+                'Scoring_Detail': lambda x: (
+                    x.isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() / 
+                    len(x[x != '(Pilih Semua)']) * 100
+                ) if len(x[x != '(Pilih Semua)']) > 0 else 0,
+                'Risk_Score': 'mean'
+            }).reset_index()
+            
+            trend_analysis.columns = [
+                'OD Trend',
+                'Total Apps',
+                'Approval %',
+                'Avg Risk'
+            ]
+            
+            trend_analysis['Total Records'] = df_filtered.groupby('OD_Trend_Category').size().values
+            
+            st.dataframe(trend_analysis, use_container_width=True, hide_index=True)
+            
+            fig = px.bar(
+                trend_analysis,
+                x='OD Trend',
+                y='Approval %',
+                color='Avg Risk',
+                title="OD Trend Impact on Approval Rate"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 3: Status & Scoring Matrix
     with tab3:
-        st.header("CA Performance Analysis")
-        st.info(" Detailed performance metrics per Credit Analyst")
+        st.header("Status & Scoring Matrix")
+        st.info(
+            "Complete cross-tabulation of application status "
+            "and scoring results"
+        )
+        
+        st.subheader("Cross-Tabulation Matrix")
+        st.markdown(
+            "**Purpose**: See relationship between status and scoring outcome"
+        )
+        
+        if 'apps_status_clean' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
+            cross_tab = pd.crosstab(
+                df_filtered['apps_status_clean'],
+                df_filtered['Scoring_Detail'],
+                margins=True,
+                margins_name='TOTAL'
+            )
+            st.dataframe(cross_tab, use_container_width=True)
+            
+            cross_tab_no_total = cross_tab.drop('TOTAL', errors='ignore').drop(
+                'TOTAL',
+                axis=1,
+                errors='ignore'
+            )
+            
+            if len(cross_tab_no_total) > 0:
+                fig = px.imshow(
+                    cross_tab_no_total,
+                    text_auto=True,
+                    title="Application Status vs Scoring Result Heatmap",
+                    labels=dict(
+                        x="Scoring Result",
+                        y="Application Status",
+                        color="Count"
+                    ),
+                    aspect="auto"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Application Status Summary")
+            st.markdown(
+                "**Metrics per Status**: Total Apps, Total Records, and Risk"
+            )
+            
+            if 'apps_status_clean' in df_filtered.columns:
+                status_detail = df_filtered.groupby('apps_status_clean').agg({
+                    'apps_id': 'nunique'
+                }).reset_index()
+                
+                status_detail.insert(2, 'Total Records', df_filtered.groupby('apps_status_clean').size().values)
+                status_detail.insert(3, 'Avg Risk', df_filtered.groupby('apps_status_clean')['Risk_Score'].mean().values)
+                
+                status_detail.columns = [
+                    'Status',
+                    'Total Apps',
+                    'Total Records',
+                    'Avg Risk'
+                ]
+                
+                status_detail = status_detail.sort_values(
+                    'Total Apps',
+                    ascending=False
+                )
+                
+                st.dataframe(status_detail, use_container_width=True, hide_index=True)
+        
+        with col2:
+            st.subheader("Scoring Result Summary")
+            st.markdown(
+                "**Distribution of Scoring Outcomes with Apps & Records**"
+            )
+            
+            if 'Scoring_Detail' in df_filtered.columns:
+                scoring_detail = []
+                for scoring in sorted(df_filtered['Scoring_Detail'].unique()):
+                    if scoring != '(Pilih Semua)':
+                        df_scoring = df_filtered[df_filtered['Scoring_Detail'] == scoring]
+                        scoring_detail.append({
+                            'Scoring Result': scoring,
+                            'Total Apps': df_scoring['apps_id'].nunique(),
+                            'Total Records': len(df_scoring),
+                            'Percentage': f"{len(df_scoring)/len(df_filtered)*100:.1f}%"
+                        })
+                
+                scoring_df = pd.DataFrame(scoring_detail)
+                st.dataframe(
+                    scoring_df,
+                    use_container_width=True,
+                    hide_index=True
+                )
+    
+    # Tab 4: CA Performance
+    with tab4:
+        st.header("CA Performance Analytics")
+        st.info(
+            "Individual CA performance metrics and comparison"
+        )
         
         if 'user_name_clean' in df_filtered.columns:
-            # Create comprehensive CA performance data
-            ca_performance = []
+            ca_perf = []
             
             for ca in sorted(df_filtered['user_name_clean'].unique()):
                 if ca == 'Unknown':
@@ -822,259 +1261,522 @@ def main():
                 
                 df_ca = df_filtered[df_filtered['user_name_clean'] == ca]
                 
-                # Basic metrics
-                total_apps = df_ca['apps_id'].nunique()
-                total_records = len(df_ca)
+                approve = df_ca['Scoring_Detail'].isin(
+                    ['APPROVE', 'APPROVE 1', 'APPROVE 2']
+                ).sum()
                 
-                # Scoring breakdown
-                approve = df_ca['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                reject = df_ca['Scoring_Detail'].isin(['REJECT', 'REJECT 1', 'REJECT 2']).sum()
-                reguler = df_ca['Scoring_Detail'].isin(['REGULER', 'REGULER 1', 'REGULER 2']).sum()
-                in_progress = df_ca['Scoring_Detail'].isin(['SCORING IN PROGRESS']).sum()
-                no_scoring = df_ca['Scoring_Detail'].isin(['(Pilih Semua)', '-']).sum()
+                reject = df_ca['Scoring_Detail'].isin(
+                    ['REJECT', 'REJECT 1', 'REJECT 2']
+                ).sum()
                 
-                total_scored = approve + reject + reguler
+                total_scored = len(
+                    df_ca[df_ca['Scoring_Detail'] != '(Pilih Semua)']
+                )
                 
-                # Calculate rates
-                if total_scored > 0:
-                    approve_rate = f"{approve/total_scored*100:.1f}%"
-                    reject_rate = f"{reject/total_scored*100:.1f}%"
-                    reguler_rate = f"{reguler/total_scored*100:.1f}%"
-                else:
-                    approve_rate = "0.0%"
-                    reject_rate = "0.0%"
-                    reguler_rate = "0.0%"
+                other = total_scored - approve - reject
                 
-                # SLA metrics
-                df_ca_sla = df_ca[df_ca['SLA_Days'].notna()]
-                if len(df_ca_sla) > 0:
-                    avg_sla = f"{df_ca_sla['SLA_Days'].mean():.2f}"
-                    median_sla = f"{df_ca_sla['SLA_Days'].median():.2f}"
-                    max_sla = f"{df_ca_sla['SLA_Days'].max():.2f}"
-                else:
-                    avg_sla = "N/A"
-                    median_sla = "N/A"
-                    max_sla = "N/A"
+                avg_risk = (
+                    f"{df_ca['Risk_Score'].mean():.0f}" 
+                    if df_ca['Risk_Score'].notna().any() 
+                    else "-"
+                )
                 
-                # OSPH average
-                if df_ca['OSPH_clean'].notna().any():
-                    avg_osph = df_ca['OSPH_clean'].mean()
-                    avg_osph_display = f"Rp {avg_osph/1e6:.1f}M"
-                else:
-                    avg_osph_display = "N/A"
+                approval_pct = (
+                    f"{approve/total_scored*100:.1f}%" 
+                    if total_scored > 0 
+                    else "-"
+                )
                 
-                ca_performance.append({
+                ca_perf.append({
                     'CA Name': ca,
-                    'Total Apps': total_apps,
-                    'Total Records': total_records,
-                    'APPROVE': approve,
-                    'REJECT': reject,
-                    'REGULER': reguler,
-                    'In Progress': in_progress,
-                    'No Scoring': no_scoring,
-                    'Approve Rate': approve_rate,
-                    'Reject Rate': reject_rate,
-                    'Reguler Rate': reguler_rate,
-                    'Avg SLA': avg_sla,
-                    'Median SLA': median_sla,
-                    'Max SLA': max_sla,
-                    'Avg OSPH': avg_osph_display
+                    'Total Apps': df_ca['apps_id'].nunique(),
+                    'Total Records': len(df_ca),
+                    'Approve': approve,
+                    'Reject': reject,
+                    'Other': other,
+                    'Approval %': approval_pct,
+                    'Avg Risk Score': avg_risk
                 })
             
-            ca_df = pd.DataFrame(ca_performance)
+            ca_df = pd.DataFrame(ca_perf).sort_values(
+                'Total Apps',
+                ascending=False
+            )
             
-            # Detailed table
-            st.subheader(" Detailed CA Performance Table")
+            st.subheader("CA Performance Table")
             st.dataframe(ca_df, use_container_width=True, hide_index=True)
             
-            st.markdown("---")
-            
-            # Visualizations
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("Top 10 CAs by Volume")
-                top_10 = ca_df.nlargest(10, 'Total Apps')
-                
+                st.subheader("Top 10 CA by Volume")
                 fig = px.bar(
-                    top_10,
+                    ca_df.head(10),
                     x='CA Name',
                     y='Total Apps',
-                    title="Top 10 CAs by Total Applications",
-                    color='Total Apps',
-                    color_continuous_scale='Blues'
+                    title="CA Volume Distribution"
                 )
-                fig.update_xaxes(tickangle=45)
+                fig.update_layout(xaxis_tickangle=-45)
                 st.plotly_chart(fig, use_container_width=True)
             
             with col2:
-                st.subheader("Approval vs Rejection Distribution")
+                st.subheader("Volume vs Approval Rate")
+                ca_df_plot = ca_df.copy()
+                ca_df_plot['Approval_num'] = ca_df_plot['Approval %'].str.replace(
+                    '%', ''
+                ).replace('-', '0').astype(float)
                 
-                # Create stacked bar chart
-                top_10_stacked = top_10[['CA Name', 'APPROVE', 'REJECT', 'REGULER']].copy()
-                
-                fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    name='APPROVE',
-                    x=top_10_stacked['CA Name'],
-                    y=top_10_stacked['APPROVE'],
-                    marker_color='#4CAF50'
-                ))
-                fig.add_trace(go.Bar(
-                    name='REJECT',
-                    x=top_10_stacked['CA Name'],
-                    y=top_10_stacked['REJECT'],
-                    marker_color='#F44336'
-                ))
-                fig.add_trace(go.Bar(
-                    name='REGULER',
-                    x=top_10_stacked['CA Name'],
-                    y=top_10_stacked['REGULER'],
-                    marker_color='#FFC107'
-                ))
-                
-                fig.update_layout(
-                    barmode='stack',
-                    title='Top 10 CAs: Scoring Distribution',
-                    xaxis_tickangle=45
+                fig = px.scatter(
+                    ca_df_plot,
+                    x='Total Apps',
+                    y='Approval_num',
+                    size='Total Apps',
+                    hover_data=['CA Name'],
+                    title="CA Performance Scatter",
+                    labels={'Approval_num': 'Approval %'}
                 )
                 st.plotly_chart(fig, use_container_width=True)
-            
-            st.markdown("---")
-            
-            # CA comparison by approval rate
-            st.subheader(" CA Approval Rate Comparison")
-            
-            # Convert percentage strings to float for sorting
-            ca_df_sorted = ca_df.copy()
-            ca_df_sorted['Approve_Rate_Numeric'] = ca_df_sorted['Approve Rate'].str.replace('%', '').astype(float)
-            ca_df_sorted = ca_df_sorted.sort_values('Approve_Rate_Numeric', ascending=False).head(15)
-            
-            fig = px.bar(
-                ca_df_sorted,
-                x='CA Name',
-                y='Approve_Rate_Numeric',
-                title='Top 15 CAs by Approval Rate',
-                labels={'Approve_Rate_Numeric': 'Approval Rate (%)'},
-                color='Approve_Rate_Numeric',
-                color_continuous_scale='RdYlGn'
+    
+    # Tab 5: Predictive Patterns
+    with tab5:
+        st.header("Predictive Pattern Recognition")
+        st.info(
+            "Identification of patterns that predict "
+            "approval or rejection outcomes"
+        )
+        
+        st.subheader(
+            "High-Impact Combinations: "
+            "Outstanding PH + OD Segment + Job Type"
+        )
+        st.markdown(
+            "**Purpose**: Find best and worst segment combinations"
+        )
+        
+        if all(c in df_filtered.columns for c in [
+            'OSPH_Category', 'LastOD_clean', 'Pekerjaan_clean', 'Scoring_Detail'
+        ]):
+            df_filtered['LastOD_Segment'] = pd.cut(
+                df_filtered['LastOD_clean'],
+                bins=[-np.inf, 0, 30, np.inf],
+                labels=['No OD', 'OD 1-30', 'OD >30']
             )
-            fig.update_xaxes(tickangle=45)
+            
+            pattern_analysis = df_filtered.groupby([
+                'OSPH_Category',
+                'LastOD_Segment',
+                'Pekerjaan_clean'
+            ]).agg({
+                'apps_id': 'nunique',
+                'Scoring_Detail': lambda x: (
+                    x.isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() / 
+                    len(x[x != '(Pilih Semua)']) * 100
+                ) if len(x[x != '(Pilih Semua)']) > 0 else 0
+            }).reset_index()
+            
+            pattern_analysis['Total Records'] = df_filtered.groupby([
+                'OSPH_Category',
+                'LastOD_Segment',
+                'Pekerjaan_clean'
+            ]).size().values
+            
+            pattern_analysis.columns = [
+                'Outstanding PH',
+                'OD Segment',
+                'Job Type',
+                'Total Apps',
+                'Approval %',
+                'Total Records'
+            ]
+            
+            pattern_analysis = pattern_analysis.sort_values(
+                'Total Apps',
+                ascending=False
+            ).head(15)
+            
+            st.dataframe(pattern_analysis, use_container_width=True, hide_index=True)
+            
+            if len(pattern_analysis) > 0:
+                best = pattern_analysis.iloc[0]
+                worst = pattern_analysis.iloc[-1]
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown(
+                        f'<div class="success-card">'
+                        f'<h4>Highest Volume Combination</h4>'
+                        f'<strong>Outstanding PH:</strong> {best["Outstanding PH"]}<br>'
+                        f'<strong>OD Segment:</strong> {best["OD Segment"]}<br>'
+                        f'<strong>Job Type:</strong> {best["Job Type"]}<br>'
+                        f'<strong>Total Apps:</strong> {best["Total Apps"]}<br>'
+                        f'<strong>Total Records:</strong> {best["Total Records"]}<br>'
+                        f'<strong>Approval Rate:</strong> {best["Approval %"]:.1f}%'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                
+                with col2:
+                    st.markdown(
+                        f'<div class="warning-card">'
+                        f'<h4>Lowest Volume Combination</h4>'
+                        f'<strong>Outstanding PH:</strong> {worst["Outstanding PH"]}<br>'
+                        f'<strong>OD Segment:</strong> {worst["OD Segment"]}<br>'
+                        f'<strong>Job Type:</strong> {worst["Job Type"]}<br>'
+                        f'<strong>Total Apps:</strong> {worst["Total Apps"]}<br>'
+                        f'<strong>Total Records:</strong> {worst["Total Records"]}<br>'
+                        f'<strong>Approval Rate:</strong> {worst["Approval %"]:.1f}%'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+    
+    # Tab 6: Trends & Forecasting
+    with tab6:
+        st.header("Trends & Time-Series Analysis")
+        st.info(
+            "Monthly trends in volume, SLA, and approval rates"
+        )
+        
+        if 'YearMonth' in df_filtered.columns:
+            monthly = df_filtered.groupby('YearMonth').agg({
+                'apps_id': 'nunique',
+                'Scoring_Detail': lambda x: (
+                    x.isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() /
+                    len(x[x != '(Pilih Semua)']) * 100
+                ) if len(x[x != '(Pilih Semua)']) > 0 else 0
+            }).reset_index()
+            
+            monthly['Total Records'] = df_filtered.groupby('YearMonth').size().values
+            monthly.columns = ['Month', 'Volume', 'Approval %', 'Total Records']
+            
+            st.subheader("Monthly Performance Metrics")
+            st.dataframe(monthly, use_container_width=True, hide_index=True)
+            
+            fig = make_subplots(
+                specs=[[{"secondary_y": True}]]
+            )
+            
+            fig.add_trace(
+                go.Bar(
+                    x=monthly['Month'],
+                    y=monthly['Volume'],
+                    name="Application Volume"
+                ),
+                secondary_y=False
+            )
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=monthly['Month'],
+                    y=monthly['Approval %'],
+                    name="Approval Rate %",
+                    mode='lines+markers'
+                ),
+                secondary_y=True
+            )
+            
+            fig.update_layout(
+                title="Monthly Trend: Volume & Approval Rate",
+                height=500,
+                hovermode='x unified'
+            )
+            
+            fig.update_yaxes(title_text="Volume", secondary_y=False)
+            fig.update_yaxes(title_text="Approval %", secondary_y=True)
+            
+            st.plotly_chart(fig, use_container_width=True)
+    
+    # Tab 7: SLA Transitions (UPDATED dengan SLA yang benar)
+    # Tab 7: SLA Transitions (UPDATED dengan SLA yang benar)
+    with tab7:
+        st.header("SLA Transitions Analysis")
+        st.info("✅ FIXED: SLA dalam JAM | Jam kerja 08:30-15:30 (7 jam/hari)")
+        
+        # SLA Overview
+        st.subheader("SLA Performance Overview")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        sla_valid = df_sla_history_filtered[df_sla_history_filtered['SLA_Hours'].notna()]
+        
+        with col1:
+            if len(sla_valid) > 0:
+                st.metric("Average SLA", f"{sla_valid['SLA_Hours'].mean():.1f} hours")
+        
+        with col2:
+            if len(sla_valid) > 0:
+                st.metric("Median SLA", f"{sla_valid['SLA_Hours'].median():.1f} hours")
+        
+        with col3:
+            if len(sla_valid) > 0:
+                st.metric("90th Percentile", f"{sla_valid['SLA_Hours'].quantile(0.9):.1f} hours")
+        
+        st.markdown("---")
+        
+        # Monthly SLA Trend (Line Chart)
+        st.subheader("📈 Average SLA per Month (Line Chart)")
+        
+        if len(sla_valid) > 0 and 'End_Time' in sla_valid.columns:
+            # Create YearMonth from End_Time
+            sla_valid_copy = sla_valid.copy()
+            sla_valid_copy['YearMonth'] = pd.to_datetime(sla_valid_copy['End_Time']).dt.to_period('M').astype(str)
+            
+            monthly_sla = sla_valid_copy.groupby('YearMonth').agg({
+                'SLA_Hours': ['mean', 'median', 'count']
+            }).reset_index()
+            
+            monthly_sla.columns = ['Month', 'Avg_SLA', 'Median_SLA', 'Count']
+            monthly_sla = monthly_sla.sort_values('Month')
+            
+            # Line chart
+            fig = go.Figure()
+            
+            fig.add_trace(go.Scatter(
+                x=monthly_sla['Month'],
+                y=monthly_sla['Avg_SLA'],
+                mode='lines+markers',
+                name='Average SLA',
+                line=dict(color='#1f77b4', width=3),
+                marker=dict(size=8)
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=monthly_sla['Month'],
+                y=monthly_sla['Median_SLA'],
+                mode='lines+markers',
+                name='Median SLA',
+                line=dict(color='#ff7f0e', width=2, dash='dash'),
+                marker=dict(size=6)
+            ))
+            
+            # Add target line (35 hours = 5 working days)
+            fig.add_hline(
+                y=35,
+                line_dash="dot",
+                line_color="red",
+                annotation_text="Target: 35 hours (5 days)"
+            )
+            
+            fig.update_layout(
+                title="Monthly SLA Trend",
+                xaxis_title="Month",
+                yaxis_title="SLA (hours)",
+                hovermode='x unified',
+                height=400
+            )
+            
             st.plotly_chart(fig, use_container_width=True)
             
-            st.markdown("---")
-            
-            # SLA Performance by CA
-            st.subheader("⏱️ CA SLA Performance")
-            
-            # Filter CAs with valid SLA data
-            ca_df_sla = ca_df[ca_df['Avg SLA'] != 'N/A'].copy()
-            if len(ca_df_sla) > 0:
-                ca_df_sla['Avg_SLA_Numeric'] = ca_df_sla['Avg SLA'].astype(float)
-                ca_df_sla = ca_df_sla.sort_values('Avg_SLA_Numeric', ascending=True).head(15)
-                
-                fig = px.bar(
-                    ca_df_sla,
-                    x='CA Name',
-                    y='Avg_SLA_Numeric',
-                    title='Top 15 CAs with Best Average SLA',
-                    labels={'Avg_SLA_Numeric': 'Average SLA (days)'},
-                    color='Avg_SLA_Numeric',
-                    color_continuous_scale='RdYlGn_r'
-                )
-                fig.add_hline(y=5, line_dash="dash", line_color="red", 
-                             annotation_text="5 Days Target")
-                fig.update_xaxes(tickangle=45)
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No SLA data available for CAs")
-            
-            # Download CA performance report
-            st.markdown("---")
-            st.subheader(" Export CA Performance Report")
-            
-            csv_ca = ca_df.to_csv(index=False)
-            st.download_button(
-                "Download CA Performance Report (CSV)",
-                csv_ca,
-                "ca_performance_report.csv",
-                "text/csv"
-            )
+            # Show table
+            st.dataframe(monthly_sla, use_container_width=True, hide_index=True)
         else:
-            st.warning("No CA data available")
-    
-    # Tab 4: Detailed View
-    with tab4:
-        st.header("Detailed SLA View per Application")
+            st.warning("No SLA data with valid timestamps")
         
-        sample_apps = sorted(df_filtered['apps_id'].unique())
+        st.markdown("---")
         
-        if len(sample_apps) > 0:
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                selected_app = st.selectbox("Select Application ID:", sample_apps, key='app_select')
-            with col2:
-                search_app = st.text_input("Or search:", key='search_app')
-                if search_app and int(search_app) in sample_apps:
-                    selected_app = int(search_app)
+        # Pivot Table
+        st.subheader("Pivot: App ID → Historical Status & SLA")
+        
+        pivot_data = []
+        sample_apps = sorted(df_sla_history_filtered['apps_id'].unique())[:50]
+        
+        for app_id in sample_apps:
+            app_sla = df_sla_history_filtered[df_sla_history_filtered['apps_id'] == app_id]
+            row_data = {'App ID': app_id}
+            
+            for idx, trans in app_sla.iterrows():
+                trans_label = trans['Transition']
+                sla_formatted = trans['SLA_Formatted']
+                
+                if pd.notna(sla_formatted):
+                    row_data[trans_label] = sla_formatted
+                else:
+                    row_data[trans_label] = '—'
+            
+            pivot_data.append(row_data)
+        
+        if pivot_data:
+            pivot_df = pd.DataFrame(pivot_data)
+            st.dataframe(pivot_df, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        
+        # Statistics per Transition
+        st.subheader("SLA Statistics per Transition")
+        
+        stats_data = []
+        for transition in sorted(df_sla_history_filtered['Transition'].unique()):
+            trans_data = df_sla_history_filtered[df_sla_history_filtered['Transition'] == transition]
+            valid_sla = trans_data[trans_data['SLA_Hours'].notna()]
+            
+            if len(valid_sla) > 0:
+                stats_data.append({
+                    'Transition': transition,
+                    'Total Records': len(trans_data),
+                    'With SLA': len(valid_sla),
+                    'Avg SLA (hours)': f"{valid_sla['SLA_Hours'].mean():.1f}",
+                    'Min': valid_sla['SLA_Formatted'].iloc[valid_sla['SLA_Hours'].argmin()],
+                    'Max': valid_sla['SLA_Formatted'].iloc[valid_sla['SLA_Hours'].argmax()],
+                })
+        
+        if stats_data:
+            stats_df = pd.DataFrame(stats_data)
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        
+        # SLA Examples Section
+        st.markdown("---")
+        st.subheader("SLA Calculation Examples")
+        st.info("Lihat contoh perhitungan SLA untuk apps tertentu")
+        
+        # Select app to view
+        sample_apps_detail = sorted(df_sla_history_filtered['apps_id'].unique())[:100]
+        
+        if len(sample_apps_detail) > 0:
+            selected_app = st.selectbox(
+                "Pilih App ID untuk melihat detail SLA:",
+                sample_apps_detail
+            )
             
             if selected_app:
-                app_data = df_filtered[df_filtered['apps_id'] == selected_app].sort_values('action_on_parsed')
+                app_sla = df_sla_history_filtered[df_sla_history_filtered['apps_id'] == selected_app]
                 
-                st.subheader(f"Application ID: {selected_app}")
+                st.subheader(f"SLA History untuk App ID: {selected_app}")
                 
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    if 'Segmen_clean' in app_data.columns:
-                        st.info(f"**Segmen:** {app_data['Segmen_clean'].iloc[0]}")
-                with col2:
-                    if 'OSPH_Category' in app_data.columns:
-                        st.info(f"**OSPH:** {app_data['OSPH_Category'].iloc[0]}")
-                with col3:
-                    st.info(f"**Total Rows:** {len(app_data)}")
+                display_cols = [
+                    'Transition', 'From_Status', 'To_Status',
+                    'Start_Time', 'End_Time', 'Recommendation',
+                    'SLA_Formatted', 'SLA_Hours'
+                ]
                 
+                st.dataframe(
+                    app_sla[display_cols],
+                    use_container_width=True,
+                    hide_index=True
+                )
+                
+                # Show raw data for this app
                 st.markdown("---")
-                st.subheader(" Chronological History")
+                st.subheader("Raw Data untuk App ini")
                 
-                raw_cols = ['apps_status_clean', 'action_on_parsed', 'Recommendation_parsed', 'user_name_clean']
-                available_raw = [c for c in raw_cols if c in app_data.columns]
-                st.dataframe(app_data[available_raw].reset_index(drop=True), use_container_width=True)
+                app_raw = df[df['apps_id'] == selected_app].sort_values('action_on_parsed')
                 
-                st.markdown("---")
-                st.subheader(" SLA Calculation Details")
+                raw_cols = [
+                    'apps_status', 'action_on_parsed', 'Recommendation_parsed',
+                    'user_name', 'Scoring_Detail'
+                ]
                 
-                sla_cols = ['apps_status_clean', 'SLA_Start', 'SLA_End', 'SLA_Days', 'SLA_Formatted', 'SLA_Logic']
-                available_sla = [c for c in sla_cols if c in app_data.columns]
-                st.dataframe(app_data[available_sla].reset_index(drop=True), use_container_width=True)
-        else:
-            st.info("No applications available")
+                available_raw = [c for c in raw_cols if c in app_raw.columns]
+                
+                st.dataframe(
+                    app_raw[available_raw],
+                    use_container_width=True,
+                    hide_index=True
+                )
     
-    # Tab 5: Raw Data
-    with tab5:
+    # Tab 8: Duplicate Applications
+    with tab8:
+        st.header("Duplicate Applications Analysis")
+        st.info("Identify applications with multiple submissions")
+        
+        if 'apps_id' in df_filtered.columns:
+            # Count occurrences
+            app_counts = df_filtered['apps_id'].value_counts()
+            duplicates = app_counts[app_counts > 1]
+            
+            st.metric("Total Duplicate Apps", len(duplicates))
+            st.metric("Total Duplicate Records", duplicates.sum())
+            
+            if len(duplicates) > 0:
+                st.subheader("Top 20 Most Duplicated Applications")
+                
+                dup_analysis = []
+                for app_id in duplicates.head(20).index:
+                    df_app = df_filtered[df_filtered['apps_id'] == app_id]
+                    
+                    dup_analysis.append({
+                        'App ID': app_id,
+                        'Count': len(df_app),
+                        'Statuses': ', '.join(df_app['apps_status_clean'].unique()[:3]),
+                        'First Action': df_app['action_on_parsed'].min().strftime('%Y-%m-%d') if df_app['action_on_parsed'].notna().any() else 'N/A',
+                        'Last Action': df_app['action_on_parsed'].max().strftime('%Y-%m-%d') if df_app['action_on_parsed'].notna().any() else 'N/A'
+                    })
+                
+                dup_df = pd.DataFrame(dup_analysis)
+                st.dataframe(dup_df, use_container_width=True, hide_index=True)
+                
+                # Detail view
+                st.markdown("---")
+                st.subheader("Detailed View")
+                
+                selected_app = st.selectbox(
+                    "Select App ID to see details",
+                    duplicates.head(20).index
+                )
+                
+                if selected_app:
+                    df_detail = df_filtered[df_filtered['apps_id'] == selected_app]
+                    
+                    detail_cols = [
+                        'action_on_parsed', 'apps_status_clean', 'Scoring_Detail',
+                        'user_name_clean', 'Transition', 'SLA_Formatted'
+                    ]
+                    
+                    available_detail_cols = [c for c in detail_cols if c in df_detail.columns]
+                    
+                    st.dataframe(
+                        df_detail[available_detail_cols].sort_values('action_on_parsed'),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+    
+    # Tab 9: Raw Data
+    # Tab 9: Raw Data
+    with tab9:
         st.header("Raw Data Export")
+        st.info("View and download filtered data")
+        
+        st.subheader("Data Preview (First 100 rows)")
         
         display_cols = [
-            'apps_id', 'apps_status_clean', 'action_on_parsed', 'Recommendation_parsed',
-            'SLA_Start', 'SLA_End', 'SLA_Days', 'SLA_Formatted', 'SLA_Logic',
-            'Scoring_Detail', 'OSPH_clean', 'OSPH_Category',
-            'Pekerjaan_clean', 'JenisKendaraan_clean',
-            'Segmen_clean', 'user_name_clean', 'branch_name_clean'
+            'apps_id', 'apps_status_clean', 'action_on_parsed',
+            'Recommendation_parsed', 'Transition', 'SLA_Formatted', 'SLA_Hours',
+            'Scoring_Detail', 'OSPH_clean', 'LastOD_clean',
+            'user_name_clean', 'branch_name_clean'
         ]
         
         available_cols = [c for c in display_cols if c in df_filtered.columns]
         
-        st.dataframe(df_filtered[available_cols].head(100), use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_filtered[available_cols].head(100),
+            use_container_width=True,
+            hide_index=True
+        )
+        
         st.info(f"Showing first 100 of {len(df_filtered):,} records")
         
+        # Download options
         st.markdown("---")
+        st.subheader("Download Options")
         
-        csv_data = df_filtered[available_cols].to_csv(index=False)
-        st.download_button(
-            " Download Filtered Data (CSV)",
-            csv_data,
-            "ca_analytics_filtered.csv",
-            "text/csv"
-        )
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            csv_data = df_filtered[available_cols].to_csv(index=False)
+            st.download_button(
+                "📥 Download Filtered Data (CSV)",
+                csv_data,
+                "ca_analytics_filtered.csv",
+                "text/csv"
+            )
+        
+        with col2:
+            csv_sla = df_sla_history_filtered.to_csv(index=False)
+            st.download_button(
+                "📥 Download SLA History (CSV)",
+                csv_sla,
+                "sla_history.csv",
+                "text/csv"
+            )
     
     st.markdown("---")
     st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
