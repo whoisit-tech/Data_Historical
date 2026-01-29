@@ -100,83 +100,74 @@ def is_working_day(date):
 
 def calculate_sla_working_hours(start_dt, end_dt):
     """
-    Hitung SLA dalam working hours (08:30 - 15:30)
-    Exclude weekend dan tanggal merah
+    SLA berbasis jam kerja:
+    - Jam kerja: 08:30 – 15:30 (7 jam)
+    - Exclude weekend & tanggal merah
+    - Hitung DETIK kerja → jadi single source of truth
     """
-    if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
+    if pd.isna(start_dt) or pd.isna(end_dt):
         return None
-    
-    try:
-        if not isinstance(start_dt, datetime):
-            start_dt = pd.to_datetime(start_dt)
-        if not isinstance(end_dt, datetime):
-            end_dt = pd.to_datetime(end_dt)
-        
-        if end_dt <= start_dt:
-            return None
-        
-        WORK_START = timedelta(hours=8, minutes=30)
-        WORK_END = timedelta(hours=15, minutes=30)
-        WORK_HOURS_PER_DAY = 7 * 3600
-        
-        current = start_dt
-        total_seconds = 0
-        
-        while current.date() <= end_dt.date():
-            if not is_working_day(current):
-                current = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
-                continue
-            
-            day_start = datetime.combine(current.date(), datetime.min.time()) + WORK_START
-            day_end = datetime.combine(current.date(), datetime.min.time()) + WORK_END
-            
-            if current.date() == start_dt.date():
-                if start_dt.time() < day_start.time():
-                    day_actual_start = day_start
-                elif start_dt.time() > day_end.time():
-                    current = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
-                    continue
-                else:
-                    day_actual_start = start_dt
-            else:
-                day_actual_start = day_start
-            
-            if current.date() == end_dt.date():
-                if end_dt.time() < day_start.time():
-                    break
-                elif end_dt.time() > day_end.time():
-                    day_actual_end = day_end
-                else:
-                    day_actual_end = end_dt
-            else:
-                day_actual_end = day_end
-            
-            if day_actual_end > day_actual_start:
-                day_seconds = (day_actual_end - day_actual_start).total_seconds()
-                total_seconds += day_seconds
-            
-            current = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
-        
-        days = int(total_seconds // 86400)
-        remaining = int(total_seconds % 86400)
-        hours = remaining // 3600
-        remaining = remaining % 3600
-        minutes = remaining // 60
-        seconds = remaining % 60
-        
-        working_days_business = total_seconds / WORK_HOURS_PER_DAY
-        
-        return {
-            'days': days,
-            'hours': hours,
-            'minutes': minutes,
-            'seconds': seconds,
-            'working_days': round(working_days_business, 2),
-            'total_seconds': total_seconds,
-            'formatted': f"{days}d {hours}h {minutes}m {seconds}s"
-        }
-    except:
+
+    start_dt = pd.to_datetime(start_dt)
+    end_dt = pd.to_datetime(end_dt)
+
+    if end_dt <= start_dt:
         return None
+
+    WORK_START = timedelta(hours=8, minutes=30)
+    WORK_END = timedelta(hours=15, minutes=30)
+    WORK_SECONDS_PER_DAY = 7 * 3600
+
+    current = start_dt
+    working_seconds = 0
+
+    while current < end_dt:
+        # skip non-working day
+        if not is_working_day(current):
+            current = datetime.combine(
+                current.date() + timedelta(days=1),
+                datetime.min.time()
+            )
+            continue
+
+        day_start = datetime.combine(current.date(), datetime.min.time()) + WORK_START
+        day_end = datetime.combine(current.date(), datetime.min.time()) + WORK_END
+
+        # geser current ke jam kerja
+        if current < day_start:
+            current = day_start
+        if current >= day_end:
+            current = datetime.combine(
+                current.date() + timedelta(days=1),
+                datetime.min.time()
+            )
+            continue
+
+        interval_end = min(day_end, end_dt)
+        delta = (interval_end - current).total_seconds()
+        working_seconds += max(delta, 0)
+
+        current = interval_end
+
+    if working_seconds <= 0:
+        return None
+
+    #  SINGLE SOURCE OF TRUTH
+    working_days = round(working_seconds / WORK_SECONDS_PER_DAY, 4)
+
+    # formatted berbasis JAM KERJA (bukan kalender)
+    hours, rem = divmod(int(working_seconds), 3600)
+    minutes, seconds = divmod(rem, 60)
+    days, hours = divmod(hours, 7)
+
+    formatted = f"{days}d {hours}h {minutes}m {seconds}s"
+
+    return {
+        "working_seconds": working_seconds,
+        "working_days": working_days,
+        "formatted": formatted
+    }
+
 
 def calculate_row_sla(df):
     """
