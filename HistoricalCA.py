@@ -338,7 +338,7 @@ def load_data():
 def main():
     """Main Streamlit application"""
     st.title("CA Analytics Dashboard")
-    st.markdown("**Credit Application Analytics - Final Version**")
+    st.markdown("**Credit Application Analytics - Improved Version**")
     st.markdown("---")
     
     with st.spinner("Loading data..."):
@@ -439,18 +439,52 @@ def main():
         "💾 Export"
     ])
     
-    # ====== TAB 1: DETAIL RAW DATA (CORRECTED) ======
+    # ====== TAB 1: DETAIL RAW DATA - ALL APPS ID ======
     with tab1:
-        st.header("🔍 Detail Raw Data - All Records per Application")
+        st.header("🔍 Detail Raw Data - All Applications")
         
         st.markdown("""
-        **Enter apps_id to view ALL records:**
-        - All status history
-        - All timestamps
-        - SLA calculations
+        **Browse all applications:**
+        - Click on any Application ID to view all its records
+        - Sorted by latest action date
         """)
         
-        # Search box
+        # Get all unique apps with their summary info
+        apps_summary = []
+        
+        for app_id in sorted(df_filtered['apps_id'].unique()):
+            app_data = df_filtered[df_filtered['apps_id'] == app_id]
+            latest_record = app_data.sort_values('action_on_parsed', ascending=False).iloc[0]
+            
+            apps_summary.append({
+                'apps_id': app_id,
+                'Total Records': len(app_data),
+                'Latest Status': latest_record.get('apps_status_clean', 'N/A'),
+                'Latest Action': latest_record.get('action_on_parsed', pd.NaT),
+                'Segmen': latest_record.get('Segmen_clean', 'N/A'),
+                'OSPH Category': latest_record.get('OSPH_Category', 'N/A'),
+                'Branch': latest_record.get('branch_name_clean', 'N/A'),
+                'CA': latest_record.get('user_name_clean', 'N/A')
+            })
+        
+        apps_df = pd.DataFrame(apps_summary)
+        apps_df = apps_df.sort_values('Latest Action', ascending=False)
+        
+        st.info(f"📋 Total Applications: **{len(apps_df):,}**")
+        
+        # Display all apps in a table
+        st.dataframe(
+            apps_df.style.format({'Latest Action': lambda x: x.strftime('%Y-%m-%d %H:%M:%S') if pd.notna(x) else 'N/A'}),
+            use_container_width=True,
+            hide_index=True,
+            height=400
+        )
+        
+        st.markdown("---")
+        
+        # Search and detail view
+        st.subheader("📝 Application Detail Viewer")
+        
         search_input = st.text_input("🔎 Enter Application ID:", placeholder="e.g., 5259031")
         
         if search_input:
@@ -500,32 +534,15 @@ def main():
             
             except ValueError:
                 st.error("❌ Please enter a valid numeric Application ID")
-        
-        else:
-            st.info("👆 Enter an Application ID above to view all records")
-            
-            # Show sample IDs with multiple records
-            st.markdown("---")
-            st.subheader("📝 Sample Application IDs with Multiple Records")
-            
-            apps_counts = df['apps_id'].value_counts()
-            multi_records = apps_counts[apps_counts > 1].head(20)
-            
-            cols = st.columns(5)
-            for i, (app_id, count) in enumerate(multi_records.items()):
-                with cols[i % 5]:
-                    st.code(f"{app_id} ({count}x)")
     
-    # ====== TAB 2: OSPH PIVOT BY PEKERJAAN (CORRECTED) ======
+    # ====== TAB 2: OSPH PIVOT BY PEKERJAAN ======
     with tab2:
         st.header("📊 Outstanding PH Pivot by Pekerjaan")
         
         st.markdown("""
         **4 Pivot Tables: Row=OSPH Range, Column=Pekerjaan**
-        - Table 1: Segmen = **-** (Unknown/Blank)
-        - Table 2: Segmen = **KKB**
-        - Table 3: Segmen = **CS NEW**
-        - Table 4: Segmen = **CS USED**
+        - Calculations based on **distinct apps_id**
+        - Table shows unique applications per category
         """)
         
         st.markdown("---")
@@ -534,13 +551,18 @@ def main():
         osph_order = ['0 - 250 Juta', '250 - 500 Juta', '500 Juta+']
         
         # Get top pekerjaan
-        top_pekerjaan = df_filtered['Pekerjaan_clean'].value_counts().head(10).index.tolist()
+        top_pekerjaan = df_filtered.drop_duplicates('apps_id')['Pekerjaan_clean'].value_counts().head(10).index.tolist()
         
         # Create 4 pivot tables
         for segmen in ['-', 'KKB', 'CS NEW', 'CS USED']:
             st.subheader(f"Segmen: {segmen}")
             
-            df_segmen = df_filtered[df_filtered['Segmen_clean'] == segmen]
+            df_segmen = df_filtered[df_filtered['Segmen_clean'] == segmen].drop_duplicates('apps_id')
+            
+            total_apps = len(df_segmen)
+            total_records = len(df_filtered[df_filtered['Segmen_clean'] == segmen])
+            
+            st.caption(f"📊 Total Apps (Distinct): **{total_apps:,}** | Total Records: **{total_records:,}**")
             
             if len(df_segmen) > 0:
                 # Create pivot: OSPH Range x Pekerjaan
@@ -613,6 +635,8 @@ def main():
         with subtab1:
             st.subheader("Branch Performance Summary")
             
+            st.caption("📊 Calculations based on **distinct apps_id**")
+            
             if 'branch_name_clean' in df_filtered.columns:
                 branch_perf = []
                 
@@ -621,22 +645,26 @@ def main():
                         continue
                     
                     df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
+                    df_branch_distinct = df_branch.drop_duplicates('apps_id')
                     
-                    approve = df_branch['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                    total_scored = len(df_branch[df_branch['Scoring_Detail'] != '(Pilih Semua)'])
+                    total_apps = len(df_branch_distinct)
+                    total_records = len(df_branch)
+                    
+                    approve = df_branch_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+                    total_scored = len(df_branch_distinct[df_branch_distinct['Scoring_Detail'] != '(Pilih Semua)'])
                     approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
                     
-                    avg_risk = f"{df_branch['Risk_Score'].mean():.0f}" if df_branch['Risk_Score'].notna().any() else "-"
+                    avg_risk = f"{df_branch_distinct['Risk_Score'].mean():.0f}" if df_branch_distinct['Risk_Score'].notna().any() else "-"
                     
                     branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
                     avg_sla = convert_hours_to_hm(branch_sla['SLA_Hours'].mean()) if len(branch_sla) > 0 else "-"
                     
-                    total_osph = df_branch['OSPH_clean'].sum()
+                    total_osph = df_branch_distinct['OSPH_clean'].sum()
                     
                     branch_perf.append({
                         'Branch': branch,
-                        'Total Apps': df_branch['apps_id'].nunique(),
-                        'Total Records': len(df_branch),
+                        'Total Apps (Distinct)': total_apps,
+                        'Total Records': total_records,
                         'Approved': approve,
                         'Approval Rate': approval_pct,
                         'Avg Risk Score': avg_risk,
@@ -644,7 +672,7 @@ def main():
                         'Total OSPH': f"Rp {total_osph:,.0f}"
                     })
                 
-                branch_df = pd.DataFrame(branch_perf).sort_values('Total Apps', ascending=False)
+                branch_df = pd.DataFrame(branch_perf).sort_values('Total Apps (Distinct)', ascending=False)
                 st.dataframe(branch_df, use_container_width=True, hide_index=True)
                 
                 # Charts
@@ -655,8 +683,8 @@ def main():
                         fig1 = px.bar(
                             branch_df.head(10),
                             x='Branch',
-                            y='Total Apps',
-                            title="Top 10 Branches by Volume"
+                            y='Total Apps (Distinct)',
+                            title="Top 10 Branches by Volume (Distinct Apps)"
                         )
                         st.plotly_chart(fig1, use_container_width=True)
                     
@@ -679,6 +707,8 @@ def main():
         with subtab2:
             st.subheader("Credit Analyst Performance Summary")
             
+            st.caption("📊 Calculations based on **distinct apps_id**")
+            
             if 'user_name_clean' in df_filtered.columns:
                 ca_perf = []
                 
@@ -687,12 +717,16 @@ def main():
                         continue
                     
                     df_ca = df_filtered[df_filtered['user_name_clean'] == ca]
+                    df_ca_distinct = df_ca.drop_duplicates('apps_id')
                     
-                    approve = df_ca['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                    total_scored = len(df_ca[df_ca['Scoring_Detail'] != '(Pilih Semua)'])
+                    total_apps = len(df_ca_distinct)
+                    total_records = len(df_ca)
+                    
+                    approve = df_ca_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+                    total_scored = len(df_ca_distinct[df_ca_distinct['Scoring_Detail'] != '(Pilih Semua)'])
                     approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
                     
-                    avg_risk = f"{df_ca['Risk_Score'].mean():.0f}" if df_ca['Risk_Score'].notna().any() else "-"
+                    avg_risk = f"{df_ca_distinct['Risk_Score'].mean():.0f}" if df_ca_distinct['Risk_Score'].notna().any() else "-"
                     
                     ca_sla = df_ca[df_ca['SLA_Hours'].notna()]
                     avg_sla = convert_hours_to_hm(ca_sla['SLA_Hours'].mean()) if len(ca_sla) > 0 else "-"
@@ -703,15 +737,15 @@ def main():
                     ca_perf.append({
                         'CA Name': ca,
                         'Branch': main_branch,
-                        'Total Apps': df_ca['apps_id'].nunique(),
-                        'Total Records': len(df_ca),
+                        'Total Apps (Distinct)': total_apps,
+                        'Total Records': total_records,
                         'Approved': approve,
                         'Approval Rate': approval_pct,
                         'Avg Risk Score': avg_risk,
                         'Avg SLA': avg_sla
                     })
                 
-                ca_df = pd.DataFrame(ca_perf).sort_values('Total Apps', ascending=False)
+                ca_df = pd.DataFrame(ca_perf).sort_values('Total Apps (Distinct)', ascending=False)
                 st.dataframe(ca_df, use_container_width=True, hide_index=True)
                 
                 # Charts
@@ -722,8 +756,8 @@ def main():
                         fig1 = px.bar(
                             ca_df.head(10),
                             x='CA Name',
-                            y='Total Apps',
-                            title="Top 10 CAs by Application Volume"
+                            y='Total Apps (Distinct)',
+                            title="Top 10 CAs by Application Volume (Distinct Apps)"
                         )
                         st.plotly_chart(fig1, use_container_width=True)
                     
@@ -746,10 +780,18 @@ def main():
     with tab4:
         st.header("📋 Application Status & Scoring Analysis")
         
-        if 'apps_status_clean' in df_filtered.columns and 'Scoring_Detail' in df_filtered.columns:
+        st.caption("📊 Calculations based on **distinct apps_id**")
+        
+        df_distinct = df_filtered.drop_duplicates('apps_id')
+        total_apps_distinct = len(df_distinct)
+        total_records = len(df_filtered)
+        
+        st.info(f"📊 Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
+        
+        if 'apps_status_clean' in df_distinct.columns and 'Scoring_Detail' in df_distinct.columns:
             cross_tab = pd.crosstab(
-                df_filtered['apps_status_clean'],
-                df_filtered['Scoring_Detail'],
+                df_distinct['apps_status_clean'],
+                df_distinct['Scoring_Detail'],
                 margins=True,
                 margins_name='TOTAL'
             )
@@ -762,7 +804,7 @@ def main():
                 fig = px.imshow(
                     cross_tab_no_total,
                     text_auto=True,
-                    title="Status vs Scoring Distribution Heatmap",
+                    title="Status vs Scoring Distribution Heatmap (Distinct Apps)",
                     color_continuous_scale="Blues",
                     aspect="auto"
                 )
@@ -772,15 +814,23 @@ def main():
     with tab5:
         st.header("⏰ Overdue Days Impact Analysis")
         
+        st.caption("📊 Calculations based on **distinct apps_id**")
+        
+        df_distinct = df_filtered.drop_duplicates('apps_id')
+        total_apps_distinct = len(df_distinct)
+        total_records = len(df_filtered)
+        
+        st.info(f"📊 Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
+        
         col1, col2 = st.columns(2)
         
         with col1:
             st.subheader("Last Overdue Days")
             
-            if 'LastOD_clean' in df_filtered.columns:
-                df_filtered_copy = df_filtered.copy()
-                df_filtered_copy['LastOD_Category'] = pd.cut(
-                    df_filtered_copy['LastOD_clean'],
+            if 'LastOD_clean' in df_distinct.columns:
+                df_distinct_copy = df_distinct.copy()
+                df_distinct_copy['LastOD_Category'] = pd.cut(
+                    df_distinct_copy['LastOD_clean'],
                     bins=[-np.inf, 0, 10, 30, np.inf],
                     labels=['No OD', '1-10 days', '11-30 days', '>30 days']
                 )
@@ -788,7 +838,7 @@ def main():
                 lastod_analysis = []
                 
                 for cat in ['No OD', '1-10 days', '11-30 days', '>30 days']:
-                    df_od = df_filtered_copy[df_filtered_copy['LastOD_Category'] == cat]
+                    df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
                     
                     if len(df_od) > 0:
                         approve = df_od['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
@@ -798,8 +848,7 @@ def main():
                         
                         lastod_analysis.append({
                             'LastOD Range': cat,
-                            'Total Apps': df_od['apps_id'].nunique(),
-                            'Total Records': len(df_od),
+                            'Total Apps (Distinct)': len(df_od),
                             'Approved': approve,
                             'Approval Rate': approval_pct
                         })
@@ -810,10 +859,10 @@ def main():
         with col2:
             st.subheader("Maximum Overdue Days")
             
-            if 'max_OD_clean' in df_filtered.columns:
-                df_filtered_copy2 = df_filtered.copy()
-                df_filtered_copy2['maxOD_Category'] = pd.cut(
-                    df_filtered_copy2['max_OD_clean'],
+            if 'max_OD_clean' in df_distinct.columns:
+                df_distinct_copy2 = df_distinct.copy()
+                df_distinct_copy2['maxOD_Category'] = pd.cut(
+                    df_distinct_copy2['max_OD_clean'],
                     bins=[-np.inf, 0, 15, 45, np.inf],
                     labels=['No OD', '1-15 days', '16-45 days', '>45 days']
                 )
@@ -821,7 +870,7 @@ def main():
                 maxod_analysis = []
                 
                 for cat in ['No OD', '1-15 days', '16-45 days', '>45 days']:
-                    df_od = df_filtered_copy2[df_filtered_copy2['maxOD_Category'] == cat]
+                    df_od = df_distinct_copy2[df_distinct_copy2['maxOD_Category'] == cat]
                     
                     if len(df_od) > 0:
                         approve = df_od['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
@@ -831,8 +880,7 @@ def main():
                         
                         maxod_analysis.append({
                             'max_OD Range': cat,
-                            'Total Apps': df_od['apps_id'].nunique(),
-                            'Total Records': len(df_od),
+                            'Total Apps (Distinct)': len(df_od),
                             'Approved': approve,
                             'Approval Rate': approval_pct
                         })
@@ -840,7 +888,7 @@ def main():
                 maxod_df = pd.DataFrame(maxod_analysis)
                 st.dataframe(maxod_df, use_container_width=True, hide_index=True)
     
-    # ====== TAB 6: SLA ANALYSIS (WITH TREND) ======
+    # ====== TAB 6: SLA ANALYSIS ======
     with tab6:
         st.header("⏱️ SLA Performance Analysis")
         
@@ -889,7 +937,7 @@ def main():
         
         st.markdown("---")
         
-        # SLA TREND (ADDED)
+        # SLA TREND
         st.subheader("📈 SLA Trend - Average per Month")
         
         if len(sla_valid) > 0 and 'action_on_parsed' in sla_valid.columns:
@@ -905,31 +953,46 @@ def main():
             st.dataframe(monthly_avg[['Month', 'Avg_SLA_Formatted', 'Avg_SLA_Hours', 'Count']], 
                         use_container_width=True, hide_index=True)
             
-            # Line chart
+            # Line chart - IMPROVED
             fig = go.Figure()
+            
+            # Create formatted hover text
+            hover_text = []
+            for idx, row in monthly_avg.iterrows():
+                hours = int(row['Avg_SLA_Hours'])
+                minutes = int((row['Avg_SLA_Hours'] - hours) * 60)
+                hover_text.append(f"{hours} jam {minutes} menit<br>({row['Count']} records)")
             
             fig.add_trace(go.Scatter(
                 x=monthly_avg['Month'],
                 y=monthly_avg['Avg_SLA_Hours'],
-                mode='lines+markers',
+                mode='lines+markers+text',
                 name='Average SLA',
                 line=dict(color='#003366', width=3),
-                marker=dict(size=8)
+                marker=dict(size=10, color='#003366'),
+                text=[f"{int(h)} jam {int((h - int(h)) * 60)} menit" for h in monthly_avg['Avg_SLA_Hours']],
+                textposition='top center',
+                textfont=dict(size=10, color='#003366'),
+                hovertext=hover_text,
+                hoverinfo='text'
             ))
             
             fig.add_hline(
                 y=35, 
                 line_dash="dash", 
                 line_color="red",
-                annotation_text="Target: 35 hours",
-                annotation_position="right"
+                line_width=2,
+                annotation_text="Target: 35 jam (5 hari kerja)",
+                annotation_position="right",
+                annotation_font_color="red"
             )
             
             fig.update_layout(
-                title="SLA Trend - Average per Month",
+                title="SLA Trend - Average per Month (dalam jam)",
                 xaxis_title="Month",
-                yaxis_title="Average SLA (hours)",
-                hovermode='x unified'
+                yaxis_title="Average SLA (jam)",
+                hovermode='x unified',
+                height=500
             )
             
             st.plotly_chart(fig, use_container_width=True)
@@ -1009,6 +1072,10 @@ def main():
             )
         
         with col2:
+            df_distinct_export = df_filtered.drop_duplicates('apps_id')
+            approve_count = df_distinct_export['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+            total_scored = len(df_distinct_export[df_distinct_export['Scoring_Detail'] != '(Pilih Semua)'])
+            
             summary_data = {
                 'Metric': [
                     'Total Records',
@@ -1022,7 +1089,7 @@ def main():
                     df_filtered['apps_id'].nunique(),
                     df_filtered['SLA_Hours'].notna().sum(),
                     f"{df_filtered['SLA_Hours'].mean():.2f}" if df_filtered['SLA_Hours'].notna().any() else "0",
-                    f"{df_filtered['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum() / len(df_filtered[df_filtered['Scoring_Detail'] != '(Pilih Semua)']) * 100:.1f}%"
+                    f"{approve_count / total_scored * 100:.1f}%" if total_scored > 0 else "0%"
                 ]
             }
             summary_df = pd.DataFrame(summary_data)
