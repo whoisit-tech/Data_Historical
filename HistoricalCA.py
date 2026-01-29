@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -24,13 +23,6 @@ st.markdown("""
         padding: 15px;
         border-radius: 8px;
         border-left: 4px solid #003366;
-    }
-    .history-row {
-        background: #f8f9fa;
-        padding: 10px;
-        margin: 5px 0;
-        border-radius: 5px;
-        border-left: 3px solid #007bff;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -240,8 +232,8 @@ def preprocess_data(df):
     
     # Clean Segmen
     if 'Segmen' in df.columns:
-        df['Segmen_clean'] = df['Segmen'].fillna('Unknown').astype(str).str.strip()
-        df['Segmen_clean'] = df['Segmen_clean'].replace('-', 'Unknown')
+        df['Segmen_clean'] = df['Segmen'].fillna('-').astype(str).str.strip()
+        df['Segmen_clean'] = df['Segmen_clean'].replace('Unknown', '-')
     
     # Clean JenisKendaraan
     if 'JenisKendaraan' in df.columns:
@@ -250,8 +242,7 @@ def preprocess_data(df):
     
     # Clean Pekerjaan
     if 'Pekerjaan' in df.columns:
-        df['Pekerjaan_clean'] = df['Pekerjaan'].fillna('Unknown').astype(str).str.strip()
-        df['Pekerjaan_clean'] = df['Pekerjaan_clean'].replace('-', 'Unknown')
+        df['Pekerjaan_clean'] = df['Pekerjaan'].fillna('-').astype(str).str.strip()
     
     # Time features
     if 'action_on_parsed' in df.columns:
@@ -347,7 +338,7 @@ def load_data():
 def main():
     """Main Streamlit application"""
     st.title("CA Analytics Dashboard")
-    st.markdown("**Credit Application Analytics - Comprehensive Version**")
+    st.markdown("**Credit Application Analytics - Final Version**")
     st.markdown("---")
     
     with st.spinner("Loading data..."):
@@ -407,7 +398,7 @@ def main():
         selected_scoring = []
     
     if 'Segmen_clean' in df.columns:
-        all_segmen = sorted([x for x in df['Segmen_clean'].unique() if x != 'Unknown'])
+        all_segmen = sorted([x for x in df['Segmen_clean'].unique()])
         selected_segmen = st.sidebar.selectbox("Segmen", ['All'] + all_segmen)
     else:
         selected_segmen = 'All'
@@ -440,7 +431,7 @@ def main():
     # TABS
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "🔍 Detail Raw Data",
-        "📊 OSPH Multi-Level Pivot",
+        "📊 OSPH Pivot by Pekerjaan",
         "🏢 Branch & CA Performance",
         "📋 Status & Scoring",
         "⏰ OD Impact",
@@ -448,97 +439,61 @@ def main():
         "💾 Export"
     ])
     
-    # ====== TAB 1: DETAIL RAW DATA (SEARCH) ======
+    # ====== TAB 1: DETAIL RAW DATA (CORRECTED) ======
     with tab1:
-        st.header("🔍 Detail Raw Data - Application History")
+        st.header("🔍 Detail Raw Data - All Records per Application")
         
         st.markdown("""
-        **Search untuk melihat:**
-        - Full chronological history per application
-        - Semua timestamps (action_on, Recommendation, Initiation, dll)
-        - SLA calculation per record
-        - Status transitions
+        **Enter apps_id to view ALL records:**
+        - All status history
+        - All timestamps
+        - SLA calculations
         """)
         
         # Search box
-        col1, col2 = st.columns([3, 1])
+        search_input = st.text_input("🔎 Enter Application ID:", placeholder="e.g., 5259031")
         
-        with col1:
-            search_input = st.text_input("🔎 Search Application ID:", placeholder="Enter apps_id (e.g., 4769760)")
-        
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            search_button = st.button("Search", type="primary")
-        
-        if search_input and search_button:
+        if search_input:
             try:
                 search_id = int(search_input)
-                app_history = df[df['apps_id'] == search_id].sort_values('action_on_parsed')
+                app_records = df[df['apps_id'] == search_id].sort_values('action_on_parsed')
                 
-                if len(app_history) > 0:
-                    st.success(f"✅ Found {len(app_history)} record(s) for Application ID: **{search_id}**")
+                if len(app_records) > 0:
+                    st.success(f"✅ Found **{len(app_records)}** records for Application ID: **{search_id}**")
                     
-                    # Summary Info
-                    st.markdown("---")
+                    # Summary
                     col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
-                        if 'Segmen_clean' in app_history.columns:
-                            st.info(f"**Segmen:** {app_history['Segmen_clean'].iloc[0]}")
+                        segmen = app_records['Segmen_clean'].iloc[0] if 'Segmen_clean' in app_records.columns else 'N/A'
+                        st.info(f"**Segmen:** {segmen}")
                     
                     with col2:
-                        if 'OSPH_Category' in app_history.columns:
-                            st.info(f"**OSPH:** {app_history['OSPH_Category'].iloc[0]}")
+                        osph = app_records['OSPH_Category'].iloc[0] if 'OSPH_Category' in app_records.columns else 'N/A'
+                        st.info(f"**OSPH:** {osph}")
                     
                     with col3:
-                        if 'branch_name_clean' in app_history.columns:
-                            st.info(f"**Branch:** {app_history['branch_name_clean'].iloc[0]}")
+                        branch = app_records['branch_name_clean'].iloc[0] if 'branch_name_clean' in app_records.columns else 'N/A'
+                        st.info(f"**Branch:** {branch}")
                     
                     with col4:
-                        if 'user_name_clean' in app_history.columns:
-                            st.info(f"**CA:** {app_history['user_name_clean'].iloc[0]}")
+                        ca = app_records['user_name_clean'].iloc[0] if 'user_name_clean' in app_records.columns else 'N/A'
+                        st.info(f"**CA:** {ca}")
                     
                     st.markdown("---")
                     
-                    # Chronological History
-                    st.subheader("📅 Chronological History")
-                    
-                    for idx, row in app_history.iterrows():
-                        status = row.get('apps_status_clean', 'N/A')
-                        action_on = row.get('action_on_parsed', 'N/A')
-                        recommendation = row.get('Recommendation_parsed', 'N/A')
-                        scoring = row.get('Scoring_Detail', 'N/A')
-                        sla_formatted = row.get('SLA_Formatted', 'N/A')
-                        sla_hours = row.get('SLA_Hours', 'N/A')
-                        
-                        action_str = action_on.strftime('%Y-%m-%d %H:%M:%S') if isinstance(action_on, datetime) else str(action_on)
-                        rec_str = recommendation.strftime('%Y-%m-%d %H:%M:%S') if isinstance(recommendation, datetime) else str(recommendation)
-                        
-                        st.markdown(f"""
-                        <div class="history-row">
-                            <strong>Status:</strong> {status}<br>
-                            <strong>Action On:</strong> {action_str}<br>
-                            <strong>Recommendation:</strong> {rec_str}<br>
-                            <strong>Scoring:</strong> {scoring}<br>
-                            <strong>SLA:</strong> {sla_formatted} ({sla_hours} hours)
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    st.markdown("---")
-                    
-                    # Full Data Table
-                    st.subheader("📋 Complete Data Table")
+                    # Display ALL records
+                    st.subheader("📋 All Records")
                     
                     display_cols = [
                         'apps_status_clean', 'action_on_parsed', 'Recommendation_parsed',
-                        'Initiation_parsed', 'RealisasiDate_parsed',
-                        'SLA_Hours', 'SLA_Formatted', 'Scoring_Detail',
-                        'OSPH_clean', 'LastOD_clean', 'max_OD_clean',
-                        'user_name_clean', 'branch_name_clean'
+                        'Initiation_parsed', 'SLA_Hours', 'SLA_Formatted',
+                        'Scoring_Detail', 'OSPH_clean', 'LastOD_clean',
+                        'user_name_clean', 'Pekerjaan_clean', 'JenisKendaraan_clean'
                     ]
                     
-                    available_cols = [c for c in display_cols if c in app_history.columns]
-                    st.dataframe(app_history[available_cols].reset_index(drop=True), use_container_width=True)
+                    available_cols = [c for c in display_cols if c in app_records.columns]
+                    st.dataframe(app_records[available_cols].reset_index(drop=True), use_container_width=True)
                     
                 else:
                     st.warning(f"⚠️ No records found for Application ID: {search_id}")
@@ -546,178 +501,109 @@ def main():
             except ValueError:
                 st.error("❌ Please enter a valid numeric Application ID")
         
-        elif not search_input:
-            st.info("👆 Enter an Application ID above to view detailed history")
+        else:
+            st.info("👆 Enter an Application ID above to view all records")
             
-            # Show sample app IDs
+            # Show sample IDs with multiple records
             st.markdown("---")
-            st.subheader("📝 Sample Application IDs")
-            sample_ids = df['apps_id'].unique()[:20]
+            st.subheader("📝 Sample Application IDs with Multiple Records")
+            
+            apps_counts = df['apps_id'].value_counts()
+            multi_records = apps_counts[apps_counts > 1].head(20)
             
             cols = st.columns(5)
-            for i, app_id in enumerate(sample_ids):
+            for i, (app_id, count) in enumerate(multi_records.items()):
                 with cols[i % 5]:
-                    st.code(str(app_id))
+                    st.code(f"{app_id} ({count}x)")
     
-    # ====== TAB 2: OSPH MULTI-LEVEL PIVOT ======
+    # ====== TAB 2: OSPH PIVOT BY PEKERJAAN (CORRECTED) ======
     with tab2:
-        st.header("📊 Outstanding PH Multi-Level Pivot Analysis")
+        st.header("📊 Outstanding PH Pivot by Pekerjaan")
         
         st.markdown("""
-        **Hierarki Analisis:**
-        1. **Segmen** (CS NEW, CS USED, KKB)
-        2. **OSPH Range** (0-250 Juta, 250-500 Juta, 500 Juta+)
-        3. **Breakdown by:** Jenis Kendaraan, Pekerjaan, Scoring
+        **4 Pivot Tables: Row=OSPH Range, Column=Pekerjaan**
+        - Table 1: Segmen = **-** (Unknown/Blank)
+        - Table 2: Segmen = **KKB**
+        - Table 3: Segmen = **CS NEW**
+        - Table 4: Segmen = **CS USED**
         """)
         
-        # Level 1: Select Segmen
-        st.subheader("📌 Step 1: Select Segmen")
+        st.markdown("---")
         
-        if 'Segmen_clean' in df_filtered.columns:
-            segmen_options = sorted([x for x in df_filtered['Segmen_clean'].unique() if x != 'Unknown'])
-            selected_segmen_pivot = st.selectbox("Choose Segmen:", ['All Segmen'] + segmen_options, key='pivot_segmen')
+        # Define OSPH ranges order
+        osph_order = ['0 - 250 Juta', '250 - 500 Juta', '500 Juta+']
+        
+        # Get top pekerjaan
+        top_pekerjaan = df_filtered['Pekerjaan_clean'].value_counts().head(10).index.tolist()
+        
+        # Create 4 pivot tables
+        for segmen in ['-', 'KKB', 'CS NEW', 'CS USED']:
+            st.subheader(f"Segmen: {segmen}")
             
-            if selected_segmen_pivot == 'All Segmen':
-                df_segmen = df_filtered.copy()
+            df_segmen = df_filtered[df_filtered['Segmen_clean'] == segmen]
+            
+            if len(df_segmen) > 0:
+                # Create pivot: OSPH Range x Pekerjaan
+                pivot_data = []
+                
+                for osph_range in osph_order:
+                    df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
+                    
+                    row = {'OSPH Range': osph_range}
+                    
+                    for pekerjaan in top_pekerjaan:
+                        count = len(df_osph[df_osph['Pekerjaan_clean'] == pekerjaan])
+                        row[pekerjaan] = count if count > 0 else 0
+                    
+                    # Add total
+                    row['TOTAL'] = len(df_osph)
+                    
+                    pivot_data.append(row)
+                
+                # Add TOTAL row
+                total_row = {'OSPH Range': 'TOTAL'}
+                for pekerjaan in top_pekerjaan:
+                    count = len(df_segmen[df_segmen['Pekerjaan_clean'] == pekerjaan])
+                    total_row[pekerjaan] = count if count > 0 else 0
+                total_row['TOTAL'] = len(df_segmen)
+                pivot_data.append(total_row)
+                
+                pivot_df = pd.DataFrame(pivot_data)
+                
+                st.dataframe(pivot_df, use_container_width=True, hide_index=True)
+                
+                # Visualization
+                pivot_plot = pivot_df[pivot_df['OSPH Range'] != 'TOTAL'].copy()
+                
+                if len(pivot_plot) > 0:
+                    plot_data = []
+                    for _, row in pivot_plot.iterrows():
+                        osph = row['OSPH Range']
+                        for pek in top_pekerjaan:
+                            if pek in row and row[pek] > 0:
+                                plot_data.append({
+                                    'OSPH Range': osph,
+                                    'Pekerjaan': pek,
+                                    'Count': row[pek]
+                                })
+                    
+                    if plot_data:
+                        plot_df = pd.DataFrame(plot_data)
+                        fig = px.bar(
+                            plot_df,
+                            x='OSPH Range',
+                            y='Count',
+                            color='Pekerjaan',
+                            title=f"Distribution for Segmen {segmen}",
+                            barmode='group'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
             else:
-                df_segmen = df_filtered[df_filtered['Segmen_clean'] == selected_segmen_pivot]
-            
-            st.info(f"Selected: **{selected_segmen_pivot}** | Records: **{len(df_segmen):,}**")
+                st.info(f"No data available for Segmen {segmen}")
             
             st.markdown("---")
-            
-            # Level 2: OSPH Range Summary
-            st.subheader("📌 Step 2: OSPH Range Distribution")
-            
-            if 'OSPH_Category' in df_segmen.columns:
-                osph_summary = df_segmen.groupby('OSPH_Category').agg({
-                    'apps_id': 'nunique',
-                    'OSPH_clean': 'sum'
-                }).reset_index()
-                osph_summary.columns = ['OSPH Range', 'Total Applications', 'Total Outstanding (Rp)']
-                osph_summary['Total Outstanding (Rp)'] = osph_summary['Total Outstanding (Rp)'].apply(lambda x: f"Rp {x:,.0f}")
-                
-                st.dataframe(osph_summary, use_container_width=True, hide_index=True)
-                
-                # Select OSPH Range
-                osph_options = sorted([x for x in df_segmen['OSPH_Category'].unique() if x != 'Unknown'])
-                selected_osph_range = st.selectbox("Choose OSPH Range for detailed breakdown:", osph_options, key='pivot_osph')
-                
-                df_osph = df_segmen[df_segmen['OSPH_Category'] == selected_osph_range]
-                
-                st.info(f"Selected: **{selected_osph_range}** | Records: **{len(df_osph):,}**")
-                
-                st.markdown("---")
-                
-                # Level 3: Breakdown Options
-                st.subheader("📌 Step 3: Detailed Breakdown")
-                
-                breakdown_tab1, breakdown_tab2, breakdown_tab3 = st.tabs([
-                    "🚗 Jenis Kendaraan",
-                    "💼 Pekerjaan",
-                    "📊 Scoring Result"
-                ])
-                
-                # Breakdown 1: Jenis Kendaraan
-                with breakdown_tab1:
-                    st.markdown(f"### {selected_segmen_pivot} → {selected_osph_range} → **Jenis Kendaraan**")
-                    
-                    if 'JenisKendaraan_clean' in df_osph.columns:
-                        vehicle_breakdown = df_osph.groupby('JenisKendaraan_clean').agg({
-                            'apps_id': 'nunique',
-                            'OSPH_clean': ['sum', 'mean']
-                        }).reset_index()
-                        
-                        vehicle_breakdown.columns = ['Jenis Kendaraan', 'Total Apps', 'Total OSPH', 'Avg OSPH']
-                        vehicle_breakdown['Total OSPH'] = vehicle_breakdown['Total OSPH'].apply(lambda x: f"Rp {x:,.0f}")
-                        vehicle_breakdown['Avg OSPH'] = vehicle_breakdown['Avg OSPH'].apply(lambda x: f"Rp {x:,.0f}")
-                        vehicle_breakdown = vehicle_breakdown.sort_values('Total Apps', ascending=False)
-                        
-                        st.dataframe(vehicle_breakdown, use_container_width=True, hide_index=True)
-                        
-                        # Chart
-                        chart_data = df_osph.groupby('JenisKendaraan_clean')['apps_id'].nunique().reset_index()
-                        chart_data.columns = ['Jenis Kendaraan', 'Count']
-                        
-                        fig = px.pie(
-                            chart_data,
-                            values='Count',
-                            names='Jenis Kendaraan',
-                            title=f"Distribution by Vehicle Type ({selected_osph_range})"
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                
-                # Breakdown 2: Pekerjaan
-                with breakdown_tab2:
-                    st.markdown(f"### {selected_segmen_pivot} → {selected_osph_range} → **Pekerjaan**")
-                    
-                    if 'Pekerjaan_clean' in df_osph.columns:
-                        job_breakdown = df_osph.groupby('Pekerjaan_clean').agg({
-                            'apps_id': 'nunique',
-                            'OSPH_clean': ['sum', 'mean']
-                        }).reset_index()
-                        
-                        job_breakdown.columns = ['Pekerjaan', 'Total Apps', 'Total OSPH', 'Avg OSPH']
-                        job_breakdown['Total OSPH'] = job_breakdown['Total OSPH'].apply(lambda x: f"Rp {x:,.0f}")
-                        job_breakdown['Avg OSPH'] = job_breakdown['Avg OSPH'].apply(lambda x: f"Rp {x:,.0f}")
-                        job_breakdown = job_breakdown.sort_values('Total Apps', ascending=False)
-                        
-                        st.dataframe(job_breakdown.head(15), use_container_width=True, hide_index=True)
-                        st.caption("Showing top 15 professions")
-                        
-                        # Chart
-                        chart_data = df_osph.groupby('Pekerjaan_clean')['apps_id'].nunique().reset_index()
-                        chart_data.columns = ['Pekerjaan', 'Count']
-                        chart_data = chart_data.sort_values('Count', ascending=False).head(10)
-                        
-                        fig = px.bar(
-                            chart_data,
-                            x='Count',
-                            y='Pekerjaan',
-                            orientation='h',
-                            title=f"Top 10 Professions ({selected_osph_range})"
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                
-                # Breakdown 3: Scoring
-                with breakdown_tab3:
-                    st.markdown(f"### {selected_segmen_pivot} → {selected_osph_range} → **Scoring Result**")
-                    
-                    if 'Scoring_Detail' in df_osph.columns:
-                        scoring_breakdown = df_osph.groupby('Scoring_Detail').agg({
-                            'apps_id': 'nunique',
-                            'OSPH_clean': ['sum', 'mean']
-                        }).reset_index()
-                        
-                        scoring_breakdown.columns = ['Scoring', 'Total Apps', 'Total OSPH', 'Avg OSPH']
-                        scoring_breakdown['Total OSPH'] = scoring_breakdown['Total OSPH'].apply(lambda x: f"Rp {x:,.0f}")
-                        scoring_breakdown['Avg OSPH'] = scoring_breakdown['Avg OSPH'].apply(lambda x: f"Rp {x:,.0f}")
-                        
-                        # Calculate percentage
-                        total_apps = scoring_breakdown['Total Apps'].sum()
-                        scoring_breakdown['Percentage'] = scoring_breakdown['Total Apps'].apply(
-                            lambda x: f"{x/total_apps*100:.1f}%"
-                        )
-                        
-                        scoring_breakdown = scoring_breakdown.sort_values('Total Apps', ascending=False)
-                        
-                        st.dataframe(scoring_breakdown, use_container_width=True, hide_index=True)
-                        
-                        # Chart
-                        chart_data = df_osph.groupby('Scoring_Detail')['apps_id'].nunique().reset_index()
-                        chart_data.columns = ['Scoring', 'Count']
-                        
-                        fig = px.bar(
-                            chart_data,
-                            x='Scoring',
-                            y='Count',
-                            title=f"Scoring Distribution ({selected_osph_range})",
-                            color='Count',
-                            color_continuous_scale='RdYlGn'
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
     
-    # ====== TAB 3: BRANCH & CA PERFORMANCE (COMBINED) ======
+    # ====== TAB 3: BRANCH & CA PERFORMANCE ======
     with tab3:
         st.header("🏢 Branch & CA Performance")
         
@@ -761,7 +647,7 @@ def main():
                 branch_df = pd.DataFrame(branch_perf).sort_values('Total Apps', ascending=False)
                 st.dataframe(branch_df, use_container_width=True, hide_index=True)
                 
-                # Top 10 Branches Chart
+                # Charts
                 if len(branch_df) > 0:
                     col1, col2 = st.columns(2)
                     
@@ -775,7 +661,6 @@ def main():
                         st.plotly_chart(fig1, use_container_width=True)
                     
                     with col2:
-                        # Extract numeric approval rate
                         branch_df_plot = branch_df.copy()
                         branch_df_plot['Approval_Numeric'] = branch_df_plot['Approval Rate'].str.rstrip('%').astype(float)
                         
@@ -812,7 +697,6 @@ def main():
                     ca_sla = df_ca[df_ca['SLA_Hours'].notna()]
                     avg_sla = convert_hours_to_hm(ca_sla['SLA_Hours'].mean()) if len(ca_sla) > 0 else "-"
                     
-                    # Get branch info
                     branches = df_ca['branch_name_clean'].unique()
                     main_branch = branches[0] if len(branches) > 0 else "Unknown"
                     
@@ -956,7 +840,7 @@ def main():
                 maxod_df = pd.DataFrame(maxod_analysis)
                 st.dataframe(maxod_df, use_container_width=True, hide_index=True)
     
-    # ====== TAB 6: SLA ANALYSIS ======
+    # ====== TAB 6: SLA ANALYSIS (WITH TREND) ======
     with tab6:
         st.header("⏱️ SLA Performance Analysis")
         
@@ -1005,6 +889,53 @@ def main():
         
         st.markdown("---")
         
+        # SLA TREND (ADDED)
+        st.subheader("📈 SLA Trend - Average per Month")
+        
+        if len(sla_valid) > 0 and 'action_on_parsed' in sla_valid.columns:
+            sla_trend = sla_valid.copy()
+            sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_period('M').astype(str)
+            
+            monthly_avg = sla_trend.groupby('YearMonth')['SLA_Hours'].agg(['mean', 'count']).reset_index()
+            monthly_avg.columns = ['Month', 'Avg_SLA_Hours', 'Count']
+            monthly_avg = monthly_avg.sort_values('Month')
+            monthly_avg['Avg_SLA_Formatted'] = monthly_avg['Avg_SLA_Hours'].apply(convert_hours_to_hm)
+            
+            # Display table
+            st.dataframe(monthly_avg[['Month', 'Avg_SLA_Formatted', 'Avg_SLA_Hours', 'Count']], 
+                        use_container_width=True, hide_index=True)
+            
+            # Line chart
+            fig = go.Figure()
+            
+            fig.add_trace(go.Scatter(
+                x=monthly_avg['Month'],
+                y=monthly_avg['Avg_SLA_Hours'],
+                mode='lines+markers',
+                name='Average SLA',
+                line=dict(color='#003366', width=3),
+                marker=dict(size=8)
+            ))
+            
+            fig.add_hline(
+                y=35, 
+                line_dash="dash", 
+                line_color="red",
+                annotation_text="Target: 35 hours",
+                annotation_position="right"
+            )
+            
+            fig.update_layout(
+                title="SLA Trend - Average per Month",
+                xaxis_title="Month",
+                yaxis_title="Average SLA (hours)",
+                hovermode='x unified'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
         # SLA by Status
         st.subheader("📊 SLA Statistics by Application Status")
         
@@ -1038,30 +969,6 @@ def main():
             if status_sla:
                 status_sla_df = pd.DataFrame(status_sla)
                 st.dataframe(status_sla_df, use_container_width=True, hide_index=True)
-                
-                # Chart
-                plot_data = []
-                for _, row in status_sla_df.iterrows():
-                    avg_str = row['Avg SLA']
-                    if avg_str and 'h' in avg_str:
-                        hours = float(avg_str.split('h')[0])
-                        plot_data.append({
-                            'Status': row['Status'],
-                            'Avg SLA (hours)': hours
-                        })
-                
-                if plot_data:
-                    plot_df = pd.DataFrame(plot_data)
-                    fig = px.bar(
-                        plot_df,
-                        x='Status',
-                        y='Avg SLA (hours)',
-                        title="Average SLA by Application Status",
-                        color='Avg SLA (hours)',
-                        color_continuous_scale='RdYlGn_r'
-                    )
-                    fig.add_hline(y=35, line_dash="dash", line_color="red", annotation_text="Target: 35h")
-                    st.plotly_chart(fig, use_container_width=True)
     
     # ====== TAB 7: DATA EXPORT ======
     with tab7:
