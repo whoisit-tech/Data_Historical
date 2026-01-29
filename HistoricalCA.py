@@ -545,8 +545,6 @@ def main():
     with col2:
         st.metric(" Unique Applications", f"{unique_apps:,}")
     with col3:
-        st.metric(" SLA Calculated", f"{sla_calculated:,}")
-    with col4:
         avg_sla = df[df['SLA_Days'].notna()]['SLA_Days'].mean()
         st.metric(" Average SLA", f"{avg_sla:.2f} days" if pd.notna(avg_sla) else "N/A")
     
@@ -652,8 +650,6 @@ def main():
             with col2:
                 st.metric("Median SLA", f"{sla_valid['SLA_Days'].median():.2f} days")
             with col3:
-                st.metric("90th Percentile", f"{sla_valid['SLA_Days'].quantile(0.9):.2f} days")
-            with col4:
                 exceed_5 = (sla_valid['SLA_Days'] > 5).sum()
                 pct = exceed_5 / len(sla_valid) * 100
                 st.metric("Exceed 5 Days", f"{exceed_5} ({pct:.1f}%)")
