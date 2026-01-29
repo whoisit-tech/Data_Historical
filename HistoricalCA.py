@@ -534,6 +534,29 @@ def main():
             
             status_df = pd.DataFrame(status_data)
             st.dataframe(status_df, use_container_width=True, hide_index=True)
+        
+        st.subheader("3. Outstanding PH vs Vehicle Type")
+        
+        if 'OSPH_Category' in df_filtered.columns and 'JenisKendaraan_clean' in df_filtered.columns:
+            vehicle_data = []
+            
+            for osph in sorted([x for x in df_filtered['OSPH_Category'].unique() if x != 'Unknown']):
+                df_osph = df_filtered[df_filtered['OSPH_Category'] == osph]
+                row = {
+                    'Outstanding PH': osph,
+                    'Total Apps': df_osph['apps_id'].nunique(),
+                    'Total Records': len(df_osph)
+                }
+                
+                for vehicle in sorted([x for x in df_filtered['JenisKendaraan_clean'].unique() if x != 'Unknown']):
+                    count = len(df_osph[df_osph['JenisKendaraan_clean'] == vehicle])
+                    if count > 0:
+                        row[vehicle] = count
+                
+                vehicle_data.append(row)
+            
+            vehicle_df = pd.DataFrame(vehicle_data)
+            st.dataframe(vehicle_df, use_container_width=True, hide_index=True)
     
     # TAB 2: STATUS & SCORING
     with tab2:
