@@ -9,7 +9,7 @@ from pathlib import Path
 
 st.set_page_config(page_title="CA Analytics", layout="wide")
 
-FILE_NAME = "HistoricalCA.xlsx"
+FILE_NAME = "Historical_CA (1).xlsx"
 
 st.markdown("""
 <style>
@@ -524,7 +524,7 @@ def generate_analytical_insights(df):
 
 def main():
     """Main application"""
-    st.title(" CA Analytics Dashboard ")
+    st.title(" CA Analytics Dashboard - Final Version")
     st.markdown("** Correct Per-Row SLA | OSPH Pivot Tables per Segmen**")
     st.markdown("---")
     
@@ -629,9 +629,10 @@ def main():
     st.markdown("---")
     
     # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         " SLA Overview",
         " OSPH Pivot Analysis per Segmen",
+        " CA Performance Analysis",
         " Detailed View",
         " Raw Data"
     ])
@@ -758,8 +759,222 @@ def main():
         else:
             st.warning("No data available for pivot analysis")
     
-    # Tab 3: Detailed View
+    # Tab 3: CA Performance Analysis
     with tab3:
+        st.header("CA Performance Analysis")
+        st.info(" Detailed performance metrics per Credit Analyst")
+        
+        if 'user_name_clean' in df_filtered.columns:
+            # Create comprehensive CA performance data
+            ca_performance = []
+            
+            for ca in sorted(df_filtered['user_name_clean'].unique()):
+                if ca == 'Unknown':
+                    continue
+                
+                df_ca = df_filtered[df_filtered['user_name_clean'] == ca]
+                
+                # Basic metrics
+                total_apps = df_ca['apps_id'].nunique()
+                total_records = len(df_ca)
+                
+                # Scoring breakdown
+                approve = df_ca['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+                reject = df_ca['Scoring_Detail'].isin(['REJECT', 'REJECT 1', 'REJECT 2']).sum()
+                reguler = df_ca['Scoring_Detail'].isin(['REGULER', 'REGULER 1', 'REGULER 2']).sum()
+                in_progress = df_ca['Scoring_Detail'].isin(['SCORING IN PROGRESS']).sum()
+                no_scoring = df_ca['Scoring_Detail'].isin(['(Pilih Semua)', '-']).sum()
+                
+                total_scored = approve + reject + reguler
+                
+                # Calculate rates
+                if total_scored > 0:
+                    approve_rate = f"{approve/total_scored*100:.1f}%"
+                    reject_rate = f"{reject/total_scored*100:.1f}%"
+                    reguler_rate = f"{reguler/total_scored*100:.1f}%"
+                else:
+                    approve_rate = "0.0%"
+                    reject_rate = "0.0%"
+                    reguler_rate = "0.0%"
+                
+                # SLA metrics
+                df_ca_sla = df_ca[df_ca['SLA_Days'].notna()]
+                if len(df_ca_sla) > 0:
+                    avg_sla = f"{df_ca_sla['SLA_Days'].mean():.2f}"
+                    median_sla = f"{df_ca_sla['SLA_Days'].median():.2f}"
+                    max_sla = f"{df_ca_sla['SLA_Days'].max():.2f}"
+                else:
+                    avg_sla = "N/A"
+                    median_sla = "N/A"
+                    max_sla = "N/A"
+                
+                # OSPH average
+                if df_ca['OSPH_clean'].notna().any():
+                    avg_osph = df_ca['OSPH_clean'].mean()
+                    avg_osph_display = f"Rp {avg_osph/1e6:.1f}M"
+                else:
+                    avg_osph_display = "N/A"
+                
+                ca_performance.append({
+                    'CA Name': ca,
+                    'Total Apps': total_apps,
+                    'Total Records': total_records,
+                    'APPROVE': approve,
+                    'REJECT': reject,
+                    'REGULER': reguler,
+                    'In Progress': in_progress,
+                    'No Scoring': no_scoring,
+                    'Approve Rate': approve_rate,
+                    'Reject Rate': reject_rate,
+                    'Reguler Rate': reguler_rate,
+                    'Avg SLA': avg_sla,
+                    'Median SLA': median_sla,
+                    'Max SLA': max_sla,
+                    'Avg OSPH': avg_osph_display
+                })
+            
+            ca_df = pd.DataFrame(ca_performance)
+            
+            # Summary metrics
+            st.subheader(" CA Performance Summary")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total CAs", len(ca_df))
+            with col2:
+                total_apps_all = ca_df['Total Apps'].sum()
+                st.metric("Total Apps Handled", f"{total_apps_all:,}")
+            with col3:
+                total_approve = ca_df['APPROVE'].sum()
+                st.metric("Total Approvals", f"{total_approve:,}")
+            with col4:
+                total_reject = ca_df['REJECT'].sum()
+                st.metric("Total Rejections", f"{total_reject:,}")
+            
+            st.markdown("---")
+            
+            # Detailed table
+            st.subheader(" Detailed CA Performance Table")
+            st.dataframe(ca_df, use_container_width=True, hide_index=True)
+            
+            st.markdown("---")
+            
+            # Visualizations
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Top 10 CAs by Volume")
+                top_10 = ca_df.nlargest(10, 'Total Apps')
+                
+                fig = px.bar(
+                    top_10,
+                    x='CA Name',
+                    y='Total Apps',
+                    title="Top 10 CAs by Total Applications",
+                    color='Total Apps',
+                    color_continuous_scale='Blues'
+                )
+                fig.update_xaxes(tickangle=45)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                st.subheader("Approval vs Rejection Distribution")
+                
+                # Create stacked bar chart
+                top_10_stacked = top_10[['CA Name', 'APPROVE', 'REJECT', 'REGULER']].copy()
+                
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    name='APPROVE',
+                    x=top_10_stacked['CA Name'],
+                    y=top_10_stacked['APPROVE'],
+                    marker_color='#4CAF50'
+                ))
+                fig.add_trace(go.Bar(
+                    name='REJECT',
+                    x=top_10_stacked['CA Name'],
+                    y=top_10_stacked['REJECT'],
+                    marker_color='#F44336'
+                ))
+                fig.add_trace(go.Bar(
+                    name='REGULER',
+                    x=top_10_stacked['CA Name'],
+                    y=top_10_stacked['REGULER'],
+                    marker_color='#FFC107'
+                ))
+                
+                fig.update_layout(
+                    barmode='stack',
+                    title='Top 10 CAs: Scoring Distribution',
+                    xaxis_tickangle=45
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown("---")
+            
+            # CA comparison by approval rate
+            st.subheader(" CA Approval Rate Comparison")
+            
+            # Convert percentage strings to float for sorting
+            ca_df_sorted = ca_df.copy()
+            ca_df_sorted['Approve_Rate_Numeric'] = ca_df_sorted['Approve Rate'].str.replace('%', '').astype(float)
+            ca_df_sorted = ca_df_sorted.sort_values('Approve_Rate_Numeric', ascending=False).head(15)
+            
+            fig = px.bar(
+                ca_df_sorted,
+                x='CA Name',
+                y='Approve_Rate_Numeric',
+                title='Top 15 CAs by Approval Rate',
+                labels={'Approve_Rate_Numeric': 'Approval Rate (%)'},
+                color='Approve_Rate_Numeric',
+                color_continuous_scale='RdYlGn'
+            )
+            fig.update_xaxes(tickangle=45)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown("---")
+            
+            # SLA Performance by CA
+            st.subheader(" CA SLA Performance")
+            
+            # Filter CAs with valid SLA data
+            ca_df_sla = ca_df[ca_df['Avg SLA'] != 'N/A'].copy()
+            if len(ca_df_sla) > 0:
+                ca_df_sla['Avg_SLA_Numeric'] = ca_df_sla['Avg SLA'].astype(float)
+                ca_df_sla = ca_df_sla.sort_values('Avg_SLA_Numeric', ascending=True).head(15)
+                
+                fig = px.bar(
+                    ca_df_sla,
+                    x='CA Name',
+                    y='Avg_SLA_Numeric',
+                    title='Top 15 CAs with Best Average SLA',
+                    labels={'Avg_SLA_Numeric': 'Average SLA (days)'},
+                    color='Avg_SLA_Numeric',
+                    color_continuous_scale='RdYlGn_r'
+                )
+                fig.add_hline(y=5, line_dash="dash", line_color="red", 
+                             annotation_text="5 Days Target")
+                fig.update_xaxes(tickangle=45)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No SLA data available for CAs")
+            
+            # Download CA performance report
+            st.markdown("---")
+            st.subheader(" Export CA Performance Report")
+            
+            csv_ca = ca_df.to_csv(index=False)
+            st.download_button(
+                "Download CA Performance Report (CSV)",
+                csv_ca,
+                "ca_performance_report.csv",
+                "text/csv"
+            )
+        else:
+            st.warning("No CA data available")
+    
+    # Tab 4: Detailed View
+    with tab4:
         st.header("Detailed SLA View per Application")
         
         sample_apps = sorted(df_filtered['apps_id'].unique())
@@ -796,7 +1011,7 @@ def main():
                 st.dataframe(app_data[available_raw].reset_index(drop=True), use_container_width=True)
                 
                 st.markdown("---")
-                st.subheader("⏱️ SLA Calculation Details")
+                st.subheader(" SLA Calculation Details")
                 
                 sla_cols = ['apps_status_clean', 'SLA_Start', 'SLA_End', 'SLA_Days', 'SLA_Formatted', 'SLA_Logic']
                 available_sla = [c for c in sla_cols if c in app_data.columns]
@@ -804,8 +1019,8 @@ def main():
         else:
             st.info("No applications available")
     
-    # Tab 4: Raw Data
-    with tab4:
+    # Tab 5: Raw Data
+    with tab5:
         st.header("Raw Data Export")
         
         display_cols = [
@@ -825,7 +1040,7 @@ def main():
         
         csv_data = df_filtered[available_cols].to_csv(index=False)
         st.download_button(
-            "📥 Download Filtered Data (CSV)",
+            " Download Filtered Data (CSV)",
             csv_data,
             "ca_analytics_filtered.csv",
             "text/csv"
