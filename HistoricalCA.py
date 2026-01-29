@@ -152,8 +152,8 @@ def calculate_sla_working_hours(start_dt, end_dt):
         working_seconds += max((interval_end - current).total_seconds(), 0)
         current = interval_end
 
-    if working_seconds <= 0:
-        return None
+    if working_seconds < 0:       # < (less than)  ✅ FIXED
+    return None
 
     # ✅ SINGLE SOURCE OF TRUTH: working_days adalah satu-satunya reference
     working_days = round(working_seconds / WORK_SECONDS_PER_DAY, 4)
