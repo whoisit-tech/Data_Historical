@@ -260,7 +260,14 @@ def calculate_row_sla(df):
                         logic = f'{current_status}: First row, no Recommendation'
             
             # Hitung SLA
-            if sla_start and sla_end and pd.notna(sla_start) and pd.notna(sla_end):
+                if (
+                    sla_start is not None
+                    and sla_end is not None
+                    and pd.notna(sla_start)
+                    and pd.notna(sla_end)
+                    and sla_end > sla_start
+                ):
+
                 sla_result = calculate_sla_working_hours(sla_start, sla_end)
                 if sla_result:
                     df_sorted.at[current_idx, 'SLA_Start'] = sla_start
@@ -268,8 +275,9 @@ def calculate_row_sla(df):
                     df_sorted.at[current_idx, 'SLA_Days'] = sla_result['working_days']
                     df_sorted.at[current_idx, 'SLA_Formatted'] = sla_result['formatted']
                     df_sorted.at[current_idx, 'SLA_Logic'] = logic
-                else:
-                    df_sorted.at[current_idx, 'SLA_Logic'] = logic + ' (calc failed)'
+               else:
+                    df_sorted.at[current_idx, 'SLA_Logic'] = logic + ' (invalid timestamp)'
+
             else:
                 df_sorted.at[current_idx, 'SLA_Logic'] = logic
     
