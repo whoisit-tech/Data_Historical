@@ -454,7 +454,7 @@ def main():
         # Overall SLA stats
         sla_valid = df_filtered[df_filtered['SLA_Hours'].notna()]
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             if len(sla_valid) > 0:
@@ -477,14 +477,7 @@ def main():
             sla_pct = f"{len(sla_valid)/len(df_filtered)*100:.1f}%" if len(df_filtered) > 0 else "0%"
             st.metric("Data Coverage", f"{len(sla_valid):,} ({sla_pct})")
             st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col4:
-            if len(sla_valid) > 0:
-                exceed = (sla_valid['SLA_Hours'] > 35).sum()
-                exceed_pct = f"{exceed/len(sla_valid)*100:.1f}%"
-                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-                st.metric("Exceed Target (>35h)", exceed_pct)
-                st.markdown('</div>', unsafe_allow_html=True)
+
         
         st.markdown("---")
         
