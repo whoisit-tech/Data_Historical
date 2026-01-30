@@ -425,23 +425,168 @@ def main():
         df_filtered = df_filtered[df_filtered['branch_name_clean'] == selected_branch]
     
     st.sidebar.markdown("---")
-    st.sidebar.info(f"📊 {len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)")
-    st.sidebar.info(f"📝 {df_filtered['apps_id'].nunique():,} unique applications")
+    st.sidebar.info(f" {len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)")
+    st.sidebar.info(f" {df_filtered['apps_id'].nunique():,} unique applications")
     
     # TABS
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "🔍 Detail Raw Data",
-        "📊 OSPH Pivot by Pekerjaan",
-        "🏢 Branch & CA Performance",
-        "📋 Status & Scoring",
-        "⏰ OD Impact",
-        "⏱️ SLA Analysis",
-        "💾 Export"
+        " SLA Analysis",
+        " Detail Raw Data",
+        " OSPH",
+        " Branch & CA Performance",
+        " Status & Scoring",
+        " OD Impact",
+        " Export"
     ])
-    
-    # ====== TAB 1: DETAIL RAW DATA - ALL APPS ID ======
+
+    # ====== TAB 1: SLA ANALYSIS ======
     with tab1:
-        st.header("🔍 Detail Raw Data - All Applications")
+        st.header(" SLA Performance Analysis")
+        
+        st.info("""
+        **SLA Calculation Method:**
+        - SLA dihitung dari waktu Recommendation sampai action_on
+        - Hanya dihitung jika kedua timestamp tersedia
+        - Menggunakan working hours (08:30 - 15:30)
+        - Exclude weekend dan tanggal merah
+        """)
+        
+        # Overall SLA stats
+        sla_valid = df_filtered[df_filtered['SLA_Hours'].notna()]
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            if len(sla_valid) > 0:
+                avg_hours = sla_valid['SLA_Hours'].mean()
+                avg_formatted = convert_hours_to_hm(avg_hours)
+                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
+                st.metric("Average SLA", avg_formatted)
+                st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col2:
+            if len(sla_valid) > 0:
+                median_hours = sla_valid['SLA_Hours'].median()
+                median_formatted = convert_hours_to_hm(median_hours)
+                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
+                st.metric("Median SLA", median_formatted)
+                st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown('<div class="metric-box">', unsafe_allow_html=True)
+            sla_pct = f"{len(sla_valid)/len(df_filtered)*100:.1f}%" if len(df_filtered) > 0 else "0%"
+            st.metric("Data Coverage", f"{len(sla_valid):,} ({sla_pct})")
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col4:
+            if len(sla_valid) > 0:
+                exceed = (sla_valid['SLA_Hours'] > 35).sum()
+                exceed_pct = f"{exceed/len(sla_valid)*100:.1f}%"
+                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
+                st.metric("Exceed Target (>35h)", exceed_pct)
+                st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # SLA TREND
+        st.subheader(" SLA Trend - Average per Month")
+        
+        if len(sla_valid) > 0 and 'action_on_parsed' in sla_valid.columns:
+            sla_trend = sla_valid.copy()
+            sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_period('M').astype(str)
+            
+            monthly_avg = sla_trend.groupby('YearMonth')['SLA_Hours'].agg(['mean', 'count']).reset_index()
+            monthly_avg.columns = ['Month', 'Avg_SLA_Hours', 'Count']
+            monthly_avg = monthly_avg.sort_values('Month')
+            monthly_avg['Avg_SLA_Formatted'] = monthly_avg['Avg_SLA_Hours'].apply(convert_hours_to_hm)
+            
+            # Display table
+            st.dataframe(monthly_avg[['Month', 'Avg_SLA_Formatted', 'Avg_SLA_Hours', 'Count']], 
+                        use_container_width=True, hide_index=True)
+            
+            # Line chart - IMPROVED
+            fig = go.Figure()
+            
+            # Create formatted hover text
+            hover_text = []
+            for idx, row in monthly_avg.iterrows():
+                hours = int(row['Avg_SLA_Hours'])
+                minutes = int((row['Avg_SLA_Hours'] - hours) * 60)
+                hover_text.append(f"{hours} jam {minutes} menit<br>({row['Count']} records)")
+            
+            fig.add_trace(go.Scatter(
+                x=monthly_avg['Month'],
+                y=monthly_avg['Avg_SLA_Hours'],
+                mode='lines+markers+text',
+                name='Average SLA',
+                line=dict(color='#003366', width=3),
+                marker=dict(size=10, color='#003366'),
+                text=[f"{int(h)} jam {int((h - int(h)) * 60)} menit" for h in monthly_avg['Avg_SLA_Hours']],
+                textposition='top center',
+                textfont=dict(size=10, color='#003366'),
+                hovertext=hover_text,
+                hoverinfo='text'
+            ))
+            
+            fig.add_hline(
+                y=35, 
+                line_dash="dash", 
+                line_color="red",
+                line_width=2,
+                annotation_text="Target: 35 jam (5 hari kerja)",
+                annotation_position="right",
+                annotation_font_color="red"
+            )
+            
+            fig.update_layout(
+                title="SLA Trend - Average per Month (dalam jam)",
+                xaxis_title="Month",
+                yaxis_title="Average SLA (jam)",
+                hovermode='x unified',
+                height=500
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("---")
+        
+        # SLA by Status
+        st.subheader(" SLA Statistics by Application Status")
+        
+        if 'apps_status_clean' in df_filtered.columns:
+            status_sla = []
+            
+            for status in sorted(df_filtered['apps_status_clean'].unique()):
+                if status == 'Unknown':
+                    continue
+                
+                df_status = df_filtered[df_filtered['apps_status_clean'] == status]
+                sla_status = df_status[df_status['SLA_Hours'].notna()]
+                
+                if len(sla_status) > 0:
+                    avg_sla = sla_status['SLA_Hours'].mean()
+                    median_sla = sla_status['SLA_Hours'].median()
+                    max_sla = sla_status['SLA_Hours'].max()
+                    min_sla = sla_status['SLA_Hours'].min()
+                    
+                    status_sla.append({
+                        'Status': status,
+                        'Total Records': len(df_status),
+                        'With SLA': len(sla_status),
+                        'Coverage': f"{len(sla_status)/len(df_status)*100:.1f}%",
+                        'Avg SLA': convert_hours_to_hm(avg_sla),
+                        'Median SLA': convert_hours_to_hm(median_sla),
+                        'Min SLA': convert_hours_to_hm(min_sla),
+                        'Max SLA': convert_hours_to_hm(max_sla),
+                    })
+            
+            if status_sla:
+                status_sla_df = pd.DataFrame(status_sla)
+                st.dataframe(status_sla_df, use_container_width=True, hide_index=True)
+    
+    # ====== TAB 2: DETAIL RAW DATA - ALL APPS ID ======
+    with tab2:
+        st.header(" Detail Raw Data - All Applications")
         
         st.markdown("""
         **Browse all applications:**
@@ -470,7 +615,7 @@ def main():
         apps_df = pd.DataFrame(apps_summary)
         apps_df = apps_df.sort_values('Latest Action', ascending=False)
         
-        st.info(f"📋 Total Applications: **{len(apps_df):,}**")
+        st.info(f" Total Applications: **{len(apps_df):,}**")
         
         # Display all apps in a table
         st.dataframe(
@@ -483,9 +628,9 @@ def main():
         st.markdown("---")
         
         # Search and detail view
-        st.subheader("📝 Application Detail Viewer")
+        st.subheader(" Application Detail Viewer")
         
-        search_input = st.text_input("🔎 Enter Application ID:", placeholder="e.g., 5259031")
+        search_input = st.text_input(" Enter Application ID:", placeholder="e.g., 5259031")
         
         if search_input:
             try:
@@ -493,7 +638,7 @@ def main():
                 app_records = df[df['apps_id'] == search_id].sort_values('action_on_parsed')
                 
                 if len(app_records) > 0:
-                    st.success(f"✅ Found **{len(app_records)}** records for Application ID: **{search_id}**")
+                    st.success(f" Found **{len(app_records)}** records for Application ID: **{search_id}**")
                     
                     # Summary
                     col1, col2, col3, col4 = st.columns(4)
@@ -517,7 +662,7 @@ def main():
                     st.markdown("---")
                     
                     # Display ALL records
-                    st.subheader("📋 All Records")
+                    st.subheader(" All Records")
                     
                     display_cols = [
                         'apps_status_clean', 'action_on_parsed', 'Recommendation_parsed',
@@ -530,14 +675,14 @@ def main():
                     st.dataframe(app_records[available_cols].reset_index(drop=True), use_container_width=True)
                     
                 else:
-                    st.warning(f"⚠️ No records found for Application ID: {search_id}")
+                    st.warning(f" No records found for Application ID: {search_id}")
             
             except ValueError:
-                st.error("❌ Please enter a valid numeric Application ID")
+                st.error(" Please enter a valid numeric Application ID")
     
-    # ====== TAB 2: OSPH PIVOT BY PEKERJAAN ======
-    with tab2:
-        st.header("📊 Outstanding PH Pivot by Pekerjaan")
+    # ====== TAB 3: OSPH PIVOT BY PEKERJAAN ======
+    with tab3:
+        st.header(" Outstanding PH Pivot by Pekerjaan")
         
         st.markdown("""
         **4 Pivot Tables: Row=OSPH Range, Column=Pekerjaan**
@@ -562,7 +707,7 @@ def main():
             total_apps = len(df_segmen)
             total_records = len(df_filtered[df_filtered['Segmen_clean'] == segmen])
             
-            st.caption(f"📊 Total Apps (Distinct): **{total_apps:,}** | Total Records: **{total_records:,}**")
+            st.caption(f" Total Apps (Distinct): **{total_apps:,}** | Total Records: **{total_records:,}**")
             
             if len(df_segmen) > 0:
                 # Create pivot: OSPH Range x Pekerjaan
@@ -625,17 +770,17 @@ def main():
             
             st.markdown("---")
     
-    # ====== TAB 3: BRANCH & CA PERFORMANCE ======
-    with tab3:
-        st.header("🏢 Branch & CA Performance")
+    # ====== TAB 4: BRANCH & CA PERFORMANCE ======
+    with tab4:
+        st.header(" Branch & CA Performance")
         
-        subtab1, subtab2 = st.tabs(["🏢 Branch Analysis", "👥 CA Analysis"])
+        subtab1, subtab2 = st.tabs([" Branch Analysis", "👥 CA Analysis"])
         
         # Branch Performance
         with subtab1:
             st.subheader("Branch Performance Summary")
             
-            st.caption("📊 Calculations based on **distinct apps_id**")
+            st.caption(" Calculations based on **distinct apps_id**")
             
             if 'branch_name_clean' in df_filtered.columns:
                 branch_perf = []
@@ -707,7 +852,7 @@ def main():
         with subtab2:
             st.subheader("Credit Analyst Performance Summary")
             
-            st.caption("📊 Calculations based on **distinct apps_id**")
+            st.caption(" Calculations based on **distinct apps_id**")
             
             if 'user_name_clean' in df_filtered.columns:
                 ca_perf = []
@@ -776,17 +921,17 @@ def main():
                         fig2.update_layout(yaxis_title="Approval Rate (%)")
                         st.plotly_chart(fig2, use_container_width=True)
     
-    # ====== TAB 4: STATUS & SCORING ======
-    with tab4:
-        st.header("📋 Application Status & Scoring Analysis")
+    # ====== TAB 5: STATUS & SCORING ======
+    with tab5:
+        st.header(" Application Status & Scoring Analysis")
         
-        st.caption("📊 Calculations based on **distinct apps_id**")
+        st.caption(" Calculations based on **distinct apps_id**")
         
         df_distinct = df_filtered.drop_duplicates('apps_id')
         total_apps_distinct = len(df_distinct)
         total_records = len(df_filtered)
         
-        st.info(f"📊 Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
+        st.info(f" Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
         
         if 'apps_status_clean' in df_distinct.columns and 'Scoring_Detail' in df_distinct.columns:
             cross_tab = pd.crosstab(
@@ -810,17 +955,17 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
-    # ====== TAB 5: OD IMPACT ======
-    with tab5:
-        st.header("⏰ Overdue Days Impact Analysis")
+    # ====== TAB 6: OD IMPACT ======
+    with tab6:
+        st.header(" Overdue Days Impact Analysis")
         
-        st.caption("📊 Calculations based on **distinct apps_id**")
+        st.caption(" Calculations based on **distinct apps_id**")
         
         df_distinct = df_filtered.drop_duplicates('apps_id')
         total_apps_distinct = len(df_distinct)
         total_records = len(df_filtered)
         
-        st.info(f"📊 Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
+        st.info(f" Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
         
         col1, col2 = st.columns(2)
         
@@ -888,154 +1033,10 @@ def main():
                 maxod_df = pd.DataFrame(maxod_analysis)
                 st.dataframe(maxod_df, use_container_width=True, hide_index=True)
     
-    # ====== TAB 6: SLA ANALYSIS ======
-    with tab6:
-        st.header("⏱️ SLA Performance Analysis")
-        
-        st.info("""
-        **SLA Calculation Method:**
-        - SLA dihitung dari waktu Recommendation sampai action_on
-        - Hanya dihitung jika kedua timestamp tersedia
-        - Menggunakan working hours (08:30 - 15:30)
-        - Exclude weekend dan tanggal merah
-        """)
-        
-        # Overall SLA stats
-        sla_valid = df_filtered[df_filtered['SLA_Hours'].notna()]
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            if len(sla_valid) > 0:
-                avg_hours = sla_valid['SLA_Hours'].mean()
-                avg_formatted = convert_hours_to_hm(avg_hours)
-                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-                st.metric("Average SLA", avg_formatted)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col2:
-            if len(sla_valid) > 0:
-                median_hours = sla_valid['SLA_Hours'].median()
-                median_formatted = convert_hours_to_hm(median_hours)
-                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-                st.metric("Median SLA", median_formatted)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-            sla_pct = f"{len(sla_valid)/len(df_filtered)*100:.1f}%" if len(df_filtered) > 0 else "0%"
-            st.metric("Data Coverage", f"{len(sla_valid):,} ({sla_pct})")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col4:
-            if len(sla_valid) > 0:
-                exceed = (sla_valid['SLA_Hours'] > 35).sum()
-                exceed_pct = f"{exceed/len(sla_valid)*100:.1f}%"
-                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-                st.metric("Exceed Target (>35h)", exceed_pct)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # SLA TREND
-        st.subheader("📈 SLA Trend - Average per Month")
-        
-        if len(sla_valid) > 0 and 'action_on_parsed' in sla_valid.columns:
-            sla_trend = sla_valid.copy()
-            sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_period('M').astype(str)
-            
-            monthly_avg = sla_trend.groupby('YearMonth')['SLA_Hours'].agg(['mean', 'count']).reset_index()
-            monthly_avg.columns = ['Month', 'Avg_SLA_Hours', 'Count']
-            monthly_avg = monthly_avg.sort_values('Month')
-            monthly_avg['Avg_SLA_Formatted'] = monthly_avg['Avg_SLA_Hours'].apply(convert_hours_to_hm)
-            
-            # Display table
-            st.dataframe(monthly_avg[['Month', 'Avg_SLA_Formatted', 'Avg_SLA_Hours', 'Count']], 
-                        use_container_width=True, hide_index=True)
-            
-            # Line chart - IMPROVED
-            fig = go.Figure()
-            
-            # Create formatted hover text
-            hover_text = []
-            for idx, row in monthly_avg.iterrows():
-                hours = int(row['Avg_SLA_Hours'])
-                minutes = int((row['Avg_SLA_Hours'] - hours) * 60)
-                hover_text.append(f"{hours} jam {minutes} menit<br>({row['Count']} records)")
-            
-            fig.add_trace(go.Scatter(
-                x=monthly_avg['Month'],
-                y=monthly_avg['Avg_SLA_Hours'],
-                mode='lines+markers+text',
-                name='Average SLA',
-                line=dict(color='#003366', width=3),
-                marker=dict(size=10, color='#003366'),
-                text=[f"{int(h)} jam {int((h - int(h)) * 60)} menit" for h in monthly_avg['Avg_SLA_Hours']],
-                textposition='top center',
-                textfont=dict(size=10, color='#003366'),
-                hovertext=hover_text,
-                hoverinfo='text'
-            ))
-            
-            fig.add_hline(
-                y=35, 
-                line_dash="dash", 
-                line_color="red",
-                line_width=2,
-                annotation_text="Target: 35 jam (5 hari kerja)",
-                annotation_position="right",
-                annotation_font_color="red"
-            )
-            
-            fig.update_layout(
-                title="SLA Trend - Average per Month (dalam jam)",
-                xaxis_title="Month",
-                yaxis_title="Average SLA (jam)",
-                hovermode='x unified',
-                height=500
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown("---")
-        
-        # SLA by Status
-        st.subheader("📊 SLA Statistics by Application Status")
-        
-        if 'apps_status_clean' in df_filtered.columns:
-            status_sla = []
-            
-            for status in sorted(df_filtered['apps_status_clean'].unique()):
-                if status == 'Unknown':
-                    continue
-                
-                df_status = df_filtered[df_filtered['apps_status_clean'] == status]
-                sla_status = df_status[df_status['SLA_Hours'].notna()]
-                
-                if len(sla_status) > 0:
-                    avg_sla = sla_status['SLA_Hours'].mean()
-                    median_sla = sla_status['SLA_Hours'].median()
-                    max_sla = sla_status['SLA_Hours'].max()
-                    min_sla = sla_status['SLA_Hours'].min()
-                    
-                    status_sla.append({
-                        'Status': status,
-                        'Total Records': len(df_status),
-                        'With SLA': len(sla_status),
-                        'Coverage': f"{len(sla_status)/len(df_status)*100:.1f}%",
-                        'Avg SLA': convert_hours_to_hm(avg_sla),
-                        'Median SLA': convert_hours_to_hm(median_sla),
-                        'Min SLA': convert_hours_to_hm(min_sla),
-                        'Max SLA': convert_hours_to_hm(max_sla),
-                    })
-            
-            if status_sla:
-                status_sla_df = pd.DataFrame(status_sla)
-                st.dataframe(status_sla_df, use_container_width=True, hide_index=True)
     
     # ====== TAB 7: DATA EXPORT ======
     with tab7:
-        st.header("💾 Data Export")
+        st.header(" Data Export")
         
         st.subheader("Filtered Data Preview")
         
@@ -1065,7 +1066,7 @@ def main():
         with col1:
             csv_data = df_filtered[available_cols].to_csv(index=False)
             st.download_button(
-                "📥 Download Filtered Data (CSV)",
+                " Download Filtered Data (CSV)",
                 csv_data,
                 "ca_analytics_data.csv",
                 "text/csv"
@@ -1095,7 +1096,7 @@ def main():
             summary_df = pd.DataFrame(summary_data)
             csv_summary = summary_df.to_csv(index=False)
             st.download_button(
-                "📊 Download Summary Stats (CSV)",
+                " Download Summary Stats (CSV)",
                 csv_summary,
                 "summary_stats.csv",
                 "text/csv"
