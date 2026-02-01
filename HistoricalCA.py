@@ -91,16 +91,8 @@ def convert_hours_to_hm(total_hours):
     minutes = int((total_hours - hours) * 60)
     return f"{hours}h {minutes}m"
 
-def calculate_sla_working_hours(start_dt, end_dt, use_end_time=True):
-    """
-    Calculate SLA in working hours
-    
-    Args:
-        start_dt: Start datetime
-        end_dt: End datetime
-        use_end_time: If True, use 08:30-15:30 working hours (for Recommendation)
-                     If False, use 08:30-end of day (for Action fields)
-    """
+def calculate_sla_working_hours(start_dt, end_dt):
+    """Calculate SLA in working hours (08:30 - 15:30)"""
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
     
@@ -114,7 +106,7 @@ def calculate_sla_working_hours(start_dt, end_dt, use_end_time=True):
             return None
         
         WORK_START = timedelta(hours=8, minutes=30)
-        WORK_END = timedelta(hours=15, minutes=30) if use_end_time else timedelta(hours=23, minutes=59, seconds=59)
+        WORK_END = timedelta(hours=15, minutes=30)
         
         current = start_dt
         total_seconds = 0
@@ -130,7 +122,7 @@ def calculate_sla_working_hours(start_dt, end_dt, use_end_time=True):
             if current.date() == start_dt.date():
                 if start_dt.time() < day_start.time():
                     day_actual_start = day_start
-                elif start_dt.time() >= day_end.time() and use_end_time:
+                elif start_dt.time() >= day_end.time():
                     current = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
                     continue
                 else:
@@ -141,7 +133,7 @@ def calculate_sla_working_hours(start_dt, end_dt, use_end_time=True):
             if current.date() == end_dt.date():
                 if end_dt.time() < day_start.time():
                     break
-                elif end_dt.time() > day_end.time() and use_end_time:
+                elif end_dt.time() > day_end.time():
                     day_actual_end = day_end
                 else:
                     day_actual_end = end_dt
@@ -274,7 +266,7 @@ def preprocess_data(df):
     return df
 
 def calculate_sla_per_status(df):
-    """Calculate SLA from Recommendation to action_on (with 08:30-15:30 limit)"""
+    """Calculate SLA from Recommendation to action_on"""
     df_with_sla = df.copy()
     
     sla_hours_list = []
@@ -285,8 +277,7 @@ def calculate_sla_per_status(df):
         action_time = row.get('action_on_parsed')
         
         if pd.notna(recommendation_time) and pd.notna(action_time):
-            # Use use_end_time=True for Recommendation -> action_on (08:30-15:30)
-            sla_result = calculate_sla_working_hours(recommendation_time, action_time, use_end_time=True)
+            sla_result = calculate_sla_working_hours(recommendation_time, action_time)
             if sla_result:
                 sla_hours_list.append(sla_result['total_hours'])
                 sla_formatted_list.append(sla_result['formatted'])
@@ -301,59 +292,6 @@ def calculate_sla_per_status(df):
     df_with_sla['SLA_Formatted'] = sla_formatted_list
     
     return df_with_sla
-
-def calculate_additional_sla_fields(df):
-    """Calculate additional SLA fields for Action-based calculations (with 08:30-end of day)"""
-    df_with_additional = df.copy()
-    
-    # Calculate Initiation -> action_on
-    initiation_hours_list = []
-    initiation_formatted_list = []
-    
-    for idx, row in df_with_additional.iterrows():
-        initiation_time = row.get('Initiation_parsed')
-        action_time = row.get('action_on_parsed')
-        
-        if pd.notna(initiation_time) and pd.notna(action_time):
-            # Use use_end_time=False for Action fields (08:30-end of day)
-            sla_result = calculate_sla_working_hours(initiation_time, action_time, use_end_time=False)
-            if sla_result:
-                initiation_hours_list.append(sla_result['total_hours'])
-                initiation_formatted_list.append(sla_result['formatted'])
-            else:
-                initiation_hours_list.append(None)
-                initiation_formatted_list.append(None)
-        else:
-            initiation_hours_list.append(None)
-            initiation_formatted_list.append(None)
-    
-    df_with_additional['Initiation_SLA_Hours'] = initiation_hours_list
-    df_with_additional['Initiation_SLA_Formatted'] = initiation_formatted_list
-    
-    # Calculate ApprovalCC1 -> action_on
-    approval1_hours_list = []
-    approval1_formatted_list = []
-    
-    for idx, row in df_with_additional.iterrows():
-        approval1_time = row.get('ApprovalCC1_parsed')
-        action_time = row.get('action_on_parsed')
-        
-        if pd.notna(approval1_time) and pd.notna(action_time):
-            sla_result = calculate_sla_working_hours(approval1_time, action_time, use_end_time=False)
-            if sla_result:
-                approval1_hours_list.append(sla_result['total_hours'])
-                approval1_formatted_list.append(sla_result['formatted'])
-            else:
-                approval1_hours_list.append(None)
-                approval1_formatted_list.append(None)
-        else:
-            approval1_hours_list.append(None)
-            approval1_formatted_list.append(None)
-    
-    df_with_additional['ApprovalCC1_SLA_Hours'] = approval1_hours_list
-    df_with_additional['ApprovalCC1_SLA_Formatted'] = approval1_formatted_list
-    
-    return df_with_additional
 
 @st.cache_data
 def load_data():
@@ -380,7 +318,6 @@ def load_data():
         
         df_clean = preprocess_data(df)
         df_clean = calculate_sla_per_status(df_clean)
-        df_clean = calculate_additional_sla_fields(df_clean)
         
         df_clean['Risk_Score'] = df_clean.apply(calculate_risk_score, axis=1)
         df_clean['Risk_Category'] = pd.cut(
@@ -401,7 +338,7 @@ def load_data():
 def main():
     """Main Streamlit application"""
     st.title("CA Analytics Dashboard")
-    st.markdown("**Credit Application Analytics - Modified SLA Calculation**")
+    st.markdown("**Credit Application Analytics - Improved Version**")
     st.markdown("---")
     
     with st.spinner("Loading data..."):
@@ -488,35 +425,34 @@ def main():
         df_filtered = df_filtered[df_filtered['branch_name_clean'] == selected_branch]
     
     st.sidebar.markdown("---")
-    st.sidebar.info(f"📊 {len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)")
-    st.sidebar.info(f"🔢 {df_filtered['apps_id'].nunique():,} unique applications")
+    st.sidebar.info(f" {len(df_filtered):,} records ({len(df_filtered)/len(df)*100:.1f}%)")
+    st.sidebar.info(f" {df_filtered['apps_id'].nunique():,} unique applications")
     
     # TABS
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "⏱️ SLA Analysis",
-        "📋 Detail Raw Data",
-        "💰 OSPH",
-        "🏢 Branch & CA Performance",
-        "📊 Status & Scoring",
-        "⚠️ OD Impact",
-        "📥 Export"
+        " SLA Analysis",
+        " Detail Raw Data",
+        " OSPH",
+        " Branch & CA Performance",
+        " Status & Scoring",
+        " OD Impact",
+        " Export"
     ])
 
     # ====== TAB 1: SLA ANALYSIS ======
     with tab1:
-        st.header("⏱️ SLA Performance Analysis")
+        st.header(" SLA Performance Analysis")
         
         st.info("""
-        **SLA Calculation Methods:**
-        - **Recommendation → action_on**: Calculated using working hours 08:30 - 15:30, exclude weekends & holidays
-        - **Initiation → action_on**: Calculated from 08:30 onwards (no end time limit), exclude weekends & holidays
-        - **ApprovalCC1 → action_on**: Calculated from 08:30 onwards (no end time limit), exclude weekends & holidays
+        **SLA Calculation Method:**
+        - SLA dihitung dari waktu Recommendation sampai action_on
+        - Hanya dihitung jika kedua timestamp tersedia
+        - Menggunakan working hours (08:30 - 15:30)
+        - Exclude weekend dan tanggal merah
         """)
         
         # Overall SLA stats
         sla_valid = df_filtered[df_filtered['SLA_Hours'].notna()]
-        
-        st.subheader("📊 Recommendation → action_on SLA (08:30-15:30)")
         
         col1, col2, col3 = st.columns(3)
         
@@ -545,39 +481,8 @@ def main():
         
         st.markdown("---")
         
-        # Additional SLA Metrics
-        st.subheader("📊 Initiation → action_on SLA (08:30-end of day)")
-        
-        initiation_valid = df_filtered[df_filtered['Initiation_SLA_Hours'].notna()]
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if len(initiation_valid) > 0:
-                avg_hours = initiation_valid['Initiation_SLA_Hours'].mean()
-                avg_formatted = convert_hours_to_hm(avg_hours)
-                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-                st.metric("Average SLA", avg_formatted)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col2:
-            if len(initiation_valid) > 0:
-                median_hours = initiation_valid['Initiation_SLA_Hours'].median()
-                median_formatted = convert_hours_to_hm(median_hours)
-                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-                st.metric("Median SLA", median_formatted)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-            sla_pct = f"{len(initiation_valid)/len(df_filtered)*100:.1f}%" if len(df_filtered) > 0 else "0%"
-            st.metric("Data Coverage", f"{len(initiation_valid):,} ({sla_pct})")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
         # SLA TREND
-        st.subheader("📈 SLA Trend - Average per Month (Recommendation → action_on)")
+        st.subheader(" SLA Trend - Average per Month")
         
         if len(sla_valid) > 0 and 'action_on_parsed' in sla_valid.columns:
             sla_trend = sla_valid.copy()
@@ -592,9 +497,10 @@ def main():
             st.dataframe(monthly_avg[['Month', 'Avg_SLA_Formatted', 'Avg_SLA_Hours', 'Count']], 
                         use_container_width=True, hide_index=True)
             
-            # Line chart
+            # Line chart - IMPROVED
             fig = go.Figure()
             
+            # Create formatted hover text
             hover_text = []
             for idx, row in monthly_avg.iterrows():
                 hours = int(row['Avg_SLA_Hours'])
@@ -638,7 +544,7 @@ def main():
         st.markdown("---")
         
         # SLA by Status
-        st.subheader("📊 SLA Statistics by Application Status")
+        st.subheader(" SLA Statistics by Application Status")
         
         if 'apps_status_clean' in df_filtered.columns:
             status_sla = []
@@ -673,7 +579,7 @@ def main():
     
     # ====== TAB 2: DETAIL RAW DATA - ALL APPS ID ======
     with tab2:
-        st.header("📋 Detail Raw Data - All Applications")
+        st.header(" Detail Raw Data - All Applications")
         
         st.markdown("""
         **Browse all applications:**
@@ -702,7 +608,7 @@ def main():
         apps_df = pd.DataFrame(apps_summary)
         apps_df = apps_df.sort_values('Latest Action', ascending=False)
         
-        st.info(f"📊 Total Applications: **{len(apps_df):,}**")
+        st.info(f" Total Applications: **{len(apps_df):,}**")
         
         # Display all apps in a table
         st.dataframe(
@@ -715,9 +621,9 @@ def main():
         st.markdown("---")
         
         # Search and detail view
-        st.subheader("🔍 Application Detail Viewer")
+        st.subheader(" Application Detail Viewer")
         
-        search_input = st.text_input("🔎 Enter Application ID:", placeholder="e.g., 5259031")
+        search_input = st.text_input(" Enter Application ID:", placeholder="e.g., 5259031")
         
         if search_input:
             try:
@@ -725,7 +631,7 @@ def main():
                 app_records = df[df['apps_id'] == search_id].sort_values('action_on_parsed')
                 
                 if len(app_records) > 0:
-                    st.success(f"✅ Found **{len(app_records)}** records for Application ID: **{search_id}**")
+                    st.success(f" Found **{len(app_records)}** records for Application ID: **{search_id}**")
                     
                     # Summary
                     col1, col2, col3, col4 = st.columns(4)
@@ -748,14 +654,12 @@ def main():
                     
                     st.markdown("---")
                     
-                    # Display ALL records with new SLA fields
-                    st.subheader("📝 All Records")
+                    # Display ALL records
+                    st.subheader(" All Records")
                     
                     display_cols = [
                         'apps_status_clean', 'action_on_parsed', 'Recommendation_parsed',
                         'Initiation_parsed', 'SLA_Hours', 'SLA_Formatted',
-                        'Initiation_SLA_Hours', 'Initiation_SLA_Formatted',
-                        'ApprovalCC1_SLA_Hours', 'ApprovalCC1_SLA_Formatted',
                         'Scoring_Detail', 'OSPH_clean', 'LastOD_clean',
                         'user_name_clean', 'Pekerjaan_clean', 'JenisKendaraan_clean'
                     ]
@@ -764,14 +668,14 @@ def main():
                     st.dataframe(app_records[available_cols].reset_index(drop=True), use_container_width=True)
                     
                 else:
-                    st.warning(f"⚠️ No records found for Application ID: {search_id}")
+                    st.warning(f" No records found for Application ID: {search_id}")
             
             except ValueError:
-                st.error("❌ Please enter a valid numeric Application ID")
+                st.error(" Please enter a valid numeric Application ID")
     
     # ====== TAB 3: OSPH PIVOT BY PEKERJAAN ======
     with tab3:
-        st.header("💰 Outstanding PH Pivot by Pekerjaan")
+        st.header(" Outstanding PH Pivot by Pekerjaan")
         
         st.markdown("""
         **4 Pivot Tables: Row=OSPH Range, Column=Pekerjaan**
@@ -796,7 +700,7 @@ def main():
             total_apps = len(df_segmen)
             total_records = len(df_filtered[df_filtered['Segmen_clean'] == segmen])
             
-            st.caption(f"📊 Total Apps (Distinct): **{total_apps:,}** | Total Records: **{total_records:,}**")
+            st.caption(f" Total Apps (Distinct): **{total_apps:,}** | Total Records: **{total_records:,}**")
             
             if len(df_segmen) > 0:
                 # Create pivot: OSPH Range x Pekerjaan
@@ -861,15 +765,15 @@ def main():
     
     # ====== TAB 4: BRANCH & CA PERFORMANCE ======
     with tab4:
-        st.header("🏢 Branch & CA Performance")
+        st.header(" Branch & CA Performance")
         
-        subtab1, subtab2 = st.tabs(["🏢 Branch Analysis", "👥 CA Analysis"])
+        subtab1, subtab2 = st.tabs([" Branch Analysis", "👥 CA Analysis"])
         
         # Branch Performance
         with subtab1:
             st.subheader("Branch Performance Summary")
             
-            st.caption("📊 Calculations based on **distinct apps_id**")
+            st.caption(" Calculations based on **distinct apps_id**")
             
             if 'branch_name_clean' in df_filtered.columns:
                 branch_perf = []
@@ -941,7 +845,7 @@ def main():
         with subtab2:
             st.subheader("Credit Analyst Performance Summary")
             
-            st.caption("📊 Calculations based on **distinct apps_id**")
+            st.caption(" Calculations based on **distinct apps_id**")
             
             if 'user_name_clean' in df_filtered.columns:
                 ca_perf = []
@@ -1012,15 +916,15 @@ def main():
     
     # ====== TAB 5: STATUS & SCORING ======
     with tab5:
-        st.header("📊 Application Status & Scoring Analysis")
+        st.header(" Application Status & Scoring Analysis")
         
-        st.caption("📊 Calculations based on **distinct apps_id**")
+        st.caption(" Calculations based on **distinct apps_id**")
         
         df_distinct = df_filtered.drop_duplicates('apps_id')
         total_apps_distinct = len(df_distinct)
         total_records = len(df_filtered)
         
-        st.info(f"📊 Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
+        st.info(f" Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
         
         if 'apps_status_clean' in df_distinct.columns and 'Scoring_Detail' in df_distinct.columns:
             cross_tab = pd.crosstab(
@@ -1046,15 +950,15 @@ def main():
     
     # ====== TAB 6: OD IMPACT ======
     with tab6:
-        st.header("⚠️ Overdue Days Impact Analysis")
+        st.header(" Overdue Days Impact Analysis")
         
-        st.caption("📊 Calculations based on **distinct apps_id**")
+        st.caption(" Calculations based on **distinct apps_id**")
         
         df_distinct = df_filtered.drop_duplicates('apps_id')
         total_apps_distinct = len(df_distinct)
         total_records = len(df_filtered)
         
-        st.info(f"📊 Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
+        st.info(f" Total Apps (Distinct): **{total_apps_distinct:,}** | Total Records: **{total_records:,}**")
         
         col1, col2 = st.columns(2)
         
@@ -1125,15 +1029,13 @@ def main():
     
     # ====== TAB 7: DATA EXPORT ======
     with tab7:
-        st.header("📥 Data Export")
+        st.header(" Data Export")
         
         st.subheader("Filtered Data Preview")
         
         display_cols = [
             'apps_id', 'apps_status_clean', 'action_on_parsed',
             'Recommendation_parsed', 'SLA_Formatted', 'SLA_Hours',
-            'Initiation_parsed', 'Initiation_SLA_Formatted', 'Initiation_SLA_Hours',
-            'ApprovalCC1_SLA_Formatted', 'ApprovalCC1_SLA_Hours',
             'Scoring_Detail', 'OSPH_Category', 'Segmen_clean',
             'JenisKendaraan_clean', 'Pekerjaan_clean', 'LastOD_clean',
             'user_name_clean', 'branch_name_clean'
@@ -1157,7 +1059,7 @@ def main():
         with col1:
             csv_data = df_filtered[available_cols].to_csv(index=False)
             st.download_button(
-                "📥 Download Filtered Data (CSV)",
+                " Download Filtered Data (CSV)",
                 csv_data,
                 "ca_analytics_data.csv",
                 "text/csv"
@@ -1172,7 +1074,7 @@ def main():
                 'Metric': [
                     'Total Records',
                     'Unique Applications',
-                    'SLA Calculated (Recommendation)',
+                    'SLA Calculated',
                     'Average SLA (hours)',
                     'Approval Rate'
                 ],
@@ -1187,7 +1089,7 @@ def main():
             summary_df = pd.DataFrame(summary_data)
             csv_summary = summary_df.to_csv(index=False)
             st.download_button(
-                "📥 Download Summary Stats (CSV)",
+                " Download Summary Stats (CSV)",
                 csv_summary,
                 "summary_stats.csv",
                 "text/csv"
