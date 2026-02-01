@@ -818,7 +818,7 @@ def main():
             )
             
             # Line chart
-fig = go.Figure()
+            fig = go.Figure()
             
             fig.add_trace(go.Scatter(
                 x=monthly_avg['Bulan'],
