@@ -906,8 +906,11 @@ def main():
             fig.add_trace(go.Scatter(
                 x=monthly_avg['Bulan'],
                 y=monthly_avg['Rata-rata Waktu (Jam)'],
-                mode='lines+markers',
+                mode='lines+markers+text',
                 name='Waktu Proses',
+                text=[f"{val:.1f} jam" for val in monthly_avg['Rata-rata Waktu (Jam)']],
+                textposition='top center',
+                textfont=dict(size=11, color='#ffffff'),
                 line=dict(color='#0066b3', width=4),
                 marker=dict(
                     size=14, 
@@ -1284,8 +1287,10 @@ def main():
                                 color='Pekerjaan',
                                 title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
                                 barmode='group',
-                                color_discrete_sequence=px.colors.qualitative.Set3
+                                color_discrete_sequence=px.colors.qualitative.Set3,
+                                text='Jumlah'
                             )
+                            fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=400,
                                 plot_bgcolor='#1e2129',
@@ -1386,8 +1391,10 @@ def main():
                                 color='Status',
                                 title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
                                 barmode='group',
-                                color_discrete_sequence=px.colors.qualitative.Pastel
+                                color_discrete_sequence=px.colors.qualitative.Pastel,
+                                text='Jumlah'
                             )
+                            fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=400,
                                 plot_bgcolor='#1e2129',
@@ -1488,8 +1495,10 @@ def main():
                                 color='Jenis Kendaraan',
                                 title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
                                 barmode='group',
-                                color_discrete_sequence=px.colors.qualitative.Safe
+                                color_discrete_sequence=px.colors.qualitative.Safe,
+                                text='Jumlah'
                             )
+                            fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=450,
                                 plot_bgcolor='#1e2129',
@@ -1603,8 +1612,10 @@ def main():
                                 color='Hasil Scoring',
                                 title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
                                 barmode='group',
-                                color_discrete_sequence=px.colors.qualitative.Vivid
+                                color_discrete_sequence=px.colors.qualitative.Vivid,
+                                text='Jumlah'
                             )
+                            fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=450,
                                 plot_bgcolor='#1e2129',
@@ -1702,8 +1713,10 @@ def main():
                             y='Total Aplikasi Unik',
                             title="Top 10 Cabang - Volume Aplikasi Terbanyak",
                             color='Total Aplikasi Unik',
-                            color_continuous_scale='Blues'
+                            color_continuous_scale='Blues',
+                            text='Total Aplikasi Unik'
                         )
+                        fig1.update_traces(textposition='outside', textfont_size=11)
                         fig1.update_layout(
                             height=400,
                             plot_bgcolor='#1e2129',
@@ -1723,8 +1736,10 @@ def main():
                             y='Approval_Numeric',
                             title="Top 10 Cabang - Tingkat Persetujuan Tertinggi",
                             color='Approval_Numeric',
-                            color_continuous_scale='RdYlGn'
+                            color_continuous_scale='RdYlGn',
+                            text=branch_df_plot.head(10)['Tingkat Persetujuan']
                         )
+                        fig2.update_traces(textposition='outside', textfont_size=11)
                         fig2.update_layout(
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=400,
@@ -1800,8 +1815,10 @@ def main():
                             y='Total Aplikasi Unik',
                             title="Top 10 CA - Volume Aplikasi Terbanyak",
                             color='Total Aplikasi Unik',
-                            color_continuous_scale='Greens'
+                            color_continuous_scale='Greens',
+                            text='Total Aplikasi Unik'
                         )
+                        fig1.update_traces(textposition='outside', textfont_size=11)
                         fig1.update_layout(
                             height=450,
                             plot_bgcolor='#1e2129',
@@ -1821,8 +1838,10 @@ def main():
                             y='Approval_Numeric',
                             title="Top 10 CA - Tingkat Persetujuan Tertinggi",
                             color='Approval_Numeric',
-                            color_continuous_scale='RdYlGn'
+                            color_continuous_scale='RdYlGn',
+                            text=ca_df_plot.head(10)['Tingkat Persetujuan']
                         )
+                        fig2.update_traces(textposition='outside', textfont_size=11)
                         fig2.update_layout(
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=450,
@@ -1995,7 +2014,7 @@ def main():
                         color_continuous_scale='RdYlGn',
                         text='Tingkat Persetujuan'
                     )
-                    fig.update_traces(textposition='outside')
+                    fig.update_traces(textposition='outside', textfont_size=12)
                     fig.update_layout(
                         yaxis_title="Tingkat Persetujuan (%)",
                         height=350,
@@ -2048,7 +2067,7 @@ def main():
                         color_continuous_scale='RdYlGn',
                         text='Tingkat Persetujuan'
                     )
-                    fig.update_traces(textposition='outside')
+                    fig.update_traces(textposition='outside', textfont_size=12)
                     fig.update_layout(
                         yaxis_title="Tingkat Persetujuan (%)",
                         height=350,
