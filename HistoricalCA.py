@@ -6,18 +6,34 @@ from datetime import datetime, timedelta
 import numpy as np
 from pathlib import Path
 
-st.set_page_config(page_title="Analisis Kredit - Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Analisis Kredit - Dashboard BCA Finance", 
+    layout="wide", 
+    initial_sidebar_state="expanded",
+    page_icon="🏦"
+)
 
 FILE_NAME = "Historical_CA (1) (1).xlsx"
 
+# BCA Finance Brand Colors
+BCA_BLUE = "#003d7a"  # BCA Primary Blue
+BCA_LIGHT_BLUE = "#0066b3"  # BCA Light Blue
+BCA_ACCENT = "#1e88e5"  # Accent Blue
+BCA_GOLD = "#d4af37"  # Gold accent
+
 # ============================================================================
-# STYLING - PROFESSIONAL FOR EXTERNAL USE
+# STYLING - BCA FINANCE THEME
 # ============================================================================
 st.markdown("""
 <style>
+    /* Global Background */
+    .stApp {
+        background-color: #ffffff;
+    }
+    
     /* Main Title */
     h1 { 
-        color: #1a1a1a; 
+        color: #003d7a; 
         text-align: center; 
         font-size: 36px; 
         margin-bottom: 10px;
@@ -26,62 +42,62 @@ st.markdown("""
     
     /* Section Headers */
     h2 { 
-        color: #2c3e50; 
-        border-bottom: 3px solid #3498db; 
+        color: #003d7a; 
+        border-bottom: 3px solid #0066b3; 
         padding-bottom: 10px;
         margin-top: 30px;
         font-weight: 600;
     }
     
     h3 { 
-        color: #34495e; 
+        color: #003d7a; 
         margin-top: 25px;
         font-weight: 600;
     }
     
-    /* Metric Boxes - Professional colors with better contrast */
+    /* Metric Boxes - BCA Theme */
     .metric-box {
         background: #ffffff;
         padding: 20px;
         border-radius: 8px;
-        border: 2px solid #3498db;
-        border-left: 6px solid #3498db;
-        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+        border: 2px solid #0066b3;
+        border-left: 6px solid #0066b3;
+        box-shadow: 0 3px 6px rgba(0,61,122,0.15);
         transition: transform 0.2s;
     }
     
     .metric-box:hover {
         transform: translateY(-3px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        box-shadow: 0 6px 12px rgba(0,61,122,0.25);
     }
     
     .metric-box-success {
         background: #ffffff;
-        border: 2px solid #27ae60;
-        border-left: 6px solid #27ae60;
+        border: 2px solid #1e88e5;
+        border-left: 6px solid #1e88e5;
     }
     
     .metric-box-warning {
         background: #ffffff;
-        border: 2px solid #f39c12;
-        border-left: 6px solid #f39c12;
+        border: 2px solid #d4af37;
+        border-left: 6px solid #d4af37;
     }
     
     .metric-box-danger {
         background: #ffffff;
-        border: 2px solid #e74c3c;
-        border-left: 6px solid #e74c3c;
+        border: 2px solid #f44336;
+        border-left: 6px solid #f44336;
     }
     
     /* Info Boxes */
     .info-box {
-        background: #f8f9fa;
+        background: #f0f7ff;
         padding: 15px;
         border-radius: 8px;
-        border: 2px solid #3498db;
-        border-left: 5px solid #3498db;
+        border: 2px solid #0066b3;
+        border-left: 5px solid #0066b3;
         margin: 15px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,61,122,0.1);
     }
     
     /* Tables */
@@ -90,31 +106,112 @@ st.markdown("""
         overflow: hidden;
     }
     
-    /* Sidebar */
-    .css-1d391kg {
-        background-color: #f8f9fa;
+    /* Sidebar - BCA Theme */
+    [data-testid="stSidebar"] {
+        background-color: #f8fbff;
+        border-right: 2px solid #0066b3;
     }
     
-    /* Tabs */
+    [data-testid="stSidebar"] h2 {
+        color: #003d7a;
+    }
+    
+    /* Tabs - BCA Theme */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
+        background-color: #f0f7ff;
+        padding: 10px;
+        border-radius: 10px;
     }
     
     .stTabs [data-baseweb="tab"] {
         padding: 12px 24px;
-        background-color: #e9ecef;
+        background-color: #ffffff;
+        border: 2px solid #e3f2fd;
         border-radius: 8px 8px 0 0;
         font-weight: 600;
-        color: #2c3e50 !important;
+        color: #003d7a !important;
     }
     
     .stTabs [aria-selected="true"] {
-        background-color: #3498db;
+        background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
         color: white !important;
+        border: 2px solid #003d7a;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        background-color: #dee2e6;
+        background-color: #e3f2fd;
+        border-color: #0066b3;
+    }
+    
+    /* Buttons - BCA Theme */
+    .stButton>button {
+        background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        padding: 10px 24px;
+    }
+    
+    .stButton>button:hover {
+        background: linear-gradient(135deg, #002855 0%, #004d8a 100%);
+        box-shadow: 0 4px 8px rgba(0,61,122,0.3);
+    }
+    
+    /* Download Button */
+    .stDownloadButton>button {
+        background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+    
+    .stDownloadButton>button:hover {
+        background: linear-gradient(135deg, #002855 0%, #004d8a 100%);
+    }
+    
+    /* Metrics - BCA Color Adjustments */
+    [data-testid="stMetricValue"] {
+        color: #003d7a;
+        font-weight: 700;
+    }
+    
+    /* Selectbox and Multiselect - BCA Theme */
+    .stSelectbox [data-baseweb="select"] {
+        border-color: #0066b3;
+    }
+    
+    .stMultiSelect [data-baseweb="select"] {
+        border-color: #0066b3;
+    }
+    
+    /* Logo Container */
+    .logo-container {
+        text-align: center;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    /* Header Container */
+    .header-container {
+        background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
+        padding: 30px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0,61,122,0.3);
+    }
+    
+    .header-container h1 {
+        color: white;
+        margin: 0;
+    }
+    
+    .header-container p {
+        color: #e3f2fd;
+        font-size: 16px;
+        margin-top: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -401,9 +498,25 @@ def load_data():
 def main():
     """Main Streamlit application"""
     
-    # Header
-    st.title("Dashboard Analisis Pengajuan Kredit")
-    st.markdown("**Monitoring & Evaluasi Kinerja Credit Analyst**")
+    # BCA Finance Header with Logo
+    st.markdown("""
+    <div class="header-container">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 30px; flex-wrap: wrap;">
+            <div style="background: white; padding: 15px 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                <svg width="120" height="50" viewBox="0 0 120 50" xmlns="http://www.w3.org/2000/svg">
+                    <!-- BCA Letters -->
+                    <text x="10" y="35" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#003d7a">BCA</text>
+                    <!-- Finance Text -->
+                    <text x="10" y="48" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#0066b3">FINANCE</text>
+                </svg>
+            </div>
+            <div style="text-align: center;">
+                <h1 style="margin: 0; font-size: 38px; letter-spacing: 1px;">Dashboard Analisis Pengajuan Kredit</h1>
+                <p style="color: #e3f2fd; margin-top: 10px; font-size: 16px;">Monitoring & Evaluasi Kinerja Credit Analyst</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -561,8 +674,8 @@ def main():
                 avg_hours = sla_valid['SLA_Hours'].mean()
                 avg_formatted = convert_hours_to_hm(avg_hours)
                 st.markdown('<div class="metric-box" style="text-align: center;">', unsafe_allow_html=True)
-                st.markdown(f'<h3 style="color: #2c3e50; margin-bottom: 10px;">Rata-rata</h3>', unsafe_allow_html=True)
-                st.markdown(f'<h2 style="color: #3498db; margin: 0;">{avg_formatted}</h2>', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #003d7a; margin-bottom: 10px;">Rata-rata</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #0066b3; margin: 0;">{avg_formatted}</h2>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
@@ -570,8 +683,8 @@ def main():
                 median_hours = sla_valid['SLA_Hours'].median()
                 median_formatted = convert_hours_to_hm(median_hours)
                 st.markdown('<div class="metric-box-success" style="text-align: center;">', unsafe_allow_html=True)
-                st.markdown(f'<h3 style="color: #2c3e50; margin-bottom: 10px;">Nilai Tengah</h3>', unsafe_allow_html=True)
-                st.markdown(f'<h2 style="color: #27ae60; margin: 0;">{median_formatted}</h2>', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #003d7a; margin-bottom: 10px;">Nilai Tengah</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #1e88e5; margin: 0;">{median_formatted}</h2>', unsafe_allow_html=True)
                 st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">50% data di bawah nilai ini</p>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
@@ -580,8 +693,8 @@ def main():
                 min_hours = sla_valid['SLA_Hours'].min()
                 min_formatted = convert_hours_to_hm(min_hours)
                 st.markdown('<div class="metric-box-success" style="text-align: center;">', unsafe_allow_html=True)
-                st.markdown(f'<h3 style="color: #2c3e50; margin-bottom: 10px;">Tercepat</h3>', unsafe_allow_html=True)
-                st.markdown(f'<h2 style="color: #27ae60; margin: 0;">{min_formatted}</h2>', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #003d7a; margin-bottom: 10px;">Tercepat</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #1e88e5; margin: 0;">{min_formatted}</h2>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         with col4:
@@ -589,8 +702,8 @@ def main():
                 max_hours = sla_valid['SLA_Hours'].max()
                 max_formatted = convert_hours_to_hm(max_hours)
                 st.markdown('<div class="metric-box-danger" style="text-align: center;">', unsafe_allow_html=True)
-                st.markdown(f'<h3 style="color: #2c3e50; margin-bottom: 10px;">Terlama</h3>', unsafe_allow_html=True)
-                st.markdown(f'<h2 style="color: #e74c3c; margin: 0;">{max_formatted}</h2>', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #003d7a; margin-bottom: 10px;">Terlama</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #f44336; margin: 0;">{max_formatted}</h2>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("---")
@@ -635,11 +748,11 @@ def main():
                 y=monthly_avg['Rata-rata Waktu (Jam)'],
                 mode='lines+markers+text',
                 name='Rata-rata Waktu Proses',
-                line=dict(color='#3498db', width=3),
-                marker=dict(size=12, color='#3498db', line=dict(color='white', width=2)),
+                line=dict(color='#0066b3', width=3),
+                marker=dict(size=12, color='#0066b3', line=dict(color='white', width=2)),
                 text=[f"{int(h)} jam {int((h - int(h)) * 60)} mnt" for h in monthly_avg['Rata-rata Waktu (Jam)']],
                 textposition='top center',
-                textfont=dict(size=11, color='#2c3e50', family='Arial'),
+                textfont=dict(size=11, color='#003d7a', family='Arial'),
                 hovertext=hover_text,
                 hoverinfo='text'
             ))
@@ -647,18 +760,18 @@ def main():
             fig.add_hline(
                 y=35, 
                 line_dash="dash", 
-                line_color="#e74c3c",
+                line_color="#f44336",
                 line_width=3,
                 annotation_text="Target: 35 jam (5 hari kerja)",
                 annotation_position="right",
                 annotation_font_size=12,
-                annotation_font_color="#e74c3c"
+                annotation_font_color="#f44336"
             )
             
             fig.update_layout(
                 title={
                     'text': "Tren Waktu Proses - Rata-rata per Bulan",
-                    'font': {'size': 18, 'color': '#1a1a1a'}
+                    'font': {'size': 18, 'color': '#003d7a'}
                 },
                 xaxis_title="Bulan",
                 yaxis_title="Waktu Proses (Jam Kerja)",
@@ -666,7 +779,7 @@ def main():
                 height=500,
                 plot_bgcolor='#f8f9fa',
                 paper_bgcolor='white',
-                font=dict(family='Arial', size=12)
+                font=dict(family='Arial', size=12, color='#003d7a')
             )
             
             st.plotly_chart(fig, use_container_width=True)
@@ -749,8 +862,8 @@ def main():
         with col1:
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Aplikasi</h3>
-            <h1 style="color: #27ae60; margin: 10px 0; font-size: 48px;">{len(apps_df):,}</h1>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h3>
+            <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{len(apps_df):,}</h1>
             <p style="color: #666; font-size: 14px;">Aplikasi kredit unik dalam sistem</p>
             </div>
             """, unsafe_allow_html=True)
@@ -759,8 +872,8 @@ def main():
             total_catatan = apps_df['Jumlah Catatan'].sum()
             st.markdown(f"""
             <div class="metric-box" style="text-align: center; padding: 25px;">
-            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Catatan</h3>
-            <h1 style="color: #3498db; margin: 10px 0; font-size: 48px;">{total_catatan:,}</h1>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
+            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_catatan:,}</h1>
             <p style="color: #666; font-size: 14px;">Total transaksi dalam sistem</p>
             </div>
             """, unsafe_allow_html=True)
@@ -806,8 +919,8 @@ def main():
                         segmen = app_records['Segmen_clean'].iloc[0] if 'Segmen_clean' in app_records.columns else 'N/A'
                         st.markdown(f"""
                         <div class="metric-box" style="text-align: center; padding: 20px;">
-                        <h4 style="color: #2c3e50; margin-bottom: 10px;">Segmen</h4>
-                        <h3 style="color: #3498db; margin: 0;">{segmen}</h3>
+                        <h4 style="color: #003d7a; margin-bottom: 10px;">Segmen</h4>
+                        <h3 style="color: #0066b3; margin: 0;">{segmen}</h3>
                         </div>
                         """, unsafe_allow_html=True)
                     
@@ -815,8 +928,8 @@ def main():
                         osph = app_records['OSPH_Category'].iloc[0] if 'OSPH_Category' in app_records.columns else 'N/A'
                         st.markdown(f"""
                         <div class="metric-box-warning" style="text-align: center; padding: 20px;">
-                        <h4 style="color: #2c3e50; margin-bottom: 10px;">Plafon</h4>
-                        <h3 style="color: #f39c12; margin: 0;">{osph}</h3>
+                        <h4 style="color: #003d7a; margin-bottom: 10px;">Plafon</h4>
+                        <h3 style="color: #d4af37; margin: 0;">{osph}</h3>
                         </div>
                         """, unsafe_allow_html=True)
                     
@@ -824,8 +937,8 @@ def main():
                         branch = app_records['branch_name_clean'].iloc[0] if 'branch_name_clean' in app_records.columns else 'N/A'
                         st.markdown(f"""
                         <div class="metric-box-success" style="text-align: center; padding: 20px;">
-                        <h4 style="color: #2c3e50; margin-bottom: 10px;">Cabang</h4>
-                        <h3 style="color: #27ae60; margin: 0;">{branch}</h3>
+                        <h4 style="color: #003d7a; margin-bottom: 10px;">Cabang</h4>
+                        <h3 style="color: #1e88e5; margin: 0;">{branch}</h3>
                         </div>
                         """, unsafe_allow_html=True)
                     
@@ -833,8 +946,8 @@ def main():
                         ca = app_records['user_name_clean'].iloc[0] if 'user_name_clean' in app_records.columns else 'N/A'
                         st.markdown(f"""
                         <div class="metric-box" style="text-align: center; padding: 20px;">
-                        <h4 style="color: #2c3e50; margin-bottom: 10px;">CA</h4>
-                        <h3 style="color: #3498db; margin: 0;">{ca}</h3>
+                        <h4 style="color: #003d7a; margin-bottom: 10px;">CA</h4>
+                        <h3 style="color: #0066b3; margin: 0;">{ca}</h3>
                         </div>
                         """, unsafe_allow_html=True)
                     
@@ -1436,16 +1549,16 @@ def main():
         with col1:
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Aplikasi Unik</h3>
-            <h1 style="color: #27ae60; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi Unik</h3>
+            <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
             <div class="metric-box" style="text-align: center; padding: 25px;">
-            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Catatan</h3>
-            <h1 style="color: #3498db; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
+            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1512,16 +1625,16 @@ def main():
         with col1:
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Aplikasi Unik</h3>
-            <h1 style="color: #27ae60; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi Unik</h3>
+            <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
             <div class="metric-box" style="text-align: center; padding: 25px;">
-            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Catatan</h3>
-            <h1 style="color: #3498db; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
+            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1664,7 +1777,7 @@ def main():
                 color = "metric-box-success" if avg_sla <= target_sla else "metric-box-danger"
                 st.markdown(f"""
                 <div class="{color}" style="text-align: center; padding: 20px;">
-                <h4 style="color: #2c3e50; margin-bottom: 10px;">Status SLA</h4>
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Status SLA</h4>
                 <h3 style="margin: 0;">{status}</h3>
                 <p style="color: #666; font-size: 14px; margin-top: 5px;">Rata-rata: {avg_sla:.1f} jam (Target: 35 jam)</p>
                 </div>
@@ -1673,8 +1786,8 @@ def main():
             with col2:
                 st.markdown(f"""
                 <div class="metric-box-warning" style="text-align: center; padding: 20px;">
-                <h4 style="color: #2c3e50; margin-bottom: 10px;">Melebihi Target</h4>
-                <h3 style="color: #f39c12; margin: 0;">{sla_pct_above:.1f}%</h3>
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Melebihi Target</h4>
+                <h3 style="color: #d4af37; margin: 0;">{sla_pct_above:.1f}%</h3>
                 <p style="color: #666; font-size: 14px; margin-top: 5px;">{sla_above_target:,} dari {len(sla_data):,} aplikasi</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1685,16 +1798,16 @@ def main():
                     improvement = avg_sla - target_sla
                     st.markdown(f"""
                     <div class="metric-box" style="text-align: center; padding: 20px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Potensi Peningkatan</h4>
-                    <h3 style="color: #3498db; margin: 0;">{improvement:.1f} jam</h3>
+                    <h4 style="color: #003d7a; margin-bottom: 10px;">Potensi Peningkatan</h4>
+                    <h3 style="color: #0066b3; margin: 0;">{improvement:.1f} jam</h3>
                     <p style="color: #666; font-size: 14px; margin-top: 5px;">Efisiensi yang bisa dicapai</p>
                     </div>
                     """, unsafe_allow_html=True)
                 else:
                     st.markdown(f"""
                     <div class="metric-box-success" style="text-align: center; padding: 20px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Performa Optimal</h4>
-                    <h3 style="color: #27ae60; margin: 0;">Target Tercapai</h3>
+                    <h4 style="color: #003d7a; margin-bottom: 10px;">Performa Optimal</h4>
+                    <h3 style="color: #1e88e5; margin: 0;">Target Tercapai</h3>
                     <p style="color: #666; font-size: 14px; margin-top: 5px;">SLA dalam batas normal</p>
                     </div>
                     """, unsafe_allow_html=True)
@@ -1731,8 +1844,8 @@ def main():
             with col1:
                 st.markdown(f"""
                 <div class="metric-box-success" style="text-align: center; padding: 20px;">
-                <h4 style="color: #2c3e50; margin-bottom: 10px;">Tingkat Persetujuan</h4>
-                <h3 style="color: #27ae60; margin: 0;">{approval_rate:.1f}%</h3>
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Tingkat Persetujuan</h4>
+                <h3 style="color: #1e88e5; margin: 0;">{approval_rate:.1f}%</h3>
                 <p style="color: #666; font-size: 14px; margin-top: 5px;">{approve_count:,} aplikasi disetujui</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1740,8 +1853,8 @@ def main():
             with col2:
                 st.markdown(f"""
                 <div class="metric-box-danger" style="text-align: center; padding: 20px;">
-                <h4 style="color: #2c3e50; margin-bottom: 10px;">Ditolak</h4>
-                <h3 style="color: #e74c3c; margin: 0;">{100-approval_rate:.1f}%</h3>
+                <h4 style="color: #003d7a; margin-bottom: 10px;">Ditolak</h4>
+                <h3 style="color: #f44336; margin: 0;">{100-approval_rate:.1f}%</h3>
                 <p style="color: #666; font-size: 14px; margin-top: 5px;">{reject_count:,} aplikasi ditolak</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1753,7 +1866,7 @@ def main():
                 symbol = "+" if vs_benchmark >= 0 else ""
                 st.markdown(f"""
                 <div class="{color}" style="text-align: center; padding: 20px;">
-                <h4 style="color: #2c3e50; margin-bottom: 10px;">vs Benchmark</h4>
+                <h4 style="color: #003d7a; margin-bottom: 10px;">vs Benchmark</h4>
                 <h3 style="margin: 0;">{symbol}{vs_benchmark:.1f}%</h3>
                 <p style="color: #666; font-size: 14px; margin-top: 5px;">Benchmark industri: {benchmark}%</p>
                 </div>
@@ -1824,8 +1937,8 @@ def main():
                 with col1:
                     st.markdown(f"""
                     <div class="metric-box-success" style="padding: 20px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Cabang Terbaik (Approval)</h4>
-                    <h3 style="color: #27ae60; margin: 5px 0;">{best_approval['branch']}</h3>
+                    <h4 style="color: #003d7a; margin-bottom: 10px;">Cabang Terbaik (Approval)</h4>
+                    <h3 style="color: #1e88e5; margin: 5px 0;">{best_approval['branch']}</h3>
                     <p style="color: #666; font-size: 14px;">{best_approval['approval']:.1f}% approval rate</p>
                     <p style="color: #666; font-size: 12px;">{best_approval['total']:,} aplikasi</p>
                     </div>
@@ -1834,8 +1947,8 @@ def main():
                 with col2:
                     st.markdown(f"""
                     <div class="metric-box-danger" style="padding: 20px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Perlu Perhatian</h4>
-                    <h3 style="color: #e74c3c; margin: 5px 0;">{worst_approval['branch']}</h3>
+                    <h4 style="color: #003d7a; margin-bottom: 10px;">Perlu Perhatian</h4>
+                    <h3 style="color: #f44336; margin: 5px 0;">{worst_approval['branch']}</h3>
                     <p style="color: #666; font-size: 14px;">{worst_approval['approval']:.1f}% approval rate</p>
                     <p style="color: #666; font-size: 12px;">{worst_approval['total']:,} aplikasi</p>
                     </div>
@@ -1844,8 +1957,8 @@ def main():
                 with col3:
                     st.markdown(f"""
                     <div class="metric-box" style="padding: 20px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Tercepat (SLA)</h4>
-                    <h3 style="color: #3498db; margin: 5px 0;">{best_sla['branch']}</h3>
+                    <h4 style="color: #003d7a; margin-bottom: 10px;">Tercepat (SLA)</h4>
+                    <h3 style="color: #0066b3; margin: 5px 0;">{best_sla['branch']}</h3>
                     <p style="color: #666; font-size: 14px;">{best_sla['sla']:.1f} jam rata-rata</p>
                     <p style="color: #666; font-size: 12px;">{best_sla['total']:,} aplikasi</p>
                     </div>
@@ -1907,7 +2020,7 @@ def main():
                     title="Tingkat Persetujuan berdasarkan Riwayat Keterlambatan",
                     labels={'category': 'Kategori OD', 'approval': 'Tingkat Persetujuan (%)'}
                 )
-                fig.update_traces(line_color='#e74c3c', marker=dict(size=12, color='#e74c3c'))
+                fig.update_traces(line_color='#f44336', marker=dict(size=12, color='#f44336'))
                 fig.update_layout(
                     height=400,
                     plot_bgcolor='#f8f9fa',
@@ -1953,7 +2066,7 @@ def main():
                     values=osph_dist.values,
                     names=osph_dist.index,
                     title="Distribusi Portfolio berdasarkan Plafon",
-                    color_discrete_sequence=['#27ae60', '#f39c12', '#e74c3c']
+                    color_discrete_sequence=['#1e88e5', '#d4af37', '#f44336']
                 )
                 fig.update_layout(height=400)
                 st.plotly_chart(fig, use_container_width=True)
@@ -1967,7 +2080,7 @@ def main():
                     values=segmen_dist.values,
                     names=segmen_dist.index,
                     title="Distribusi Portfolio berdasarkan Segmen",
-                    color_discrete_sequence=['#3498db', '#9b59b6', '#e67e22', '#95a5a6']
+                    color_discrete_sequence=['#0066b3', '#9b59b6', '#e67e22', '#95a5a6']
                 )
                 fig.update_layout(height=400)
                 st.plotly_chart(fig, use_container_width=True)
@@ -1987,8 +2100,8 @@ def main():
         
         st.markdown("""
         <div class="metric-box" style="padding: 25px;">
-        <h4 style="color: #2c3e50; margin-bottom: 15px;">Action Items - Prioritas Tinggi</h4>
-        <ol style="color: #2c3e50; line-height: 2;">
+        <h4 style="color: #003d7a; margin-bottom: 15px;">Action Items - Prioritas Tinggi</h4>
+        <ol style="color: #003d7a; line-height: 2;">
             <li><strong>Optimasi SLA:</strong> Fokus pada cabang dan CA dengan SLA di atas target</li>
             <li><strong>Knowledge Transfer:</strong> Replikasi best practices dari top performers</li>
             <li><strong>Quality Control:</strong> Strengthen pre-screening process untuk meningkatkan approval rate</li>
@@ -2064,7 +2177,7 @@ def main():
         with col1:
             st.markdown("""
             <div class="metric-box-success" style="padding: 20px;">
-            <h4 style="color: #2c3e50; margin-bottom: 10px;">Data Lengkap</h4>
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Data Lengkap</h4>
             <p style="color: #666;">Unduh semua data yang sudah difilter dalam format CSV</p>
             </div>
             """, unsafe_allow_html=True)
@@ -2081,7 +2194,7 @@ def main():
         with col2:
             st.markdown("""
             <div class="metric-box" style="padding: 20px;">
-            <h4 style="color: #2c3e50; margin-bottom: 10px;">Ringkasan Statistik</h4>
+            <h4 style="color: #003d7a; margin-bottom: 10px;">Ringkasan Statistik</h4>
             <p style="color: #666;">Unduh metrik utama dan ringkasan dalam format CSV</p>
             </div>
             """, unsafe_allow_html=True)
@@ -2118,14 +2231,33 @@ def main():
     
     st.markdown("---")
     
-    # Footer
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.caption(f"**Terakhir Diperbarui:** {datetime.now().strftime('%d %B %Y, %H:%M:%S')}")
-    with col2:
-        st.caption(f"**Total Data:** {len(df):,} catatan")
-    with col3:
-        st.caption(f"**Aplikasi Unik:** {df['apps_id'].nunique():,}")
+    # Footer with BCA Branding
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%); padding: 30px; border-radius: 10px; margin-top: 30px; text-align: center;">
+        <div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 20px;">
+            <div style="color: white;">
+                <h4 style="color: white; margin: 0;">Terakhir Diperbarui</h4>
+                <p style="margin: 5px 0; font-size: 16px;">{}</p>
+            </div>
+            <div style="color: white;">
+                <h4 style="color: white; margin: 0;">Total Data</h4>
+                <p style="margin: 5px 0; font-size: 16px;">{:,} catatan</p>
+            </div>
+            <div style="color: white;">
+                <h4 style="color: white; margin: 0;">Aplikasi Unik</h4>
+                <p style="margin: 5px 0; font-size: 16px;">{:,}</p>
+            </div>
+        </div>
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.3);">
+            <p style="color: #e3f2fd; margin: 0; font-size: 14px;">© 2026 BCA Finance - Dashboard Analisis Kredit</p>
+            <p style="color: #e3f2fd; margin: 5px 0 0 0; font-size: 12px;">Confidential - For Internal Use Only</p>
+        </div>
+    </div>
+    """.format(
+        datetime.now().strftime('%d %B %Y, %H:%M:%S'),
+        len(df),
+        df['apps_id'].nunique()
+    ), unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
