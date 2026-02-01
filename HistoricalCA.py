@@ -649,7 +649,7 @@ def main():
     st.markdown("""
     <div class="header-container">
         <div style="text-align: center;">
-            <h1 style="margin: 0; font-size: 42px; letter-spacing: 1px; color: white !important;">Dashboard Analisis Pengajuan Kredit</h1>
+            <h1 style="margin: 0; font-size: 42px; letter-spacing: 1px; color: white !important;">Dashboard Analisis CA</h1>
             <p style="color: #e3f2fd !important; margin-top: 12px; font-size: 17px;">BCA Finance - Monitoring & Evaluasi Kinerja Credit Analyst</p>
         </div>
     </div>
@@ -682,7 +682,7 @@ def main():
     with col2:
         st.markdown('<div class="metric-box-success">', unsafe_allow_html=True)
         st.metric("Aplikasi Unik", f"{unique_apps:,}")
-        st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Jumlah pengajuan kredit unik</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Jumlah AppID</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
@@ -772,14 +772,14 @@ def main():
     
     # TABS
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-        "⏱️ Waktu Proses",
-        "📋 Data Detail",
-        "💰 Analisis Plafon",
-        "🏢 Kinerja Cabang & CA",
-        "📊 Status & Penilaian",
-        "⚠️ Dampak Keterlambatan",
-        "💡 Insights & Rekomendasi",
-        "📥 Unduh Data"
+        " Waktu Proses",
+        " Data Detail",
+        " Analisis Plafon",
+        " Kinerja Cabang & CA",
+        " Status & Penilaian",
+        " Dampak Keterlambatan",
+        " Insights & Rekomendasi",
+        " Unduh Data"
     ])
 
     # ====== TAB 1: SLA ANALYSIS ======
@@ -896,7 +896,7 @@ def main():
                 line_dash="dash", 
                 line_color="#f44336",
                 line_width=3,
-                annotation_text="🎯 Target: 35 jam",
+                annotation_text=" Target: 35 jam",
                 annotation_position="right",
                 annotation_font_size=13,
                 annotation_font_color="#f44336"
