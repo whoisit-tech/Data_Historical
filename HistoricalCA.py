@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
 from pathlib import Path
+import base64
 
 st.set_page_config(
     page_title="Analisis Kredit - Dashboard BCA Finance", 
@@ -21,116 +22,153 @@ BCA_LIGHT_BLUE = "#0066b3"  # BCA Light Blue
 BCA_ACCENT = "#1e88e5"  # Accent Blue
 BCA_GOLD = "#d4af37"  # Gold accent
 
+def get_base64_image(image_path):
+    """Convert image to base64 for embedding in HTML"""
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except:
+        return None
+
 # ============================================================================
 # STYLING - BCA FINANCE THEME
 # ============================================================================
 st.markdown("""
 <style>
-    /* Global Background */
     .stApp {
         background-color: #ffffff;
     }
     
-    /* Main Title */
     h1 { 
-        color: #003d7a; 
+        color: #003d7a !important;
         text-align: center; 
         font-size: 36px; 
         margin-bottom: 10px;
         font-weight: 700;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
     
-    /* Section Headers */
     h2 { 
-        color: #003d7a; 
+        color: #003d7a !important;
         border-bottom: 3px solid #0066b3; 
         padding-bottom: 10px;
         margin-top: 30px;
         font-weight: 600;
     }
     
-    h3 { 
-        color: #003d7a; 
+    h3, h4 { 
+        color: #003d7a !important;
         margin-top: 25px;
         font-weight: 600;
     }
     
-    /* Metric Boxes - BCA Theme */
     .metric-box {
         background: #ffffff;
         padding: 20px;
-        border-radius: 8px;
-        border: 2px solid #0066b3;
+        border-radius: 10px;
+        border: 2px solid #e0e0e0;
         border-left: 6px solid #0066b3;
-        box-shadow: 0 3px 6px rgba(0,61,122,0.15);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         transition: transform 0.2s;
     }
     
     .metric-box:hover {
         transform: translateY(-3px);
-        box-shadow: 0 6px 12px rgba(0,61,122,0.25);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
     
     .metric-box-success {
         background: #ffffff;
-        border: 2px solid #1e88e5;
+        border: 2px solid #e0e0e0;
         border-left: 6px solid #1e88e5;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     
     .metric-box-warning {
         background: #ffffff;
-        border: 2px solid #d4af37;
-        border-left: 6px solid #d4af37;
+        border: 2px solid #e0e0e0;
+        border-left: 6px solid #ff9800;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     
     .metric-box-danger {
         background: #ffffff;
-        border: 2px solid #f44336;
+        border: 2px solid #e0e0e0;
         border-left: 6px solid #f44336;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     
-    /* Info Boxes */
     .info-box {
-        background: #f0f7ff;
-        padding: 15px;
-        border-radius: 8px;
+        background: #f5f9ff;
+        padding: 20px;
+        border-radius: 10px;
         border: 2px solid #0066b3;
         border-left: 5px solid #0066b3;
-        margin: 15px 0;
-        box-shadow: 0 2px 4px rgba(0,61,122,0.1);
+        margin: 20px 0;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
     
-    /* Tables */
+    .info-box h4 {
+        color: #003d7a !important;
+        margin-top: 0;
+        margin-bottom: 10px;
+    }
+    
+    .info-box p, .info-box ul, .info-box ol {
+        color: #333333 !important;
+        line-height: 1.6;
+    }
+    
+    .info-box li {
+        color: #333333 !important;
+        margin-bottom: 8px;
+    }
+    
     .dataframe {
         border-radius: 8px;
         overflow: hidden;
     }
     
-    /* Sidebar - BCA Theme */
+    .dataframe th {
+        background-color: #003d7a !important;
+        color: white !important;
+        font-weight: 600;
+        padding: 12px !important;
+    }
+    
+    .dataframe td {
+        color: #333333 !important;
+        padding: 10px !important;
+    }
+    
     [data-testid="stSidebar"] {
-        background-color: #f8fbff;
-        border-right: 2px solid #0066b3;
+        background-color: #fafafa;
+        border-right: 2px solid #e0e0e0;
     }
     
     [data-testid="stSidebar"] h2 {
-        color: #003d7a;
+        color: #003d7a !important;
     }
     
-    /* Tabs - BCA Theme */
+    [data-testid="stSidebar"] .stMarkdown p {
+        color: #333333 !important;
+    }
+    
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background-color: #f0f7ff;
-        padding: 10px;
+        background-color: #f5f5f5;
+        padding: 12px;
         border-radius: 10px;
     }
     
     .stTabs [data-baseweb="tab"] {
-        padding: 12px 24px;
+        padding: 14px 26px;
         background-color: #ffffff;
-        border: 2px solid #e3f2fd;
+        border: 2px solid #e0e0e0;
         border-radius: 8px 8px 0 0;
         font-weight: 600;
         color: #003d7a !important;
+        font-size: 15px;
     }
     
     .stTabs [aria-selected="true"] {
@@ -144,41 +182,46 @@ st.markdown("""
         border-color: #0066b3;
     }
     
-    /* Buttons - BCA Theme */
     .stButton>button {
         background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
-        color: white;
+        color: white !important;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         font-weight: 600;
-        padding: 10px 24px;
+        padding: 12px 28px;
+        font-size: 15px;
     }
     
     .stButton>button:hover {
         background: linear-gradient(135deg, #002855 0%, #004d8a 100%);
-        box-shadow: 0 4px 8px rgba(0,61,122,0.3);
+        box-shadow: 0 4px 12px rgba(0,61,122,0.3);
     }
     
-    /* Download Button */
     .stDownloadButton>button {
         background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
-        color: white;
+        color: white !important;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         font-weight: 600;
+        padding: 12px 28px;
+        font-size: 15px;
     }
     
     .stDownloadButton>button:hover {
         background: linear-gradient(135deg, #002855 0%, #004d8a 100%);
     }
     
-    /* Metrics - BCA Color Adjustments */
     [data-testid="stMetricValue"] {
-        color: #003d7a;
+        color: #003d7a !important;
         font-weight: 700;
+        font-size: 28px !important;
     }
     
-    /* Selectbox and Multiselect - BCA Theme */
+    [data-testid="stMetricLabel"] {
+        color: #333333 !important;
+        font-weight: 600;
+    }
+    
     .stSelectbox [data-baseweb="select"] {
         border-color: #0066b3;
     }
@@ -187,34 +230,74 @@ st.markdown("""
         border-color: #0066b3;
     }
     
-    /* Logo Container */
-    .logo-container {
-        text-align: center;
-        padding: 20px;
-        margin-bottom: 20px;
+    p, span, div {
+        color: #333333 !important;
     }
     
-    /* Header Container */
+    .stCaption {
+        color: #666666 !important;
+    }
+    
     .header-container {
         background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
-        padding: 30px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 12px rgba(0,61,122,0.3);
+        padding: 35px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(0,61,122,0.3);
     }
     
     .header-container h1 {
-        color: white;
+        color: white !important;
         margin: 0;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
     
     .header-container p {
-        color: #e3f2fd;
+        color: #e3f2fd !important;
         font-size: 16px;
         margin-top: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# ========================================
+# SNIPPET 4: HEADER DENGAN LOGO ASLI
+# Cari bagian "def main():" dan ganti bagian header
+# Sekitar baris 542-571
+# GANTI dengan:
+# ========================================
+
+def main():
+    """Main Streamlit application"""
+    
+    # BCA Finance Header with REAL LOGO
+    logo_path = "/mnt/user-data/uploads/BCA_Finance_Logo__1_.png"
+    logo_base64 = get_base64_image(logo_path)
+    
+    if logo_base64:
+        st.markdown(f"""
+        <div class="header-container">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 30px; flex-wrap: wrap;">
+                <div style="background: white; padding: 15px 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                    <img src="data:image/png;base64,{logo_base64}" style="height: 60px; width: auto;">
+                </div>
+                <div style="text-align: center;">
+                    <h1 style="margin: 0; font-size: 42px; letter-spacing: 1px; color: white !important;">Dashboard Analisis Pengajuan Kredit</h1>
+                    <p style="color: #e3f2fd !important; margin-top: 12px; font-size: 17px;">Monitoring & Evaluasi Kinerja Credit Analyst</p>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="header-container">
+            <div style="text-align: center;">
+                <h1 style="margin: 0; font-size: 42px; letter-spacing: 1px; color: white !important;">Dashboard Analisis Pengajuan Kredit</h1>
+                <p style="color: #e3f2fd !important; margin-top: 12px; font-size: 17px;">BCA Finance - Monitoring & Evaluasi Kinerja Credit Analyst</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 # ============================================================================
 # TANGGAL MERAH (Holidays)
@@ -735,26 +818,23 @@ def main():
             )
             
             # Line chart
-            fig = go.Figure()
-            
-            hover_text = []
-            for idx, row in monthly_avg.iterrows():
-                hours = int(row['Rata-rata Waktu (Jam)'])
-                minutes = int((row['Rata-rata Waktu (Jam)'] - hours) * 60)
-                hover_text.append(f"<b>{row['Bulan']}</b><br>Waktu: {hours} jam {minutes} menit<br>Jumlah: {row['Jumlah Data']} aplikasi")
+fig = go.Figure()
             
             fig.add_trace(go.Scatter(
                 x=monthly_avg['Bulan'],
                 y=monthly_avg['Rata-rata Waktu (Jam)'],
-                mode='lines+markers+text',
-                name='Rata-rata Waktu Proses',
-                line=dict(color='#0066b3', width=3),
-                marker=dict(size=12, color='#0066b3', line=dict(color='white', width=2)),
-                text=[f"{int(h)} jam {int((h - int(h)) * 60)} mnt" for h in monthly_avg['Rata-rata Waktu (Jam)']],
-                textposition='top center',
-                textfont=dict(size=11, color='#003d7a', family='Arial'),
-                hovertext=hover_text,
-                hoverinfo='text'
+                mode='lines+markers',
+                name='Waktu Proses',
+                line=dict(color='#0066b3', width=4),
+                marker=dict(
+                    size=14, 
+                    color='#0066b3',
+                    line=dict(color='white', width=3),
+                    symbol='circle'
+                ),
+                hovertemplate='<b>%{x}</b><br>' +
+                              'Waktu: %{y:.1f} jam<br>' +
+                              '<extra></extra>'
             ))
             
             fig.add_hline(
@@ -762,24 +842,37 @@ def main():
                 line_dash="dash", 
                 line_color="#f44336",
                 line_width=3,
-                annotation_text="Target: 35 jam (5 hari kerja)",
+                annotation_text="🎯 Target: 35 jam",
                 annotation_position="right",
-                annotation_font_size=12,
+                annotation_font_size=13,
                 annotation_font_color="#f44336"
             )
             
             fig.update_layout(
                 title={
-                    'text': "Tren Waktu Proses - Rata-rata per Bulan",
-                    'font': {'size': 18, 'color': '#003d7a'}
+                    'text': "Tren Waktu Proses per Bulan",
+                    'font': {'size': 20, 'color': '#003d7a'},
+                    'x': 0.5,
+                    'xanchor': 'center'
                 },
                 xaxis_title="Bulan",
                 yaxis_title="Waktu Proses (Jam Kerja)",
                 hovermode='x unified',
                 height=500,
-                plot_bgcolor='#f8f9fa',
+                plot_bgcolor='#fafafa',
                 paper_bgcolor='white',
-                font=dict(family='Arial', size=12, color='#003d7a')
+                font=dict(family='Arial', size=13, color='#333333'),
+                xaxis=dict(
+                    showgrid=True,
+                    gridcolor='#e0e0e0',
+                    linecolor='#666666'
+                ),
+                yaxis=dict(
+                    showgrid=True,
+                    gridcolor='#e0e0e0',
+                    linecolor='#666666'
+                ),
+                showlegend=False
             )
             
             st.plotly_chart(fig, use_container_width=True)
@@ -1314,11 +1407,26 @@ def main():
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Safe
                             )
+                            fig.update_traces(textposition='outside')  # Tambahkan ini jika belum ada
+            
                             fig.update_layout(
-                                height=400,
-                                plot_bgcolor='#f8f9fa',
+                                height=450,
+                                plot_bgcolor='#fafafa',
                                 paper_bgcolor='white',
-                                font=dict(family='Arial', size=12)
+                                showlegend=False,  # atau True jika perlu legend
+                                font=dict(family='Arial', size=13, color='#333333'),
+                                title_font_size=16,
+                                title_font_color='#003d7a',
+                                xaxis=dict(
+                                    showgrid=False,
+                                    title_font_size=14,
+                                    tickangle=-45  # Tambahkan jika label panjang
+                                ),
+                                yaxis=dict(
+                                    showgrid=True,
+                                    gridcolor='#e0e0e0',
+                                    title_font_size=14
+                                )
                             )
                             st.plotly_chart(fig, use_container_width=True)
                 else:
@@ -1495,13 +1603,27 @@ def main():
                             color='Total Aplikasi Unik',
                             color_continuous_scale='Greens'
                         )
-                        fig1.update_layout(
-                            height=400,
-                            plot_bgcolor='#f8f9fa',
+                        fig.update_traces(textposition='outside')  # Tambahkan ini jika belum ada
+            
+                        fig.update_layout(
+                            height=450,
+                            plot_bgcolor='#fafafa',
                             paper_bgcolor='white',
-                            showlegend=False
-                        )
-                        st.plotly_chart(fig1, use_container_width=True)
+                            showlegend=False,  # atau True jika perlu legend
+                            font=dict(family='Arial', size=13, color='#333333'),
+                            title_font_size=16,
+                            title_font_color='#003d7a',
+                            xaxis=dict(
+                                showgrid=False,
+                                title_font_size=14,
+                                tickangle=-45  # Tambahkan jika label panjang
+                            ),
+                            yaxis=dict(
+                                showgrid=True,
+                                gridcolor='#e0e0e0',
+                                title_font_size=14
+                            )
+                    )
                     
                     with col2:
                         ca_df_plot = ca_df.copy()
@@ -1515,12 +1637,26 @@ def main():
                             color='Approval_Numeric',
                             color_continuous_scale='RdYlGn'
                         )
-                        fig2.update_layout(
-                            yaxis_title="Tingkat Persetujuan (%)",
-                            height=400,
-                            plot_bgcolor='#f8f9fa',
+                        fig.update_traces(textposition='outside')  # Tambahkan ini jika belum ada
+            
+                        fig.update_layout(
+                            height=450,
+                            plot_bgcolor='#fafafa',
                             paper_bgcolor='white',
-                            showlegend=False
+                            showlegend=False,  # atau True jika perlu legend
+                            font=dict(family='Arial', size=13, color='#333333'),
+                            title_font_size=16,
+                            title_font_color='#003d7a',
+                            xaxis=dict(
+                                showgrid=False,
+                                title_font_size=14,
+                                tickangle=-45  # Tambahkan jika label panjang
+                            ),
+                            yaxis=dict(
+                                showgrid=True,
+                                gridcolor='#e0e0e0',
+                                title_font_size=14
+                            )
                         )
                         st.plotly_chart(fig2, use_container_width=True)
     
@@ -1589,18 +1725,21 @@ def main():
                 fig = px.imshow(
                     cross_tab_no_total,
                     text_auto=True,
-                    title="Distribusi Status × Hasil Penilaian (Aplikasi Unik)",
+                    title="Distribusi Status × Hasil Penilaian",
                     color_continuous_scale="Blues",
                     aspect="auto"
                 )
                 fig.update_layout(
-                    height=500,
+                    height=550,
                     xaxis_title="Hasil Penilaian",
                     yaxis_title="Status Aplikasi",
-                    font=dict(family='Arial', size=12)
+                    font=dict(family='Arial', size=13, color='#333333'),
+                    title_font_size=16,
+                    title_font_color='#003d7a'
                 )
+                fig.update_xaxes(side="bottom")
                 st.plotly_chart(fig, use_container_width=True)
-    
+                
     # ====== TAB 6: OD IMPACT ======
     with tab6:
         st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
@@ -1729,18 +1868,24 @@ def main():
                 if len(maxod_df) > 0:
                     maxod_df['Approval_Numeric'] = maxod_df['Tingkat Persetujuan'].str.rstrip('%').astype(float)
                     fig = px.bar(
-                        maxod_df,
+                        lastod_df,  # atau maxod_df
                         x='Kategori',
                         y='Approval_Numeric',
-                        title="Tingkat Persetujuan Berdasarkan Max OD",
+                        title="Tingkat Persetujuan vs Last OD",
                         color='Approval_Numeric',
                         color_continuous_scale='RdYlGn',
-                        text='Tingkat Persetujuan'
+                        text='Persetujuan'
                     )
+                    fig.update_traces(textposition='outside')
                     fig.update_layout(
                         yaxis_title="Tingkat Persetujuan (%)",
-                        height=350,
-                        showlegend=False
+                        height=400,
+                        showlegend=False,
+                        plot_bgcolor='#fafafa',
+                        paper_bgcolor='white',
+                        font=dict(family='Arial', size=13, color='#333333'),
+                        title_font_size=16,
+                        title_font_color='#003d7a'
                     )
                     st.plotly_chart(fig, use_container_width=True)
     
