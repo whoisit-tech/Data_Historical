@@ -27,7 +27,7 @@ BCA_GOLD = "#d4af37"
 st.markdown("""
 <style>
     .stApp {
-        background-color: #ffffff;
+        background-color: #f5f7fa;
     }
     
     h1 { 
@@ -57,46 +57,46 @@ st.markdown("""
         background: #ffffff;
         padding: 20px;
         border-radius: 10px;
-        border: 2px solid #e0e0e0;
+        border: 2px solid #d0d7e0;
         border-left: 6px solid #0066b3;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         transition: transform 0.2s;
     }
     
     .metric-box:hover {
         transform: translateY(-3px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.12);
     }
     
     .metric-box-success {
         background: #ffffff;
-        border: 2px solid #e0e0e0;
+        border: 2px solid #d0d7e0;
         border-left: 6px solid #1e88e5;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
     
     .metric-box-warning {
         background: #ffffff;
-        border: 2px solid #e0e0e0;
+        border: 2px solid #d0d7e0;
         border-left: 6px solid #ff9800;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
     
     .metric-box-danger {
         background: #ffffff;
-        border: 2px solid #e0e0e0;
+        border: 2px solid #d0d7e0;
         border-left: 6px solid #f44336;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
     
     .info-box {
-        background: #f5f9ff;
+        background: #ffffff;
         padding: 20px;
         border-radius: 10px;
         border: 2px solid #0066b3;
         border-left: 5px solid #0066b3;
         margin: 20px 0;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
     
     .info-box h4 {
@@ -133,8 +133,9 @@ st.markdown("""
     }
     
     [data-testid="stSidebar"] {
-        background-color: #fafafa;
-        border-right: 2px solid #e0e0e0;
+        background-color: #ffffff;
+        border-right: 2px solid #d0d7e0;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.05);
     }
     
     [data-testid="stSidebar"] h2 {
@@ -145,9 +146,16 @@ st.markdown("""
         color: #333333 !important;
     }
     
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+        background-color: #f8f9fb;
+        padding: 10px;
+        border-radius: 8px;
+        margin: 5px 0;
+    }
+    
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background-color: #f5f5f5;
+        background-color: #e8ecf1;
         padding: 12px;
         border-radius: 10px;
     }
@@ -155,7 +163,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         padding: 14px 26px;
         background-color: #ffffff;
-        border: 2px solid #e0e0e0;
+        border: 2px solid #d0d7e0;
         border-radius: 8px 8px 0 0;
         font-weight: 600;
         color: #003d7a !important;
