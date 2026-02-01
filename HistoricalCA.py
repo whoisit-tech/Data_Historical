@@ -579,8 +579,6 @@ def preprocess_data(df):
     
     return df
 
-calculate_sla_per_status yang lama) ==========
-
 def calculate_sla_per_status(df):
     """
     Calculate SLA correctly based on progression:
