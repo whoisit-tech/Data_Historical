@@ -27,20 +27,20 @@ BCA_GOLD = "#d4af37"
 st.markdown("""
 <style>
     .stApp {
-        background-color: #f5f7fa;
+        background-color: #0e1117;
     }
     
     h1 { 
-        color: #003d7a !important;
+        color: #ffffff !important;
         text-align: center; 
         font-size: 36px; 
         margin-bottom: 10px;
         font-weight: 700;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
     }
     
     h2 { 
-        color: #003d7a !important;
+        color: #ffffff !important;
         border-bottom: 3px solid #0066b3; 
         padding-bottom: 10px;
         margin-top: 30px;
@@ -48,70 +48,86 @@ st.markdown("""
     }
     
     h3, h4 { 
-        color: #003d7a !important;
+        color: #ffffff !important;
         margin-top: 25px;
         font-weight: 600;
     }
     
     .metric-box {
-        background: #ffffff;
+        background: #1e2129;
         padding: 20px;
         border-radius: 10px;
-        border: 2px solid #d0d7e0;
+        border: 2px solid #2d3139;
         border-left: 6px solid #0066b3;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         transition: transform 0.2s;
     }
     
     .metric-box:hover {
         transform: translateY(-3px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+        box-shadow: 0 4px 15px rgba(0,102,179,0.3);
+        border-color: #0066b3;
     }
     
     .metric-box-success {
-        background: #ffffff;
-        border: 2px solid #d0d7e0;
+        background: #1e2129;
+        border: 2px solid #2d3139;
         border-left: 6px solid #1e88e5;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    
+    .metric-box-success:hover {
+        box-shadow: 0 4px 15px rgba(30,136,229,0.3);
+        border-color: #1e88e5;
     }
     
     .metric-box-warning {
-        background: #ffffff;
-        border: 2px solid #d0d7e0;
+        background: #1e2129;
+        border: 2px solid #2d3139;
         border-left: 6px solid #ff9800;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    
+    .metric-box-warning:hover {
+        box-shadow: 0 4px 15px rgba(255,152,0,0.3);
+        border-color: #ff9800;
     }
     
     .metric-box-danger {
-        background: #ffffff;
-        border: 2px solid #d0d7e0;
+        background: #1e2129;
+        border: 2px solid #2d3139;
         border-left: 6px solid #f44336;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    
+    .metric-box-danger:hover {
+        box-shadow: 0 4px 15px rgba(244,67,54,0.3);
+        border-color: #f44336;
     }
     
     .info-box {
-        background: #ffffff;
+        background: #1e2129;
         padding: 20px;
         border-radius: 10px;
         border: 2px solid #0066b3;
         border-left: 5px solid #0066b3;
         margin: 20px 0;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
     
     .info-box h4 {
-        color: #003d7a !important;
+        color: #4fc3f7 !important;
         margin-top: 0;
         margin-bottom: 10px;
     }
     
     .info-box p, .info-box ul, .info-box ol {
-        color: #333333 !important;
+        color: #b0bec5 !important;
         line-height: 1.6;
     }
     
     .info-box li {
-        color: #333333 !important;
+        color: #b0bec5 !important;
         margin-bottom: 8px;
     }
     
@@ -128,26 +144,35 @@ st.markdown("""
     }
     
     .dataframe td {
-        color: #333333 !important;
+        color: #e0e0e0 !important;
         padding: 10px !important;
+        background-color: #1e2129 !important;
+    }
+    
+    .dataframe tr:hover td {
+        background-color: #262b35 !important;
     }
     
     [data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 2px solid #d0d7e0;
-        box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+        background-color: #1e2129;
+        border-right: 2px solid #2d3139;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.3);
     }
     
     [data-testid="stSidebar"] h2 {
-        color: #003d7a !important;
+        color: #ffffff !important;
     }
     
     [data-testid="stSidebar"] .stMarkdown p {
-        color: #333333 !important;
+        color: #b0bec5 !important;
+    }
+    
+    [data-testid="stSidebar"] label {
+        color: #e0e0e0 !important;
     }
     
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
-        background-color: #f8f9fb;
+        background-color: #262b35;
         padding: 10px;
         border-radius: 8px;
         margin: 5px 0;
@@ -155,30 +180,32 @@ st.markdown("""
     
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background-color: #e8ecf1;
+        background-color: #1e2129;
         padding: 12px;
         border-radius: 10px;
+        border: 1px solid #2d3139;
     }
     
     .stTabs [data-baseweb="tab"] {
         padding: 14px 26px;
-        background-color: #ffffff;
-        border: 2px solid #d0d7e0;
+        background-color: #262b35;
+        border: 2px solid #2d3139;
         border-radius: 8px 8px 0 0;
         font-weight: 600;
-        color: #003d7a !important;
+        color: #b0bec5 !important;
         font-size: 15px;
     }
     
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
         color: white !important;
-        border: 2px solid #003d7a;
+        border: 2px solid #0066b3;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        background-color: #e3f2fd;
+        background-color: #2d3139;
         border-color: #0066b3;
+        color: #ffffff !important;
     }
     
     .stButton>button {
@@ -192,8 +219,8 @@ st.markdown("""
     }
     
     .stButton>button:hover {
-        background: linear-gradient(135deg, #002855 0%, #004d8a 100%);
-        box-shadow: 0 4px 12px rgba(0,61,122,0.3);
+        background: linear-gradient(135deg, #0066b3 0%, #1e88e5 100%);
+        box-shadow: 0 4px 12px rgba(0,102,179,0.4);
     }
     
     .stDownloadButton>button {
@@ -207,34 +234,62 @@ st.markdown("""
     }
     
     .stDownloadButton>button:hover {
-        background: linear-gradient(135deg, #002855 0%, #004d8a 100%);
+        background: linear-gradient(135deg, #0066b3 0%, #1e88e5 100%);
     }
     
     [data-testid="stMetricValue"] {
-        color: #003d7a !important;
+        color: #4fc3f7 !important;
         font-weight: 700;
         font-size: 28px !important;
     }
     
     [data-testid="stMetricLabel"] {
-        color: #333333 !important;
+        color: #b0bec5 !important;
         font-weight: 600;
     }
     
+    [data-testid="stMetricDelta"] {
+        color: #81c784 !important;
+    }
+    
     .stSelectbox [data-baseweb="select"] {
-        border-color: #0066b3;
+        background-color: #262b35 !important;
+        border-color: #2d3139 !important;
+    }
+    
+    .stSelectbox label {
+        color: #e0e0e0 !important;
+    }
+    
+    .stSelectbox [data-baseweb="select"] > div {
+        background-color: #262b35 !important;
+        color: #e0e0e0 !important;
     }
     
     .stMultiSelect [data-baseweb="select"] {
-        border-color: #0066b3;
+        background-color: #262b35 !important;
+        border-color: #2d3139 !important;
+    }
+    
+    .stMultiSelect label {
+        color: #e0e0e0 !important;
+    }
+    
+    .stMultiSelect [data-baseweb="tag"] {
+        background-color: #f44336 !important;
+        color: white !important;
     }
     
     p, span, div {
-        color: #333333 !important;
+        color: #e0e0e0 !important;
+    }
+    
+    .stMarkdown p {
+        color: #b0bec5 !important;
     }
     
     .stCaption {
-        color: #666666 !important;
+        color: #90a4ae !important;
     }
     
     .header-container {
@@ -242,19 +297,74 @@ st.markdown("""
         padding: 35px;
         border-radius: 15px;
         margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(0,61,122,0.3);
+        box-shadow: 0 4px 20px rgba(0,102,179,0.4);
     }
     
     .header-container h1 {
         color: white !important;
         margin: 0;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
     
     .header-container p {
         color: #e3f2fd !important;
         font-size: 16px;
         margin-top: 10px;
+    }
+    
+    /* Input fields */
+    .stTextInput input {
+        background-color: #262b35 !important;
+        color: #e0e0e0 !important;
+        border-color: #2d3139 !important;
+    }
+    
+    .stTextInput label {
+        color: #e0e0e0 !important;
+    }
+    
+    /* Success/Info/Warning/Error messages */
+    .stSuccess {
+        background-color: #1e2129 !important;
+        border-left-color: #4caf50 !important;
+        color: #81c784 !important;
+    }
+    
+    .stInfo {
+        background-color: #1e2129 !important;
+        border-left-color: #2196f3 !important;
+        color: #64b5f6 !important;
+    }
+    
+    .stWarning {
+        background-color: #1e2129 !important;
+        border-left-color: #ff9800 !important;
+        color: #ffb74d !important;
+    }
+    
+    .stError {
+        background-color: #1e2129 !important;
+        border-left-color: #f44336 !important;
+        color: #e57373 !important;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #1e2129;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #2d3139;
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #0066b3;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -566,20 +676,20 @@ def main():
     with col1:
         st.markdown('<div class="metric-box">', unsafe_allow_html=True)
         st.metric("Total Catatan", f"{total_records:,}")
-        st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">Total semua transaksi dalam sistem</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Total semua transaksi dalam sistem</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="metric-box-success">', unsafe_allow_html=True)
         st.metric("Aplikasi Unik", f"{unique_apps:,}")
-        st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">Jumlah pengajuan kredit unik</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Jumlah pengajuan kredit unik</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="metric-box-warning">', unsafe_allow_html=True)
         sla_pct = f"{sla_with_data/total_records*100:.1f}%"
         st.metric("Data SLA Lengkap", f"{sla_with_data:,}")
-        st.markdown(f'<p style="color: #666; font-size: 14px; margin-top: 5px;">Cakupan: {sla_pct} dari total data</p>', unsafe_allow_html=True)
+        st.markdown(f'<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Cakupan: {sla_pct} dari total data</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col4:
@@ -589,7 +699,7 @@ def main():
             avg_formatted = convert_hours_to_hm(avg_hours)
             st.markdown('<div class="metric-box-danger">', unsafe_allow_html=True)
             st.metric("Rata-rata Waktu Proses", avg_formatted)
-            st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">Dari rekomendasi ke aksi</p>', unsafe_allow_html=True)
+            st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Dari rekomendasi ke aksi</p>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
@@ -712,7 +822,7 @@ def main():
                 st.markdown('<div class="metric-box-success" style="text-align: center;">', unsafe_allow_html=True)
                 st.markdown(f'<h3 style="color: #003d7a; margin-bottom: 10px;">Nilai Tengah</h3>', unsafe_allow_html=True)
                 st.markdown(f'<h2 style="color: #1e88e5; margin: 0;">{median_formatted}</h2>', unsafe_allow_html=True)
-                st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">50% data di bawah nilai ini</p>', unsafe_allow_html=True)
+                st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">50% data di bawah nilai ini</p>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         with col3:
@@ -795,7 +905,7 @@ def main():
             fig.update_layout(
                 title={
                     'text': "Tren Waktu Proses per Bulan",
-                    'font': {'size': 20, 'color': '#003d7a'},
+                    'font': {'size': 20, 'color': '#ffffff'},
                     'x': 0.5,
                     'xanchor': 'center'
                 },
@@ -803,18 +913,18 @@ def main():
                 yaxis_title="Waktu Proses (Jam Kerja)",
                 hovermode='x unified',
                 height=500,
-                plot_bgcolor='white',
-                paper_bgcolor='white',
-                font=dict(family='Arial', size=13, color='#333333'),
+                plot_bgcolor='#1e2129',
+                paper_bgcolor='#1e2129',
+                font=dict(family='Arial', size=13, color='#e0e0e0'),
                 xaxis=dict(
                     showgrid=True,
-                    gridcolor='#e0e0e0',
-                    linecolor='#666666'
+                    gridcolor='#2d3139',
+                    linecolor='#2d3139'
                 ),
                 yaxis=dict(
                     showgrid=True,
-                    gridcolor='#e0e0e0',
-                    linecolor='#666666'
+                    gridcolor='#2d3139',
+                    linecolor='#2d3139'
                 ),
                 showlegend=False
             )
@@ -901,7 +1011,7 @@ def main():
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
             <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h3>
             <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{len(apps_df):,}</h1>
-            <p style="color: #666; font-size: 14px;">Aplikasi kredit unik dalam sistem</p>
+            <p style="color: #90a4ae; font-size: 14px;">Aplikasi kredit unik dalam sistem</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -911,7 +1021,7 @@ def main():
             <div class="metric-box" style="text-align: center; padding: 25px;">
             <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
             <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_catatan:,}</h1>
-            <p style="color: #666; font-size: 14px;">Total transaksi dalam sistem</p>
+            <p style="color: #90a4ae; font-size: 14px;">Total transaksi dalam sistem</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1148,9 +1258,9 @@ def main():
                             )
                             fig.update_layout(
                                 height=400,
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                font=dict(family='Arial', size=12)
+                                plot_bgcolor='#1e2129',
+                                paper_bgcolor='#1e2129',
+                                font=dict(family='Arial', size=12, color='#e0e0e0')
                             )
                             st.plotly_chart(fig, use_container_width=True)
                 else:
@@ -1250,9 +1360,9 @@ def main():
                             )
                             fig.update_layout(
                                 height=400,
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
-                                font=dict(family='Arial', size=12)
+                                plot_bgcolor='#1e2129',
+                                paper_bgcolor='#1e2129',
+                                font=dict(family='Arial', size=12, color='#e0e0e0')
                             )
                             st.plotly_chart(fig, use_container_width=True)
                 else:
@@ -1352,12 +1462,12 @@ def main():
                             )
                             fig.update_layout(
                                 height=450,
-                                plot_bgcolor='white',
-                                paper_bgcolor='white',
+                                plot_bgcolor='#1e2129',
+                                paper_bgcolor='#1e2129',
                                 showlegend=True,
-                                font=dict(family='Arial', size=13, color='#333333'),
+                                font=dict(family='Arial', size=13, color='#e0e0e0'),
                                 title_font_size=16,
-                                title_font_color='#003d7a',
+                                title_font_color='#ffffff',
                                 xaxis=dict(
                                     showgrid=False,
                                     title_font_size=14,
@@ -1365,7 +1475,7 @@ def main():
                                 ),
                                 yaxis=dict(
                                     showgrid=True,
-                                    gridcolor='#e0e0e0',
+                                    gridcolor='#2d3139',
                                     title_font_size=14
                                 )
                             )
@@ -1451,8 +1561,8 @@ def main():
                         )
                         fig1.update_layout(
                             height=400,
-                            plot_bgcolor='white',
-                            paper_bgcolor='white',
+                            plot_bgcolor='#1e2129',
+                            paper_bgcolor='#1e2129',
                             showlegend=False,
                             xaxis_tickangle=-45
                         )
@@ -1473,8 +1583,8 @@ def main():
                         fig2.update_layout(
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=400,
-                            plot_bgcolor='white',
-                            paper_bgcolor='white',
+                            plot_bgcolor='#1e2129',
+                            paper_bgcolor='#1e2129',
                             showlegend=False,
                             xaxis_tickangle=-45
                         )
@@ -1549,8 +1659,8 @@ def main():
                         )
                         fig1.update_layout(
                             height=450,
-                            plot_bgcolor='white',
-                            paper_bgcolor='white',
+                            plot_bgcolor='#1e2129',
+                            paper_bgcolor='#1e2129',
                             showlegend=False,
                             xaxis_tickangle=-45
                         )
@@ -1571,8 +1681,8 @@ def main():
                         fig2.update_layout(
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=450,
-                            plot_bgcolor='white',
-                            paper_bgcolor='white',
+                            plot_bgcolor='#1e2129',
+                            paper_bgcolor='#1e2129',
                             showlegend=False,
                             xaxis_tickangle=-45
                         )
@@ -1649,9 +1759,9 @@ def main():
                     height=550,
                     xaxis_title="Hasil Penilaian",
                     yaxis_title="Status Aplikasi",
-                    font=dict(family='Arial', size=13, color='#333333'),
+                    font=dict(family='Arial', size=13, color='#e0e0e0'),
                     title_font_size=16,
-                    title_font_color='#003d7a'
+                    title_font_color='#ffffff'
                 )
                 fig.update_xaxes(side="bottom")
                 st.plotly_chart(fig, use_container_width=True)
@@ -1745,8 +1855,8 @@ def main():
                         yaxis_title="Tingkat Persetujuan (%)",
                         height=350,
                         showlegend=False,
-                        plot_bgcolor='white',
-                        paper_bgcolor='white'
+                        plot_bgcolor='#1e2129',
+                        paper_bgcolor='#1e2129'
                     )
                     st.plotly_chart(fig, use_container_width=True)
         
@@ -1798,8 +1908,8 @@ def main():
                         yaxis_title="Tingkat Persetujuan (%)",
                         height=350,
                         showlegend=False,
-                        plot_bgcolor='white',
-                        paper_bgcolor='white'
+                        plot_bgcolor='#1e2129',
+                        paper_bgcolor='#1e2129'
                     )
                     st.plotly_chart(fig, use_container_width=True)
     
@@ -1837,7 +1947,7 @@ def main():
                 <div class="{color}" style="text-align: center; padding: 20px;">
                 <h4 style="color: #003d7a; margin-bottom: 10px;">Status SLA</h4>
                 <h3 style="margin: 0;">{status}</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">Rata-rata: {avg_sla:.1f} jam (Target: 35 jam)</p>
+                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Rata-rata: {avg_sla:.1f} jam (Target: 35 jam)</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -1846,7 +1956,7 @@ def main():
                 <div class="metric-box-warning" style="text-align: center; padding: 20px;">
                 <h4 style="color: #003d7a; margin-bottom: 10px;">Melebihi Target</h4>
                 <h3 style="color: #d4af37; margin: 0;">{sla_pct_above:.1f}%</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">{sla_above_target:,} dari {len(sla_data):,} aplikasi</p>
+                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">{sla_above_target:,} dari {len(sla_data):,} aplikasi</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -1857,7 +1967,7 @@ def main():
                     <div class="metric-box" style="text-align: center; padding: 20px;">
                     <h4 style="color: #003d7a; margin-bottom: 10px;">Potensi Peningkatan</h4>
                     <h3 style="color: #0066b3; margin: 0;">{improvement:.1f} jam</h3>
-                    <p style="color: #666; font-size: 14px; margin-top: 5px;">Efisiensi yang bisa dicapai</p>
+                    <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Efisiensi yang bisa dicapai</p>
                     </div>
                     """, unsafe_allow_html=True)
                 else:
@@ -1865,7 +1975,7 @@ def main():
                     <div class="metric-box-success" style="text-align: center; padding: 20px;">
                     <h4 style="color: #003d7a; margin-bottom: 10px;">Performa Optimal</h4>
                     <h3 style="color: #1e88e5; margin: 0;">Target Tercapai</h3>
-                    <p style="color: #666; font-size: 14px; margin-top: 5px;">SLA dalam batas normal</p>
+                    <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">SLA dalam batas normal</p>
                     </div>
                     """, unsafe_allow_html=True)
             
@@ -1903,7 +2013,7 @@ def main():
                 <div class="metric-box-success" style="text-align: center; padding: 20px;">
                 <h4 style="color: #003d7a; margin-bottom: 10px;">Tingkat Persetujuan</h4>
                 <h3 style="color: #1e88e5; margin: 0;">{approval_rate:.1f}%</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">{approve_count:,} aplikasi disetujui</p>
+                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">{approve_count:,} aplikasi disetujui</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -1912,7 +2022,7 @@ def main():
                 <div class="metric-box-danger" style="text-align: center; padding: 20px;">
                 <h4 style="color: #003d7a; margin-bottom: 10px;">Ditolak</h4>
                 <h3 style="color: #f44336; margin: 0;">{100-approval_rate:.1f}%</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">{reject_count:,} aplikasi ditolak</p>
+                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">{reject_count:,} aplikasi ditolak</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -1925,7 +2035,7 @@ def main():
                 <div class="{color}" style="text-align: center; padding: 20px;">
                 <h4 style="color: #003d7a; margin-bottom: 10px;">vs Benchmark</h4>
                 <h3 style="margin: 0;">{symbol}{vs_benchmark:.1f}%</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">Benchmark industri: {benchmark}%</p>
+                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Benchmark industri: {benchmark}%</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -1958,7 +2068,7 @@ def main():
         st.markdown("""
         <div class="metric-box" style="padding: 25px;">
         <h4 style="color: #003d7a; margin-bottom: 15px;">Action Items - Prioritas Tinggi</h4>
-        <ol style="color: #333333; line-height: 2;">
+        <ol style="color: #b0bec5; line-height: 2;">
             <li><strong>Optimasi SLA:</strong> Fokus pada cabang dan CA dengan SLA di atas target</li>
             <li><strong>Knowledge Transfer:</strong> Replikasi best practices dari top performers</li>
             <li><strong>Quality Control:</strong> Strengthen pre-screening process untuk meningkatkan approval rate</li>
@@ -2034,7 +2144,7 @@ def main():
             st.markdown("""
             <div class="metric-box-success" style="padding: 20px;">
             <h4 style="color: #003d7a; margin-bottom: 10px;">Data Lengkap</h4>
-            <p style="color: #666;">Unduh semua data yang sudah difilter dalam format CSV</p>
+            <p style="color: #90a4ae;">Unduh semua data yang sudah difilter dalam format CSV</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -2051,7 +2161,7 @@ def main():
             st.markdown("""
             <div class="metric-box" style="padding: 20px;">
             <h4 style="color: #003d7a; margin-bottom: 10px;">Ringkasan Statistik</h4>
-            <p style="color: #666;">Unduh metrik utama dan ringkasan dalam format CSV</p>
+            <p style="color: #90a4ae;">Unduh metrik utama dan ringkasan dalam format CSV</p>
             </div>
             """, unsafe_allow_html=True)
             
