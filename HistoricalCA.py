@@ -105,11 +105,16 @@ st.markdown("""
         background-color: #e9ecef;
         border-radius: 8px 8px 0 0;
         font-weight: 600;
+        color: #2c3e50 !important;
     }
     
     .stTabs [aria-selected="true"] {
         background-color: #3498db;
-        color: white;
+        color: white !important;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #dee2e6;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -516,13 +521,14 @@ def main():
     st.sidebar.info(f"**{df_filtered['apps_id'].nunique():,}** aplikasi unik")
     
     # TABS
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "Waktu Proses",
         "Data Detail",
         "Analisis Plafon",
         "Kinerja Cabang & CA",
         "Status & Penilaian",
         "Dampak Keterlambatan",
+        "Insights & Rekomendasi",
         "Unduh Data"
     ])
 
@@ -1625,9 +1631,376 @@ def main():
                     )
                     st.plotly_chart(fig, use_container_width=True)
     
-    
-    # ====== TAB 7: DATA EXPORT ======
+    # ====== TAB 7: INSIGHTS & RECOMMENDATIONS ======
     with tab7:
+        st.markdown("## Insights & Rekomendasi Strategis")
+        
+        st.markdown("""
+        <div class="info-box">
+        <h4>Tentang Insights</h4>
+        <p>Bagian ini menyajikan analisis mendalam dan rekomendasi strategis berdasarkan data aktual untuk membantu pengambilan keputusan bisnis.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Calculate key metrics for insights
+        df_distinct = df_filtered.drop_duplicates('apps_id')
+        
+        # 1. SLA Performance Analysis
+        st.markdown("### 1. Analisis Performa Waktu Proses (SLA)")
+        
+        sla_data = df_filtered[df_filtered['SLA_Hours'].notna()]
+        if len(sla_data) > 0:
+            avg_sla = sla_data['SLA_Hours'].mean()
+            target_sla = 35
+            sla_above_target = (sla_data['SLA_Hours'] > target_sla).sum()
+            sla_pct_above = (sla_above_target / len(sla_data)) * 100
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                status = "Baik" if avg_sla <= target_sla else "Perlu Perbaikan"
+                color = "metric-box-success" if avg_sla <= target_sla else "metric-box-danger"
+                st.markdown(f"""
+                <div class="{color}" style="text-align: center; padding: 20px;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Status SLA</h4>
+                <h3 style="margin: 0;">{status}</h3>
+                <p style="color: #666; font-size: 14px; margin-top: 5px;">Rata-rata: {avg_sla:.1f} jam (Target: 35 jam)</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f"""
+                <div class="metric-box-warning" style="text-align: center; padding: 20px;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Melebihi Target</h4>
+                <h3 style="color: #f39c12; margin: 0;">{sla_pct_above:.1f}%</h3>
+                <p style="color: #666; font-size: 14px; margin-top: 5px;">{sla_above_target:,} dari {len(sla_data):,} aplikasi</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                # Calculate improvement potential
+                if avg_sla > target_sla:
+                    improvement = avg_sla - target_sla
+                    st.markdown(f"""
+                    <div class="metric-box" style="text-align: center; padding: 20px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Potensi Peningkatan</h4>
+                    <h3 style="color: #3498db; margin: 0;">{improvement:.1f} jam</h3>
+                    <p style="color: #666; font-size: 14px; margin-top: 5px;">Efisiensi yang bisa dicapai</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class="metric-box-success" style="text-align: center; padding: 20px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Performa Optimal</h4>
+                    <h3 style="color: #27ae60; margin: 0;">Target Tercapai</h3>
+                    <p style="color: #666; font-size: 14px; margin-top: 5px;">SLA dalam batas normal</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            st.markdown("#### Rekomendasi SLA:")
+            if avg_sla > target_sla:
+                st.markdown("""
+                - **Prioritas Tinggi**: Evaluasi proses bottleneck yang menyebabkan keterlambatan
+                - Pertimbangkan penambahan resources atau redistribusi beban kerja
+                - Implementasi sistem monitoring real-time untuk identifikasi dini aplikasi yang berisiko melebihi SLA
+                - Training untuk CA dengan performa SLA di bawah target
+                """)
+            else:
+                st.markdown("""
+                - **Pertahankan**: Proses saat ini sudah optimal
+                - Monitor konsistensi performa untuk memastikan sustainabilitas
+                - Dokumentasikan best practices untuk replikasi ke tim lain
+                """)
+        
+        st.markdown("---")
+        
+        # 2. Approval Rate Analysis
+        st.markdown("### 2. Analisis Tingkat Persetujuan")
+        
+        approve_count = df_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+        total_scored = len(df_distinct[df_distinct['Scoring_Detail'] != '(Semua)'])
+        
+        if total_scored > 0:
+            approval_rate = (approve_count / total_scored) * 100
+            reject_count = total_scored - approve_count
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown(f"""
+                <div class="metric-box-success" style="text-align: center; padding: 20px;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Tingkat Persetujuan</h4>
+                <h3 style="color: #27ae60; margin: 0;">{approval_rate:.1f}%</h3>
+                <p style="color: #666; font-size: 14px; margin-top: 5px;">{approve_count:,} aplikasi disetujui</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f"""
+                <div class="metric-box-danger" style="text-align: center; padding: 20px;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Ditolak</h4>
+                <h3 style="color: #e74c3c; margin: 0;">{100-approval_rate:.1f}%</h3>
+                <p style="color: #666; font-size: 14px; margin-top: 5px;">{reject_count:,} aplikasi ditolak</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                benchmark = 70  # Industry benchmark
+                vs_benchmark = approval_rate - benchmark
+                color = "metric-box-success" if vs_benchmark >= 0 else "metric-box-warning"
+                symbol = "+" if vs_benchmark >= 0 else ""
+                st.markdown(f"""
+                <div class="{color}" style="text-align: center; padding: 20px;">
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">vs Benchmark</h4>
+                <h3 style="margin: 0;">{symbol}{vs_benchmark:.1f}%</h3>
+                <p style="color: #666; font-size: 14px; margin-top: 5px;">Benchmark industri: {benchmark}%</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("#### Rekomendasi Approval Rate:")
+            if approval_rate < 60:
+                st.markdown("""
+                - **Prioritas Kritis**: Review kriteria scoring yang terlalu ketat
+                - Analisis penyebab utama penolakan aplikasi
+                - Pertimbangkan program pre-screening untuk meningkatkan kualitas aplikasi masuk
+                - Evaluasi apakah target market sudah sesuai
+                """)
+            elif approval_rate < 70:
+                st.markdown("""
+                - **Perlu Perbaikan**: Tingkatkan kualitas assessment awal
+                - Implementasi credit counseling untuk calon nasabah
+                - Review kebijakan kredit untuk segmen tertentu
+                """)
+            else:
+                st.markdown("""
+                - **Performa Baik**: Tingkat persetujuan sudah sehat
+                - Fokus pada kualitas portfolio dan menjaga NPL tetap rendah
+                - Monitor untuk memastikan tidak ada penurunan kualitas assessment
+                """)
+        
+        st.markdown("---")
+        
+        # 3. Branch Performance Variance
+        st.markdown("### 3. Analisis Variasi Kinerja Cabang")
+        
+        if 'branch_name_clean' in df_filtered.columns:
+            branch_stats = []
+            
+            for branch in df_filtered['branch_name_clean'].unique():
+                if branch == 'Tidak Diketahui':
+                    continue
+                
+                df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
+                df_branch_distinct = df_branch.drop_duplicates('apps_id')
+                
+                total_apps = len(df_branch_distinct)
+                
+                approve = df_branch_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+                total_scored = len(df_branch_distinct[df_branch_distinct['Scoring_Detail'] != '(Semua)'])
+                approval_pct = (approve/total_scored*100) if total_scored > 0 else 0
+                
+                branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
+                avg_sla = branch_sla['SLA_Hours'].mean() if len(branch_sla) > 0 else 0
+                
+                branch_stats.append({
+                    'branch': branch,
+                    'total': total_apps,
+                    'approval': approval_pct,
+                    'sla': avg_sla
+                })
+            
+            if branch_stats:
+                branch_df = pd.DataFrame(branch_stats)
+                
+                # Find best and worst performers
+                best_approval = branch_df.nlargest(1, 'approval').iloc[0]
+                worst_approval = branch_df.nsmallest(1, 'approval').iloc[0]
+                best_sla = branch_df.nsmallest(1, 'sla').iloc[0]
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.markdown(f"""
+                    <div class="metric-box-success" style="padding: 20px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Cabang Terbaik (Approval)</h4>
+                    <h3 style="color: #27ae60; margin: 5px 0;">{best_approval['branch']}</h3>
+                    <p style="color: #666; font-size: 14px;">{best_approval['approval']:.1f}% approval rate</p>
+                    <p style="color: #666; font-size: 12px;">{best_approval['total']:,} aplikasi</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    st.markdown(f"""
+                    <div class="metric-box-danger" style="padding: 20px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Perlu Perhatian</h4>
+                    <h3 style="color: #e74c3c; margin: 5px 0;">{worst_approval['branch']}</h3>
+                    <p style="color: #666; font-size: 14px;">{worst_approval['approval']:.1f}% approval rate</p>
+                    <p style="color: #666; font-size: 12px;">{worst_approval['total']:,} aplikasi</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col3:
+                    st.markdown(f"""
+                    <div class="metric-box" style="padding: 20px;">
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Tercepat (SLA)</h4>
+                    <h3 style="color: #3498db; margin: 5px 0;">{best_sla['branch']}</h3>
+                    <p style="color: #666; font-size: 14px;">{best_sla['sla']:.1f} jam rata-rata</p>
+                    <p style="color: #666; font-size: 12px;">{best_sla['total']:,} aplikasi</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("#### Rekomendasi Cabang:")
+                variance = branch_df['approval'].std()
+                if variance > 15:
+                    st.markdown(f"""
+                    - **Gap Signifikan**: Variasi tinggi antar cabang (std dev: {variance:.1f}%)
+                    - Lakukan knowledge transfer dari cabang terbaik ke cabang lain
+                    - Standardisasi proses assessment antar cabang
+                    - Program mentoring dari CA terbaik ke CA di cabang dengan performa rendah
+                    - Review apakah ada faktor eksternal (demografi, ekonomi lokal) yang mempengaruhi
+                    """)
+                else:
+                    st.markdown(f"""
+                    - **Performa Konsisten**: Variasi rendah antar cabang (std dev: {variance:.1f}%)
+                    - Pertahankan standardisasi proses yang sudah baik
+                    - Fokus pada continuous improvement di semua cabang
+                    """)
+        
+        st.markdown("---")
+        
+        # 4. OD Impact Analysis
+        st.markdown("### 4. Dampak Keterlambatan Pembayaran (OD)")
+        
+        if 'LastOD_clean' in df_distinct.columns:
+            df_with_od = df_distinct[df_distinct['LastOD_clean'].notna()].copy()
+            df_with_od['OD_Category'] = pd.cut(
+                df_with_od['LastOD_clean'],
+                bins=[-np.inf, 0, 10, 30, np.inf],
+                labels=['Tidak Ada', '1-10 Hari', '11-30 Hari', '>30 Hari']
+            )
+            
+            od_analysis = []
+            for cat in ['Tidak Ada', '1-10 Hari', '11-30 Hari', '>30 Hari']:
+                df_od = df_with_od[df_with_od['OD_Category'] == cat]
+                if len(df_od) > 0:
+                    approve = df_od['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+                    total = len(df_od[df_od['Scoring_Detail'] != '(Semua)'])
+                    approval_pct = (approve/total*100) if total > 0 else 0
+                    
+                    od_analysis.append({
+                        'category': cat,
+                        'count': len(df_od),
+                        'approval': approval_pct
+                    })
+            
+            if od_analysis:
+                od_df = pd.DataFrame(od_analysis)
+                
+                # Create visualization
+                fig = px.line(
+                    od_df,
+                    x='category',
+                    y='approval',
+                    markers=True,
+                    title="Tingkat Persetujuan berdasarkan Riwayat Keterlambatan",
+                    labels={'category': 'Kategori OD', 'approval': 'Tingkat Persetujuan (%)'}
+                )
+                fig.update_traces(line_color='#e74c3c', marker=dict(size=12, color='#e74c3c'))
+                fig.update_layout(
+                    height=400,
+                    plot_bgcolor='#f8f9fa',
+                    paper_bgcolor='white'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Calculate correlation
+                no_od_approval = od_df[od_df['category'] == 'Tidak Ada']['approval'].values[0] if len(od_df[od_df['category'] == 'Tidak Ada']) > 0 else 0
+                high_od_approval = od_df[od_df['category'] == '>30 Hari']['approval'].values[0] if len(od_df[od_df['category'] == '>30 Hari']) > 0 else 0
+                impact = no_od_approval - high_od_approval
+                
+                st.markdown(f"""
+                <div class="info-box">
+                <h4>Key Finding</h4>
+                <p><strong>Dampak OD terhadap Approval:</strong> Nasabah tanpa riwayat keterlambatan memiliki tingkat persetujuan 
+                <strong>{impact:.1f}%</strong> lebih tinggi dibanding yang memiliki keterlambatan >30 hari.</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("#### Rekomendasi OD Management:")
+                st.markdown("""
+                - Implementasi **early warning system** untuk mendeteksi potensi keterlambatan
+                - Program **customer education** tentang pentingnya pembayaran tepat waktu
+                - Berikan **insentif** untuk nasabah dengan track record pembayaran baik
+                - **Stricter screening** untuk aplikant dengan riwayat OD tinggi
+                - Pertimbangkan **risk-based pricing** berdasarkan riwayat OD
+                """)
+        
+        st.markdown("---")
+        
+        # 5. Portfolio Quality
+        st.markdown("### 5. Kualitas Portfolio & Risk Distribution")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # OSPH Distribution
+            if 'OSPH_Category' in df_distinct.columns:
+                osph_dist = df_distinct['OSPH_Category'].value_counts()
+                
+                fig = px.pie(
+                    values=osph_dist.values,
+                    names=osph_dist.index,
+                    title="Distribusi Portfolio berdasarkan Plafon",
+                    color_discrete_sequence=['#27ae60', '#f39c12', '#e74c3c']
+                )
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Segmen Distribution
+            if 'Segmen_clean' in df_distinct.columns:
+                segmen_dist = df_distinct['Segmen_clean'].value_counts()
+                
+                fig = px.pie(
+                    values=segmen_dist.values,
+                    names=segmen_dist.index,
+                    title="Distribusi Portfolio berdasarkan Segmen",
+                    color_discrete_sequence=['#3498db', '#9b59b6', '#e67e22', '#95a5a6']
+                )
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        st.markdown("#### Rekomendasi Portfolio:")
+        st.markdown("""
+        - **Diversifikasi**: Pastikan tidak ada konsentrasi berlebih di satu segmen atau kategori plafon
+        - **Risk Balancing**: Seimbangkan portfolio antara high-value dan low-value untuk manage risk
+        - **Market Opportunity**: Identifikasi segmen dengan approval rate tinggi untuk growth
+        - **Regular Review**: Monitor portfolio quality secara berkala
+        """)
+        
+        st.markdown("---")
+        
+        # Summary Recommendations
+        st.markdown("### Ringkasan Rekomendasi Prioritas")
+        
+        st.markdown("""
+        <div class="metric-box" style="padding: 25px;">
+        <h4 style="color: #2c3e50; margin-bottom: 15px;">Action Items - Prioritas Tinggi</h4>
+        <ol style="color: #2c3e50; line-height: 2;">
+            <li><strong>Optimasi SLA:</strong> Fokus pada cabang dan CA dengan SLA di atas target</li>
+            <li><strong>Knowledge Transfer:</strong> Replikasi best practices dari top performers</li>
+            <li><strong>Quality Control:</strong> Strengthen pre-screening process untuk meningkatkan approval rate</li>
+            <li><strong>Risk Management:</strong> Implementasi stricter criteria untuk aplikant dengan high OD history</li>
+            <li><strong>Training & Development:</strong> Program capacity building untuk CA dengan performa rendah</li>
+            <li><strong>Technology:</strong> Pertimbangkan otomasi untuk proses yang repetitive untuk percepat SLA</li>
+        </ol>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # ====== TAB 8: DATA EXPORT ======
+    with tab8:
         st.markdown("## Unduh Data & Laporan")
         
         st.markdown("""
