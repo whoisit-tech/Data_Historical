@@ -39,43 +39,49 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Metric Boxes - Professional colors */
+    /* Metric Boxes - Professional colors with better contrast */
     .metric-box {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        background: #ffffff;
         padding: 20px;
         border-radius: 8px;
-        border-left: 5px solid #3498db;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 2px solid #3498db;
+        border-left: 6px solid #3498db;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
         transition: transform 0.2s;
     }
     
     .metric-box:hover {
         transform: translateY(-3px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.2);
     }
     
     .metric-box-success {
-        background: linear-gradient(135deg, #f0f9f4 0%, #d5f0e1 100%);
-        border-left: 5px solid #27ae60;
+        background: #ffffff;
+        border: 2px solid #27ae60;
+        border-left: 6px solid #27ae60;
     }
     
     .metric-box-warning {
-        background: linear-gradient(135deg, #fff9e6 0%, #ffedb3 100%);
-        border-left: 5px solid #f39c12;
+        background: #ffffff;
+        border: 2px solid #f39c12;
+        border-left: 6px solid #f39c12;
     }
     
     .metric-box-danger {
-        background: linear-gradient(135deg, #fef2f2 0%, #fcd9d9 100%);
-        border-left: 5px solid #e74c3c;
+        background: #ffffff;
+        border: 2px solid #e74c3c;
+        border-left: 6px solid #e74c3c;
     }
     
     /* Info Boxes */
     .info-box {
-        background: linear-gradient(135deg, #eef6fc 0%, #d9ebf7 100%);
+        background: #f8f9fa;
         padding: 15px;
         border-radius: 8px;
-        border-left: 4px solid #3498db;
+        border: 2px solid #3498db;
+        border-left: 5px solid #3498db;
         margin: 15px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
     /* Tables */
@@ -415,20 +421,20 @@ def main():
     with col1:
         st.markdown('<div class="metric-box">', unsafe_allow_html=True)
         st.metric("Total Catatan", f"{total_records:,}")
-        st.caption("Total semua transaksi dalam sistem")
+        st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">Total semua transaksi dalam sistem</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="metric-box-success">', unsafe_allow_html=True)
         st.metric("Aplikasi Unik", f"{unique_apps:,}")
-        st.caption("Jumlah pengajuan kredit unik")
+        st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">Jumlah pengajuan kredit unik</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="metric-box-warning">', unsafe_allow_html=True)
         sla_pct = f"{sla_with_data/total_records*100:.1f}%"
         st.metric("Data SLA Lengkap", f"{sla_with_data:,}")
-        st.caption(f"Cakupan: {sla_pct} dari total data")
+        st.markdown(f'<p style="color: #666; font-size: 14px; margin-top: 5px;">Cakupan: {sla_pct} dari total data</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col4:
@@ -438,7 +444,7 @@ def main():
             avg_formatted = convert_hours_to_hm(avg_hours)
             st.markdown('<div class="metric-box-danger">', unsafe_allow_html=True)
             st.metric("Rata-rata Waktu Proses", avg_formatted)
-            st.caption("Dari rekomendasi ke aksi")
+            st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">Dari rekomendasi ke aksi</p>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
@@ -548,33 +554,37 @@ def main():
             if len(sla_valid) > 0:
                 avg_hours = sla_valid['SLA_Hours'].mean()
                 avg_formatted = convert_hours_to_hm(avg_hours)
-                st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-                st.metric("Rata-rata", avg_formatted)
+                st.markdown('<div class="metric-box" style="text-align: center;">', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #2c3e50; margin-bottom: 10px;">Rata-rata</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #3498db; margin: 0;">{avg_formatted}</h2>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
             if len(sla_valid) > 0:
                 median_hours = sla_valid['SLA_Hours'].median()
                 median_formatted = convert_hours_to_hm(median_hours)
-                st.markdown('<div class="metric-box-success">', unsafe_allow_html=True)
-                st.metric("Nilai Tengah", median_formatted)
-                st.caption("50% data di bawah nilai ini")
+                st.markdown('<div class="metric-box-success" style="text-align: center;">', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #2c3e50; margin-bottom: 10px;">Nilai Tengah</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #27ae60; margin: 0;">{median_formatted}</h2>', unsafe_allow_html=True)
+                st.markdown('<p style="color: #666; font-size: 14px; margin-top: 5px;">50% data di bawah nilai ini</p>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         with col3:
             if len(sla_valid) > 0:
                 min_hours = sla_valid['SLA_Hours'].min()
                 min_formatted = convert_hours_to_hm(min_hours)
-                st.markdown('<div class="metric-box-success">', unsafe_allow_html=True)
-                st.metric("Tercepat", min_formatted)
+                st.markdown('<div class="metric-box-success" style="text-align: center;">', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #2c3e50; margin-bottom: 10px;">Tercepat</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #27ae60; margin: 0;">{min_formatted}</h2>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         with col4:
             if len(sla_valid) > 0:
                 max_hours = sla_valid['SLA_Hours'].max()
                 max_formatted = convert_hours_to_hm(max_hours)
-                st.markdown('<div class="metric-box-danger">', unsafe_allow_html=True)
-                st.metric("Terlama", max_formatted)
+                st.markdown('<div class="metric-box-danger" style="text-align: center;">', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #2c3e50; margin-bottom: 10px;">Terlama</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #e74c3c; margin: 0;">{max_formatted}</h2>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown("---")
@@ -732,20 +742,20 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"""
-            <div class="metric-box-success">
-            <h3>Total Aplikasi</h3>
-            <h1 style="color: #27ae60; margin: 0;">{len(apps_df):,}</h1>
-            <p>Aplikasi kredit unik dalam sistem</p>
+            <div class="metric-box-success" style="text-align: center; padding: 25px;">
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Aplikasi</h3>
+            <h1 style="color: #27ae60; margin: 10px 0; font-size: 48px;">{len(apps_df):,}</h1>
+            <p style="color: #666; font-size: 14px;">Aplikasi kredit unik dalam sistem</p>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             total_catatan = apps_df['Jumlah Catatan'].sum()
             st.markdown(f"""
-            <div class="metric-box">
-            <h3>Total Catatan</h3>
-            <h1 style="color: #3498db; margin: 0;">{total_catatan:,}</h1>
-            <p>Total transaksi dalam sistem</p>
+            <div class="metric-box" style="text-align: center; padding: 25px;">
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Catatan</h3>
+            <h1 style="color: #3498db; margin: 10px 0; font-size: 48px;">{total_catatan:,}</h1>
+            <p style="color: #666; font-size: 14px;">Total transaksi dalam sistem</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -789,36 +799,36 @@ def main():
                     with col1:
                         segmen = app_records['Segmen_clean'].iloc[0] if 'Segmen_clean' in app_records.columns else 'N/A'
                         st.markdown(f"""
-                        <div class="metric-box">
-                        <h4>Segmen</h4>
-                        <h3>{segmen}</h3>
+                        <div class="metric-box" style="text-align: center; padding: 20px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 10px;">Segmen</h4>
+                        <h3 style="color: #3498db; margin: 0;">{segmen}</h3>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with col2:
                         osph = app_records['OSPH_Category'].iloc[0] if 'OSPH_Category' in app_records.columns else 'N/A'
                         st.markdown(f"""
-                        <div class="metric-box-warning">
-                        <h4>Plafon</h4>
-                        <h3>{osph}</h3>
+                        <div class="metric-box-warning" style="text-align: center; padding: 20px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 10px;">Plafon</h4>
+                        <h3 style="color: #f39c12; margin: 0;">{osph}</h3>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with col3:
                         branch = app_records['branch_name_clean'].iloc[0] if 'branch_name_clean' in app_records.columns else 'N/A'
                         st.markdown(f"""
-                        <div class="metric-box-success">
-                        <h4>Cabang</h4>
-                        <h3>{branch}</h3>
+                        <div class="metric-box-success" style="text-align: center; padding: 20px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 10px;">Cabang</h4>
+                        <h3 style="color: #27ae60; margin: 0;">{branch}</h3>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with col4:
                         ca = app_records['user_name_clean'].iloc[0] if 'user_name_clean' in app_records.columns else 'N/A'
                         st.markdown(f"""
-                        <div class="metric-box">
-                        <h4>CA</h4>
-                        <h3>{ca}</h3>
+                        <div class="metric-box" style="text-align: center; padding: 20px;">
+                        <h4 style="color: #2c3e50; margin-bottom: 10px;">CA</h4>
+                        <h3 style="color: #3498db; margin: 0;">{ca}</h3>
                         </div>
                         """, unsafe_allow_html=True)
                     
@@ -1419,17 +1429,17 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"""
-            <div class="metric-box-success">
-            <h3>Total Aplikasi Unik</h3>
-            <h1 style="color: #27ae60; margin: 0;">{total_apps_distinct:,}</h1>
+            <div class="metric-box-success" style="text-align: center; padding: 25px;">
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Aplikasi Unik</h3>
+            <h1 style="color: #27ae60; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
-            <div class="metric-box">
-            <h3>Total Catatan</h3>
-            <h1 style="color: #3498db; margin: 0;">{total_records:,}</h1>
+            <div class="metric-box" style="text-align: center; padding: 25px;">
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Catatan</h3>
+            <h1 style="color: #3498db; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1495,17 +1505,17 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"""
-            <div class="metric-box-success">
-            <h3>Total Aplikasi Unik</h3>
-            <h1 style="color: #27ae60; margin: 0;">{total_apps_distinct:,}</h1>
+            <div class="metric-box-success" style="text-align: center; padding: 25px;">
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Aplikasi Unik</h3>
+            <h1 style="color: #27ae60; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
-            <div class="metric-box">
-            <h3>Total Catatan</h3>
-            <h1 style="color: #3498db; margin: 0;">{total_records:,}</h1>
+            <div class="metric-box" style="text-align: center; padding: 25px;">
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">Total Catatan</h3>
+            <h1 style="color: #3498db; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
             </div>
             """, unsafe_allow_html=True)
         
@@ -1680,9 +1690,9 @@ def main():
         
         with col1:
             st.markdown("""
-            <div class="metric-box-success">
-            <h4>Data Lengkap</h4>
-            <p>Unduh semua data yang sudah difilter dalam format CSV</p>
+            <div class="metric-box-success" style="padding: 20px;">
+            <h4 style="color: #2c3e50; margin-bottom: 10px;">Data Lengkap</h4>
+            <p style="color: #666;">Unduh semua data yang sudah difilter dalam format CSV</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1697,9 +1707,9 @@ def main():
         
         with col2:
             st.markdown("""
-            <div class="metric-box">
-            <h4>Ringkasan Statistik</h4>
-            <p>Unduh metrik utama dan ringkasan dalam format CSV</p>
+            <div class="metric-box" style="padding: 20px;">
+            <h4 style="color: #2c3e50; margin-bottom: 10px;">Ringkasan Statistik</h4>
+            <p style="color: #666;">Unduh metrik utama dan ringkasan dalam format CSV</p>
             </div>
             """, unsafe_allow_html=True)
             
