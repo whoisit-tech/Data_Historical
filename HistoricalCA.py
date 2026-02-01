@@ -579,31 +579,62 @@ def preprocess_data(df):
     
     return df
 
+calculate_sla_per_status yang lama) ==========
+
 def calculate_sla_per_status(df):
-    """Calculate SLA from Recommendation to action_on"""
+    """
+    Calculate SLA correctly based on progression:
+    - If only 1 row for an apps_id: Recommendation to action_on (same row)
+    - If multiple rows: From previous row's action_on to current row's action_on
+    """
     df_with_sla = df.copy()
     
-    sla_hours_list = []
-    sla_formatted_list = []
+    # Sort by apps_id and action_on
+    df_with_sla = df_with_sla.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
     
-    for idx, row in df_with_sla.iterrows():
-        recommendation_time = row.get('Recommendation_parsed')
-        action_time = row.get('action_on_parsed')
+    # Initialize columns
+    df_with_sla['SLA_Hours'] = None
+    df_with_sla['SLA_Formatted'] = None
+    df_with_sla['SLA_From'] = None  # KOLOM BARU
+    df_with_sla['SLA_To'] = None    # KOLOM BARU
+    
+    # Group by apps_id
+    for apps_id, group in df_with_sla.groupby('apps_id'):
+        indices = group.index.tolist()
         
-        if pd.notna(recommendation_time) and pd.notna(action_time):
-            sla_result = calculate_sla_working_hours(recommendation_time, action_time)
-            if sla_result:
-                sla_hours_list.append(sla_result['total_hours'])
-                sla_formatted_list.append(sla_result['formatted'])
+        for i, idx in enumerate(indices):
+            if len(indices) == 1:
+                # Single row: Recommendation to action_on
+                recommendation_time = df_with_sla.loc[idx, 'Recommendation_parsed']
+                action_time = df_with_sla.loc[idx, 'action_on_parsed']
+                from_label = 'Recommendation'
+                to_label = 'Action'
             else:
-                sla_hours_list.append(None)
-                sla_formatted_list.append(None)
-        else:
-            sla_hours_list.append(None)
-            sla_formatted_list.append(None)
-    
-    df_with_sla['SLA_Hours'] = sla_hours_list
-    df_with_sla['SLA_Formatted'] = sla_formatted_list
+                # Multiple rows
+                if i == 0:
+                    # First row: Recommendation to action_on
+                    recommendation_time = df_with_sla.loc[idx, 'Recommendation_parsed']
+                    action_time = df_with_sla.loc[idx, 'action_on_parsed']
+                    from_label = 'Recommendation'
+                    to_label = 'Action'
+                else:
+                    # Subsequent rows: Previous action_on to current action_on
+                    prev_idx = indices[i - 1]
+                    recommendation_time = df_with_sla.loc[prev_idx, 'action_on_parsed']
+                    action_time = df_with_sla.loc[idx, 'action_on_parsed']
+                    prev_status = df_with_sla.loc[prev_idx, 'apps_status_clean']
+                    curr_status = df_with_sla.loc[idx, 'apps_status_clean']
+                    from_label = f"{prev_status}"
+                    to_label = f"{curr_status}"
+            
+            if pd.notna(recommendation_time) and pd.notna(action_time):
+                sla_result = calculate_sla_working_hours(recommendation_time, action_time)
+                if sla_result:
+                    df_with_sla.loc[idx, 'SLA_Hours'] = sla_result['total_hours']
+                    df_with_sla.loc[idx, 'SLA_Formatted'] = sla_result['formatted']
+            
+            df_with_sla.loc[idx, 'SLA_From'] = from_label
+            df_with_sla.loc[idx, 'SLA_To'] = to_label
     
     return df_with_sla
 
