@@ -801,14 +801,14 @@ def main():
     
     # TABS
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-        " Waktu Proses",
-        " Data Detail",
-        " Analisis Plafon",
-        " Kinerja Cabang & CA",
-        " Status & Penilaian",
-        " Dampak Keterlambatan",
-        " Insights & Rekomendasi",
-        " Unduh Data"
+        "⏱ Waktu Proses",
+        "📋 Data Detail",
+        "💰 Analisis Plafon",
+        "🏆 Kinerja Cabang & CA",
+        "✅ Status & Penilaian",
+        "⚠ Dampak Keterlambatan",
+        "💡 Insights & Rekomendasi",
+        "📥 Unduh Data"
     ])
 
     # ====== TAB 1: SLA ANALYSIS ======
@@ -1175,7 +1175,7 @@ def main():
         <p>Analisis ini mengelompokkan aplikasi berdasarkan:</p>
         <ul>
             <li><strong>Kategori Plafon</strong>: 0-250 Juta, 250-500 Juta, dan >500 Juta</li>
-            <li><strong>Dimensi Analisis</strong>: Pekerjaan, Status Aplikasi, dan Jenis Kendaraan</li>
+            <li><strong>Dimensi Analisis</strong>: Pekerjaan, Status Aplikasi, Jenis Kendaraan, dan Hasil Scoring</li>
         </ul>
         <p><strong>Catatan:</strong> Perhitungan berdasarkan aplikasi unik (bukan duplikasi)</p>
         </div>
@@ -1187,10 +1187,11 @@ def main():
         osph_order = ['0 - 250 Juta', '250 - 500 Juta', 'Lebih dari 500 Juta']
         
         # Create subtabs for different analyses
-        subtab1, subtab2, subtab3 = st.tabs([
-            "Berdasarkan Pekerjaan",
-            "Berdasarkan Status",
-            "Berdasarkan Jenis Kendaraan"
+        subtab1, subtab2, subtab3, subtab4 = st.tabs([
+            "📊 Berdasarkan Pekerjaan",
+            "📊 Berdasarkan Status",
+            "📊 Berdasarkan Jenis Kendaraan",
+            "📊 Berdasarkan Hasil Scoring"
         ])
         
         # SUBTAB 1: BY PEKERJAAN
@@ -1513,13 +1514,128 @@ def main():
                     st.info(f"Tidak ada data untuk Segmen {segmen}")
                 
                 st.markdown("---")
+        
+        # SUBTAB 4: BY HASIL SCORING (NEW)
+        with subtab4:
+            st.markdown("### Analisis Plafon Berdasarkan Hasil Scoring")
+            
+            # Get top scoring results
+            top_scoring = df_filtered.drop_duplicates('apps_id')['Scoring_Detail'].value_counts().head(10).index.tolist()
+            
+            # Create pivot tables for each segment
+            for idx, segmen in enumerate(['-', 'KKB', 'CS NEW', 'CS USED']):
+                if idx == 0:
+                    header_color = "metric-box"
+                elif idx == 1:
+                    header_color = "metric-box-success"
+                elif idx == 2:
+                    header_color = "metric-box-warning"
+                else:
+                    header_color = "metric-box-danger"
+                
+                st.markdown(f"""
+                <div class="{header_color}">
+                <h3>Segmen: {segmen if segmen != '-' else 'Lainnya'}</h3>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                df_segmen = df_filtered[df_filtered['Segmen_clean'] == segmen].drop_duplicates('apps_id')
+                
+                total_apps = len(df_segmen)
+                total_records = len(df_filtered[df_filtered['Segmen_clean'] == segmen])
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Total Aplikasi Unik", f"{total_apps:,}")
+                with col2:
+                    st.metric("Total Catatan", f"{total_records:,}")
+                
+                if len(df_segmen) > 0:
+                    # Create pivot: OSPH Range x Hasil Scoring
+                    pivot_data = []
+                    
+                    for osph_range in osph_order:
+                        df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
+                        
+                        row = {'Kategori Plafon': osph_range}
+                        
+                        for scoring in top_scoring:
+                            count = len(df_osph[df_osph['Scoring_Detail'] == scoring])
+                            row[scoring] = count if count > 0 else 0
+                        
+                        row['TOTAL'] = len(df_osph)
+                        
+                        pivot_data.append(row)
+                    
+                    # Add TOTAL row
+                    total_row = {'Kategori Plafon': 'TOTAL SEMUA'}
+                    for scoring in top_scoring:
+                        count = len(df_segmen[df_segmen['Scoring_Detail'] == scoring])
+                        total_row[scoring] = count if count > 0 else 0
+                    total_row['TOTAL'] = len(df_segmen)
+                    pivot_data.append(total_row)
+                    
+                    pivot_df = pd.DataFrame(pivot_data)
+                    
+                    st.dataframe(pivot_df, use_container_width=True, hide_index=True, height=300)
+                    
+                    # Visualization
+                    pivot_plot = pivot_df[pivot_df['Kategori Plafon'] != 'TOTAL SEMUA'].copy()
+                    
+                    if len(pivot_plot) > 0:
+                        plot_data = []
+                        for _, row in pivot_plot.iterrows():
+                            osph = row['Kategori Plafon']
+                            for col in pivot_plot.columns:
+                                if col not in ['Kategori Plafon', 'TOTAL'] and row[col] > 0:
+                                    plot_data.append({
+                                        'Kategori Plafon': osph,
+                                        'Hasil Scoring': col,
+                                        'Jumlah': row[col]
+                                    })
+                        
+                        if plot_data:
+                            plot_df = pd.DataFrame(plot_data)
+                            fig = px.bar(
+                                plot_df,
+                                x='Kategori Plafon',
+                                y='Jumlah',
+                                color='Hasil Scoring',
+                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
+                                barmode='group',
+                                color_discrete_sequence=px.colors.qualitative.Vivid
+                            )
+                            fig.update_layout(
+                                height=450,
+                                plot_bgcolor='#1e2129',
+                                paper_bgcolor='#1e2129',
+                                showlegend=True,
+                                font=dict(family='Arial', size=13, color='#e0e0e0'),
+                                title_font_size=16,
+                                title_font_color='#ffffff',
+                                xaxis=dict(
+                                    showgrid=False,
+                                    title_font_size=14,
+                                    tickangle=-45
+                                ),
+                                yaxis=dict(
+                                    showgrid=True,
+                                    gridcolor='#2d3139',
+                                    title_font_size=14
+                                )
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info(f"Tidak ada data untuk Segmen {segmen}")
+                
+                st.markdown("---")
 
     
     # ====== TAB 4: BRANCH & CA PERFORMANCE ======
     with tab4:
         st.markdown("## Analisis Kinerja Cabang & Credit Analyst")
         
-        subtab1, subtab2 = st.tabs(["Kinerja Cabang", "Kinerja Credit Analyst"])
+        subtab1, subtab2 = st.tabs(["🏢 Kinerja Cabang", "👤 Kinerja Credit Analyst"])
         
         # Branch Performance
         with subtab1:
