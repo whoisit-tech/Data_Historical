@@ -17,10 +17,10 @@ st.set_page_config(
 FILE_NAME = "Historical_CA (1) (1).xlsx"
 
 # BCA Finance Brand Colors
-BCA_BLUE = "#003d7a"  # BCA Primary Blue
-BCA_LIGHT_BLUE = "#0066b3"  # BCA Light Blue
-BCA_ACCENT = "#1e88e5"  # Accent Blue
-BCA_GOLD = "#d4af37"  # Gold accent
+BCA_BLUE = "#003d7a"
+BCA_LIGHT_BLUE = "#0066b3"
+BCA_ACCENT = "#1e88e5"
+BCA_GOLD = "#d4af37"
 
 def get_base64_image(image_path):
     """Convert image to base64 for embedding in HTML"""
@@ -70,6 +70,7 @@ st.markdown("""
         border-left: 6px solid #0066b3;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         transition: transform 0.2s;
+        margin-bottom: 10px;
     }
     
     .metric-box:hover {
@@ -82,6 +83,9 @@ st.markdown("""
         border: 2px solid #e0e0e0;
         border-left: 6px solid #1e88e5;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
     }
     
     .metric-box-warning {
@@ -89,6 +93,9 @@ st.markdown("""
         border: 2px solid #e0e0e0;
         border-left: 6px solid #ff9800;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
     }
     
     .metric-box-danger {
@@ -96,6 +103,9 @@ st.markdown("""
         border: 2px solid #e0e0e0;
         border-left: 6px solid #f44336;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
     }
     
     .info-box {
@@ -222,22 +232,6 @@ st.markdown("""
         font-weight: 600;
     }
     
-    .stSelectbox [data-baseweb="select"] {
-        border-color: #0066b3;
-    }
-    
-    .stMultiSelect [data-baseweb="select"] {
-        border-color: #0066b3;
-    }
-    
-    p, span, div {
-        color: #333333 !important;
-    }
-    
-    .stCaption {
-        color: #666666 !important;
-    }
-    
     .header-container {
         background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%);
         padding: 35px;
@@ -257,47 +251,13 @@ st.markdown("""
         font-size: 16px;
         margin-top: 10px;
     }
+    
+    /* Fix for plotly charts */
+    .js-plotly-plot, .plotly {
+        background-color: white !important;
+    }
 </style>
 """, unsafe_allow_html=True)
-
-# ========================================
-# SNIPPET 4: HEADER DENGAN LOGO ASLI
-# Cari bagian "def main():" dan ganti bagian header
-# Sekitar baris 542-571
-# GANTI dengan:
-# ========================================
-
-def main():
-    """Main Streamlit application"""
-    
-    # BCA Finance Header with REAL LOGO
-    logo_path = "/mnt/user-data/uploads/BCA_Finance_Logo__1_.png"
-    logo_base64 = get_base64_image(logo_path)
-    
-    if logo_base64:
-        st.markdown(f"""
-        <div class="header-container">
-            <div style="display: flex; align-items: center; justify-content: center; gap: 30px; flex-wrap: wrap;">
-                <div style="background: white; padding: 15px 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                    <img src="data:image/png;base64,{logo_base64}" style="height: 60px; width: auto;">
-                </div>
-                <div style="text-align: center;">
-                    <h1 style="margin: 0; font-size: 42px; letter-spacing: 1px; color: white !important;">Dashboard Analisis Pengajuan Kredit</h1>
-                    <p style="color: #e3f2fd !important; margin-top: 12px; font-size: 17px;">Monitoring & Evaluasi Kinerja Credit Analyst</p>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div class="header-container">
-            <div style="text-align: center;">
-                <h1 style="margin: 0; font-size: 42px; letter-spacing: 1px; color: white !important;">Dashboard Analisis Pengajuan Kredit</h1>
-                <p style="color: #e3f2fd !important; margin-top: 12px; font-size: 17px;">BCA Finance - Monitoring & Evaluasi Kinerja Credit Analyst</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
 
 # ============================================================================
 # TANGGAL MERAH (Holidays)
@@ -364,13 +324,7 @@ def convert_hours_to_hm(total_hours):
     return f"{hours} jam {minutes} menit"
 
 def calculate_sla_working_hours(start_dt, end_dt):
-    """
-    Calculate SLA in working hours (08:30-15:30)
-    
-    Args:
-        start_dt: Start datetime (Recommendation)
-        end_dt: End datetime (Action)
-    """
+    """Calculate SLA in working hours (08:30-15:30)"""
     if not start_dt or not end_dt or pd.isna(start_dt) or pd.isna(end_dt):
         return None
     
@@ -516,7 +470,7 @@ def preprocess_data(df):
     return df
 
 def calculate_sla_per_status(df):
-    """Calculate SLA from Recommendation to action_on (with 08:30-15:30 limit)"""
+    """Calculate SLA from Recommendation to action_on"""
     df_with_sla = df.copy()
     
     sla_hours_list = []
@@ -581,25 +535,33 @@ def load_data():
 def main():
     """Main Streamlit application"""
     
-    # BCA Finance Header with Logo
-    st.markdown("""
-    <div class="header-container">
-        <div style="display: flex; align-items: center; justify-content: center; gap: 30px; flex-wrap: wrap;">
-            <div style="background: white; padding: 15px 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                <svg width="120" height="50" viewBox="0 0 120 50" xmlns="http://www.w3.org/2000/svg">
-                    <!-- BCA Letters -->
-                    <text x="10" y="35" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="#003d7a">BCA</text>
-                    <!-- Finance Text -->
-                    <text x="10" y="48" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#0066b3">FINANCE</text>
-                </svg>
-            </div>
-            <div style="text-align: center;">
-                <h1 style="margin: 0; font-size: 38px; letter-spacing: 1px;">Dashboard Analisis Pengajuan Kredit</h1>
-                <p style="color: #e3f2fd; margin-top: 10px; font-size: 16px;">Monitoring & Evaluasi Kinerja Credit Analyst</p>
+    # BCA Finance Header with REAL LOGO
+    logo_path = "/mnt/user-data/uploads/BCA_Finance_Logo__1_.png"
+    logo_base64 = get_base64_image(logo_path)
+    
+    if logo_base64:
+        st.markdown(f"""
+        <div class="header-container">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 30px; flex-wrap: wrap;">
+                <div style="background: white; padding: 15px 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                    <img src="data:image/png;base64,{logo_base64}" style="height: 60px; width: auto;">
+                </div>
+                <div style="text-align: center;">
+                    <h1 style="margin: 0; font-size: 42px; letter-spacing: 1px; color: white !important;">Dashboard Analisis Pengajuan Kredit</h1>
+                    <p style="color: #e3f2fd !important; margin-top: 12px; font-size: 17px;">Monitoring & Evaluasi Kinerja Credit Analyst</p>
+                </div>
             </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="header-container">
+            <div style="text-align: center;">
+                <h1 style="margin: 0; font-size: 42px; letter-spacing: 1px; color: white !important;">Dashboard Analisis Pengajuan Kredit</h1>
+                <p style="color: #e3f2fd !important; margin-top: 12px; font-size: 17px;">BCA Finance - Monitoring & Evaluasi Kinerja Credit Analyst</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -717,15 +679,11 @@ def main():
     st.sidebar.info(f"**{df_filtered['apps_id'].nunique():,}** aplikasi unik")
     
     # TABS
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-        "Waktu Proses",
-        "Data Detail",
-        "Analisis Plafon",
-        "Kinerja Cabang & CA",
-        "Status & Penilaian",
-        "Dampak Keterlambatan",
-        "Insights & Rekomendasi",
-        "Unduh Data"
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📊 Waktu Proses",
+        "📋 Data Detail",
+        "💰 Analisis Plafon",
+        "🎯 Kinerja & Insights"
     ])
 
     # ====== TAB 1: SLA ANALYSIS ======
@@ -859,7 +817,7 @@ def main():
                 yaxis_title="Waktu Proses (Jam Kerja)",
                 hovermode='x unified',
                 height=500,
-                plot_bgcolor='#fafafa',
+                plot_bgcolor='white',
                 paper_bgcolor='white',
                 font=dict(family='Arial', size=13, color='#333333'),
                 xaxis=dict(
@@ -1090,1319 +1048,253 @@ def main():
         <div class="info-box">
         <h4>Penjelasan Analisis</h4>
         <p><strong>OSPH (Outstanding Plafon Hutang)</strong> adalah total plafon kredit yang tersedia untuk nasabah.</p>
-        <p>Analisis ini mengelompokkan aplikasi berdasarkan:</p>
-        <ul>
-            <li><strong>Kategori Plafon</strong>: 0-250 Juta, 250-500 Juta, dan >500 Juta</li>
-            <li><strong>Dimensi Analisis</strong>: Pekerjaan, Status Aplikasi, dan Jenis Kendaraan</li>
-        </ul>
-        <p><strong>Catatan:</strong> Perhitungan berdasarkan aplikasi unik (bukan duplikasi)</p>
+        <p>Analisis ini mengelompokkan aplikasi berdasarkan kategori plafon dan berbagai dimensi bisnis.</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.markdown("---")
         
         # Define OSPH ranges order
         osph_order = ['0 - 250 Juta', '250 - 500 Juta', 'Lebih dari 500 Juta']
         
-        # Create subtabs for different analyses
-        subtab1, subtab2, subtab3 = st.tabs([
-            "Berdasarkan Pekerjaan",
-            "Berdasarkan Status",
-            "Berdasarkan Jenis Kendaraan"
-        ])
-        
-        # SUBTAB 1: BY PEKERJAAN
-        with subtab1:
-            st.markdown("### Analisis Plafon Berdasarkan Pekerjaan")
-            
-            # Get top pekerjaan
-            top_pekerjaan = df_filtered.drop_duplicates('apps_id')['Pekerjaan_clean'].value_counts().head(10).index.tolist()
-            
-            # Create pivot tables for each segment
-            for idx, segmen in enumerate(['-', 'KKB', 'CS NEW', 'CS USED']):
-                # Color coding for different segments
-                if idx == 0:
-                    header_color = "metric-box"
-                elif idx == 1:
-                    header_color = "metric-box-success"
-                elif idx == 2:
-                    header_color = "metric-box-warning"
-                else:
-                    header_color = "metric-box-danger"
-                
-                st.markdown(f"""
-                <div class="{header_color}">
-                <h3>Segmen: {segmen if segmen != '-' else 'Lainnya'}</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                df_segmen = df_filtered[df_filtered['Segmen_clean'] == segmen].drop_duplicates('apps_id')
-                
-                total_apps = len(df_segmen)
-                total_records = len(df_filtered[df_filtered['Segmen_clean'] == segmen])
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Total Aplikasi Unik", f"{total_apps:,}")
-                with col2:
-                    st.metric("Total Catatan", f"{total_records:,}")
-                
-                if len(df_segmen) > 0:
-                    # Create pivot: OSPH Range x Pekerjaan
-                    pivot_data = []
-                    
-                    for osph_range in osph_order:
-                        df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
-                        
-                        row = {'Kategori Plafon': osph_range}
-                        
-                        for pekerjaan in top_pekerjaan:
-                            count = len(df_osph[df_osph['Pekerjaan_clean'] == pekerjaan])
-                            row[pekerjaan] = count if count > 0 else 0
-                        
-                        # Add total
-                        row['TOTAL'] = len(df_osph)
-                        
-                        pivot_data.append(row)
-                    
-                    # Add TOTAL row
-                    total_row = {'Kategori Plafon': 'TOTAL SEMUA'}
-                    for pekerjaan in top_pekerjaan:
-                        count = len(df_segmen[df_segmen['Pekerjaan_clean'] == pekerjaan])
-                        total_row[pekerjaan] = count if count > 0 else 0
-                    total_row['TOTAL'] = len(df_segmen)
-                    pivot_data.append(total_row)
-                    
-                    pivot_df = pd.DataFrame(pivot_data)
-                    
-                    st.dataframe(pivot_df, use_container_width=True, hide_index=True, height=300)
-                    
-                    # Visualization
-                    pivot_plot = pivot_df[pivot_df['Kategori Plafon'] != 'TOTAL SEMUA'].copy()
-                    
-                    if len(pivot_plot) > 0:
-                        plot_data = []
-                        for _, row in pivot_plot.iterrows():
-                            osph = row['Kategori Plafon']
-                            for col in pivot_plot.columns:
-                                if col not in ['Kategori Plafon', 'TOTAL'] and row[col] > 0:
-                                    plot_data.append({
-                                        'Kategori Plafon': osph,
-                                        'Pekerjaan': col,
-                                        'Jumlah': row[col]
-                                    })
-                        
-                        if plot_data:
-                            plot_df = pd.DataFrame(plot_data)
-                            fig = px.bar(
-                                plot_df,
-                                x='Kategori Plafon',
-                                y='Jumlah',
-                                color='Pekerjaan',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
-                                barmode='group',
-                                color_discrete_sequence=px.colors.qualitative.Set3
-                            )
-                            fig.update_layout(
-                                height=400,
-                                plot_bgcolor='#f8f9fa',
-                                paper_bgcolor='white',
-                                font=dict(family='Arial', size=12)
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info(f"Tidak ada data untuk Segmen {segmen}")
-                
-                st.markdown("---")
-        
-        # SUBTAB 2: BY STATUS
-        with subtab2:
-            st.markdown("### Analisis Plafon Berdasarkan Status Aplikasi")
-            
-            # Get top status
-            top_status = df_filtered.drop_duplicates('apps_id')['apps_status_clean'].value_counts().head(10).index.tolist()
-            
-            # Create pivot tables for each segment
-            for idx, segmen in enumerate(['-', 'KKB', 'CS NEW', 'CS USED']):
-                if idx == 0:
-                    header_color = "metric-box"
-                elif idx == 1:
-                    header_color = "metric-box-success"
-                elif idx == 2:
-                    header_color = "metric-box-warning"
-                else:
-                    header_color = "metric-box-danger"
-                
-                st.markdown(f"""
-                <div class="{header_color}">
-                <h3>Segmen: {segmen if segmen != '-' else 'Lainnya'}</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                df_segmen = df_filtered[df_filtered['Segmen_clean'] == segmen].drop_duplicates('apps_id')
-                
-                total_apps = len(df_segmen)
-                total_records = len(df_filtered[df_filtered['Segmen_clean'] == segmen])
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Total Aplikasi Unik", f"{total_apps:,}")
-                with col2:
-                    st.metric("Total Catatan", f"{total_records:,}")
-                
-                if len(df_segmen) > 0:
-                    # Create pivot: OSPH Range x Status
-                    pivot_data = []
-                    
-                    for osph_range in osph_order:
-                        df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
-                        
-                        row = {'Kategori Plafon': osph_range}
-                        
-                        for status in top_status:
-                            count = len(df_osph[df_osph['apps_status_clean'] == status])
-                            row[status] = count if count > 0 else 0
-                        
-                        row['TOTAL'] = len(df_osph)
-                        
-                        pivot_data.append(row)
-                    
-                    # Add TOTAL row
-                    total_row = {'Kategori Plafon': 'TOTAL SEMUA'}
-                    for status in top_status:
-                        count = len(df_segmen[df_segmen['apps_status_clean'] == status])
-                        total_row[status] = count if count > 0 else 0
-                    total_row['TOTAL'] = len(df_segmen)
-                    pivot_data.append(total_row)
-                    
-                    pivot_df = pd.DataFrame(pivot_data)
-                    
-                    st.dataframe(pivot_df, use_container_width=True, hide_index=True, height=300)
-                    
-                    # Visualization
-                    pivot_plot = pivot_df[pivot_df['Kategori Plafon'] != 'TOTAL SEMUA'].copy()
-                    
-                    if len(pivot_plot) > 0:
-                        plot_data = []
-                        for _, row in pivot_plot.iterrows():
-                            osph = row['Kategori Plafon']
-                            for col in pivot_plot.columns:
-                                if col not in ['Kategori Plafon', 'TOTAL'] and row[col] > 0:
-                                    plot_data.append({
-                                        'Kategori Plafon': osph,
-                                        'Status': col,
-                                        'Jumlah': row[col]
-                                    })
-                        
-                        if plot_data:
-                            plot_df = pd.DataFrame(plot_data)
-                            fig = px.bar(
-                                plot_df,
-                                x='Kategori Plafon',
-                                y='Jumlah',
-                                color='Status',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
-                                barmode='group',
-                                color_discrete_sequence=px.colors.qualitative.Pastel
-                            )
-                            fig.update_layout(
-                                height=400,
-                                plot_bgcolor='#f8f9fa',
-                                paper_bgcolor='white',
-                                font=dict(family='Arial', size=12)
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info(f"Tidak ada data untuk Segmen {segmen}")
-                
-                st.markdown("---")
-        
-        # SUBTAB 3: BY JENIS KENDARAAN
-        with subtab3:
-            st.markdown("### Analisis Plafon Berdasarkan Jenis Kendaraan")
-            
-            # Get top jenis kendaraan
-            top_kendaraan = df_filtered.drop_duplicates('apps_id')['JenisKendaraan_clean'].value_counts().head(10).index.tolist()
-            
-            # Create pivot tables for each segment
-            for idx, segmen in enumerate(['-', 'KKB', 'CS NEW', 'CS USED']):
-                if idx == 0:
-                    header_color = "metric-box"
-                elif idx == 1:
-                    header_color = "metric-box-success"
-                elif idx == 2:
-                    header_color = "metric-box-warning"
-                else:
-                    header_color = "metric-box-danger"
-                
-                st.markdown(f"""
-                <div class="{header_color}">
-                <h3>Segmen: {segmen if segmen != '-' else 'Lainnya'}</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                df_segmen = df_filtered[df_filtered['Segmen_clean'] == segmen].drop_duplicates('apps_id')
-                
-                total_apps = len(df_segmen)
-                total_records = len(df_filtered[df_filtered['Segmen_clean'] == segmen])
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Total Aplikasi Unik", f"{total_apps:,}")
-                with col2:
-                    st.metric("Total Catatan", f"{total_records:,}")
-                
-                if len(df_segmen) > 0:
-                    # Create pivot: OSPH Range x Jenis Kendaraan
-                    pivot_data = []
-                    
-                    for osph_range in osph_order:
-                        df_osph = df_segmen[df_segmen['OSPH_Category'] == osph_range]
-                        
-                        row = {'Kategori Plafon': osph_range}
-                        
-                        for kendaraan in top_kendaraan:
-                            count = len(df_osph[df_osph['JenisKendaraan_clean'] == kendaraan])
-                            row[kendaraan] = count if count > 0 else 0
-                        
-                        row['TOTAL'] = len(df_osph)
-                        
-                        pivot_data.append(row)
-                    
-                    # Add TOTAL row
-                    total_row = {'Kategori Plafon': 'TOTAL SEMUA'}
-                    for kendaraan in top_kendaraan:
-                        count = len(df_segmen[df_segmen['JenisKendaraan_clean'] == kendaraan])
-                        total_row[kendaraan] = count if count > 0 else 0
-                    total_row['TOTAL'] = len(df_segmen)
-                    pivot_data.append(total_row)
-                    
-                    pivot_df = pd.DataFrame(pivot_data)
-                    
-                    st.dataframe(pivot_df, use_container_width=True, hide_index=True, height=300)
-                    
-                    # Visualization
-                    pivot_plot = pivot_df[pivot_df['Kategori Plafon'] != 'TOTAL SEMUA'].copy()
-                    
-                    if len(pivot_plot) > 0:
-                        plot_data = []
-                        for _, row in pivot_plot.iterrows():
-                            osph = row['Kategori Plafon']
-                            for col in pivot_plot.columns:
-                                if col not in ['Kategori Plafon', 'TOTAL'] and row[col] > 0:
-                                    plot_data.append({
-                                        'Kategori Plafon': osph,
-                                        'Jenis Kendaraan': col,
-                                        'Jumlah': row[col]
-                                    })
-                        
-                        if plot_data:
-                            plot_df = pd.DataFrame(plot_data)
-                            fig = px.bar(
-                                plot_df,
-                                x='Kategori Plafon',
-                                y='Jumlah',
-                                color='Jenis Kendaraan',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
-                                barmode='group',
-                                color_discrete_sequence=px.colors.qualitative.Safe
-                            )
-                            fig.update_traces(textposition='outside')  # Tambahkan ini jika belum ada
-            
-                            fig.update_layout(
-                                height=450,
-                                plot_bgcolor='#fafafa',
-                                paper_bgcolor='white',
-                                showlegend=False,  # atau True jika perlu legend
-                                font=dict(family='Arial', size=13, color='#333333'),
-                                title_font_size=16,
-                                title_font_color='#003d7a',
-                                xaxis=dict(
-                                    showgrid=False,
-                                    title_font_size=14,
-                                    tickangle=-45  # Tambahkan jika label panjang
-                                ),
-                                yaxis=dict(
-                                    showgrid=True,
-                                    gridcolor='#e0e0e0',
-                                    title_font_size=14
-                                )
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info(f"Tidak ada data untuk Segmen {segmen}")
-                
-                st.markdown("---")
-    
-    # ====== TAB 4: BRANCH & CA PERFORMANCE ======
-    with tab4:
-        st.markdown("## Analisis Kinerja Cabang & Credit Analyst")
-        
-        subtab1, subtab2 = st.tabs(["Kinerja Cabang", "Kinerja Credit Analyst"])
-        
-        # Branch Performance
-        with subtab1:
-            st.markdown("""
-            <div class="info-box">
-            <h4>Penjelasan Metrik Kinerja Cabang</h4>
-            <ul>
-                <li><strong>Total Aplikasi Unik</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
-                <li><strong>Tingkat Persetujuan</strong>: Persentase aplikasi yang disetujui</li>
-                <li><strong>Waktu Proses Rata-rata</strong>: Durasi proses kredit dalam jam kerja</li>
-                <li><strong>Total Plafon</strong>: Akumulasi nilai plafon kredit</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if 'branch_name_clean' in df_filtered.columns:
-                branch_perf = []
-                
-                for branch in sorted(df_filtered['branch_name_clean'].unique()):
-                    if branch == 'Tidak Diketahui':
-                        continue
-                    
-                    df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
-                    df_branch_distinct = df_branch.drop_duplicates('apps_id')
-                    
-                    total_apps = len(df_branch_distinct)
-                    total_records = len(df_branch)
-                    
-                    approve = df_branch_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                    total_scored = len(df_branch_distinct[df_branch_distinct['Scoring_Detail'] != '(Semua)'])
-                    approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
-                    
-                    branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
-                    avg_sla = convert_hours_to_hm(branch_sla['SLA_Hours'].mean()) if len(branch_sla) > 0 else "-"
-                    
-                    total_osph = df_branch_distinct['OSPH_clean'].sum()
-                    
-                    branch_perf.append({
-                        'Cabang': branch,
-                        'Total Aplikasi Unik': total_apps,
-                        'Total Catatan': total_records,
-                        'Disetujui': approve,
-                        'Tingkat Persetujuan': approval_pct,
-                        'Waktu Proses Rata-rata': avg_sla,
-                        'Total Plafon': f"Rp {total_osph:,.0f}"
-                    })
-                
-                branch_df = pd.DataFrame(branch_perf).sort_values('Total Aplikasi Unik', ascending=False)
-                
-                st.markdown("### Tabel Kinerja Seluruh Cabang")
-                st.dataframe(branch_df, use_container_width=True, hide_index=True, height=400)
-                
-                # Charts
-                if len(branch_df) > 0:
-                    st.markdown("---")
-                    st.markdown("### Visualisasi Kinerja Cabang")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        fig1 = px.bar(
-                            branch_df.head(10),
-                            x='Cabang',
-                            y='Total Aplikasi Unik',
-                            title="Top 10 Cabang - Volume Aplikasi Terbanyak",
-                            color='Total Aplikasi Unik',
-                            color_continuous_scale='Blues'
-                        )
-                        fig1.update_layout(
-                            height=400,
-                            plot_bgcolor='#f8f9fa',
-                            paper_bgcolor='white',
-                            showlegend=False
-                        )
-                        st.plotly_chart(fig1, use_container_width=True)
-                    
-                    with col2:
-                        branch_df_plot = branch_df.copy()
-                        branch_df_plot['Approval_Numeric'] = branch_df_plot['Tingkat Persetujuan'].str.rstrip('%').astype(float)
-                        
-                        fig2 = px.bar(
-                            branch_df_plot.head(10),
-                            x='Cabang',
-                            y='Approval_Numeric',
-                            title="Top 10 Cabang - Tingkat Persetujuan Tertinggi",
-                            color='Approval_Numeric',
-                            color_continuous_scale='RdYlGn'
-                        )
-                        fig2.update_layout(
-                            yaxis_title="Tingkat Persetujuan (%)",
-                            height=400,
-                            plot_bgcolor='#f8f9fa',
-                            paper_bgcolor='white',
-                            showlegend=False
-                        )
-                        st.plotly_chart(fig2, use_container_width=True)
-        
-        # CA Performance
-        with subtab2:
-            st.markdown("""
-            <div class="info-box">
-            <h4>Penjelasan Metrik Kinerja Credit Analyst</h4>
-            <ul>
-                <li><strong>Total Aplikasi Unik</strong>: Jumlah pengajuan kredit yang ditangani</li>
-                <li><strong>Tingkat Persetujuan</strong>: Persentase aplikasi yang berhasil disetujui</li>
-                <li><strong>Waktu Proses Rata-rata</strong>: Efisiensi waktu dalam memproses aplikasi</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if 'user_name_clean' in df_filtered.columns:
-                ca_perf = []
-                
-                for ca in sorted(df_filtered['user_name_clean'].unique()):
-                    if ca == 'Tidak Diketahui':
-                        continue
-                    
-                    df_ca = df_filtered[df_filtered['user_name_clean'] == ca]
-                    df_ca_distinct = df_ca.drop_duplicates('apps_id')
-                    
-                    total_apps = len(df_ca_distinct)
-                    total_records = len(df_ca)
-                    
-                    approve = df_ca_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                    total_scored = len(df_ca_distinct[df_ca_distinct['Scoring_Detail'] != '(Semua)'])
-                    approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
-                    
-                    ca_sla = df_ca[df_ca['SLA_Hours'].notna()]
-                    avg_sla = convert_hours_to_hm(ca_sla['SLA_Hours'].mean()) if len(ca_sla) > 0 else "-"
-                    
-                    branches = df_ca['branch_name_clean'].unique()
-                    main_branch = branches[0] if len(branches) > 0 else "Tidak Diketahui"
-                    
-                    ca_perf.append({
-                        'Nama Credit Analyst': ca,
-                        'Cabang': main_branch,
-                        'Total Aplikasi Unik': total_apps,
-                        'Total Catatan': total_records,
-                        'Disetujui': approve,
-                        'Tingkat Persetujuan': approval_pct,
-                        'Waktu Proses Rata-rata': avg_sla
-                    })
-                
-                ca_df = pd.DataFrame(ca_perf).sort_values('Total Aplikasi Unik', ascending=False)
-                
-                st.markdown("### Tabel Kinerja Seluruh Credit Analyst")
-                st.dataframe(ca_df, use_container_width=True, hide_index=True, height=400)
-                
-                # Charts
-                if len(ca_df) > 0:
-                    st.markdown("---")
-                    st.markdown("### Visualisasi Kinerja Credit Analyst")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        fig1 = px.bar(
-                            ca_df.head(10),
-                            x='Nama Credit Analyst',
-                            y='Total Aplikasi Unik',
-                            title="Top 10 CA - Volume Aplikasi Terbanyak",
-                            color='Total Aplikasi Unik',
-                            color_continuous_scale='Greens'
-                        )
-                        fig.update_traces(textposition='outside')  # Tambahkan ini jika belum ada
-            
-                        fig.update_layout(
-                            height=450,
-                            plot_bgcolor='#fafafa',
-                            paper_bgcolor='white',
-                            showlegend=False,  # atau True jika perlu legend
-                            font=dict(family='Arial', size=13, color='#333333'),
-                            title_font_size=16,
-                            title_font_color='#003d7a',
-                            xaxis=dict(
-                                showgrid=False,
-                                title_font_size=14,
-                                tickangle=-45  # Tambahkan jika label panjang
-                            ),
-                            yaxis=dict(
-                                showgrid=True,
-                                gridcolor='#e0e0e0',
-                                title_font_size=14
-                            )
-                    )
-                    
-                    with col2:
-                        ca_df_plot = ca_df.copy()
-                        ca_df_plot['Approval_Numeric'] = ca_df_plot['Tingkat Persetujuan'].str.rstrip('%').astype(float)
-                        
-                        fig2 = px.bar(
-                            ca_df_plot.head(10),
-                            x='Nama Credit Analyst',
-                            y='Approval_Numeric',
-                            title="Top 10 CA - Tingkat Persetujuan Tertinggi",
-                            color='Approval_Numeric',
-                            color_continuous_scale='RdYlGn'
-                        )
-                        fig.update_traces(textposition='outside')  # Tambahkan ini jika belum ada
-            
-                        fig.update_layout(
-                            height=450,
-                            plot_bgcolor='#fafafa',
-                            paper_bgcolor='white',
-                            showlegend=False,  # atau True jika perlu legend
-                            font=dict(family='Arial', size=13, color='#333333'),
-                            title_font_size=16,
-                            title_font_color='#003d7a',
-                            xaxis=dict(
-                                showgrid=False,
-                                title_font_size=14,
-                                tickangle=-45  # Tambahkan jika label panjang
-                            ),
-                            yaxis=dict(
-                                showgrid=True,
-                                gridcolor='#e0e0e0',
-                                title_font_size=14
-                            )
-                        )
-                        st.plotly_chart(fig2, use_container_width=True)
-    
-    # ====== TAB 5: STATUS & SCORING ======
-    with tab5:
-        st.markdown("## Analisis Status Aplikasi & Hasil Penilaian")
-        
-        st.markdown("""
-        <div class="info-box">
-        <h4>Penjelasan Tabel</h4>
-        <p>Tabel ini menunjukkan hubungan antara <strong>Status Aplikasi</strong> dan <strong>Hasil Penilaian (Scoring)</strong>.</p>
-        <ul>
-            <li><strong>Baris</strong>: Menunjukkan status aplikasi (Approved, Rejected, dll)</li>
-            <li><strong>Kolom</strong>: Menunjukkan hasil penilaian dari sistem scoring</li>
-            <li><strong>Nilai</strong>: Jumlah aplikasi unik untuk setiap kombinasi</li>
-        </ul>
-        <p><strong>Catatan:</strong> Perhitungan berdasarkan aplikasi unik (tanpa duplikasi)</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        # Overview
         df_distinct = df_filtered.drop_duplicates('apps_id')
-        total_apps_distinct = len(df_distinct)
-        total_records = len(df_filtered)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"""
-            <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi Unik</h3>
-            <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown("### Distribusi Portfolio Berdasarkan Plafon")
         
-        with col2:
-            st.markdown(f"""
-            <div class="metric-box" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
-            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        st.markdown("### Tabel Silang: Status × Hasil Penilaian")
-        
-        if 'apps_status_clean' in df_distinct.columns and 'Scoring_Detail' in df_distinct.columns:
-            cross_tab = pd.crosstab(
-                df_distinct['apps_status_clean'],
-                df_distinct['Scoring_Detail'],
-                margins=True,
-                margins_name='TOTAL'
-            )
+        if 'OSPH_Category' in df_distinct.columns:
+            osph_dist = df_distinct['OSPH_Category'].value_counts()
             
-            # Rename index and columns for better readability
-            cross_tab.index.name = 'Status Aplikasi'
-            cross_tab.columns.name = 'Hasil Penilaian'
+            col1, col2 = st.columns([1, 1])
             
-            st.dataframe(cross_tab, use_container_width=True, height=400)
-            
-            st.markdown("---")
-            st.markdown("### Visualisasi Heatmap")
-            
-            # Heatmap
-            cross_tab_no_total = cross_tab.drop('TOTAL', errors='ignore').drop('TOTAL', axis=1, errors='ignore')
-            
-            if len(cross_tab_no_total) > 0:
-                fig = px.imshow(
-                    cross_tab_no_total,
-                    text_auto=True,
-                    title="Distribusi Status × Hasil Penilaian",
-                    color_continuous_scale="Blues",
-                    aspect="auto"
+            with col1:
+                # Create pie chart
+                fig = px.pie(
+                    values=osph_dist.values,
+                    names=osph_dist.index,
+                    title="Distribusi Aplikasi per Kategori Plafon",
+                    color_discrete_sequence=['#1e88e5', '#d4af37', '#f44336']
                 )
                 fig.update_layout(
-                    height=550,
-                    xaxis_title="Hasil Penilaian",
-                    yaxis_title="Status Aplikasi",
-                    font=dict(family='Arial', size=13, color='#333333'),
-                    title_font_size=16,
-                    title_font_color='#003d7a'
+                    height=400,
+                    plot_bgcolor='white',
+                    paper_bgcolor='white'
                 )
-                fig.update_xaxes(side="bottom")
                 st.plotly_chart(fig, use_container_width=True)
-                
-    # ====== TAB 6: OD IMPACT ======
-    with tab6:
-        st.markdown("## Analisis Dampak Keterlambatan Pembayaran")
-        
-        st.markdown("""
-        <div class="info-box">
-        <h4>Penjelasan Overdue Days (OD)</h4>
-        <p><strong>Overdue Days</strong> adalah jumlah hari keterlambatan pembayaran kredit sebelumnya.</p>
-        <ul>
-            <li><strong>Last OD</strong>: Keterlambatan terakhir yang tercatat</li>
-            <li><strong>Max OD</strong>: Keterlambatan terlama yang pernah terjadi</li>
-        </ul>
-        <p>Analisis ini menunjukkan bagaimana riwayat keterlambatan mempengaruhi persetujuan kredit baru.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        df_distinct = df_filtered.drop_duplicates('apps_id')
-        total_apps_distinct = len(df_distinct)
-        total_records = len(df_filtered)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"""
-            <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi Unik</h3>
-            <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div class="metric-box" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
-            <h1 style="color: #0066b3; margin: 10px 0; font-size: 48px;">{total_records:,}</h1>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("### Keterlambatan Terakhir (Last OD)")
             
-            if 'LastOD_clean' in df_distinct.columns:
-                df_distinct_copy = df_distinct.copy()
-                df_distinct_copy['LastOD_Category'] = pd.cut(
-                    df_distinct_copy['LastOD_clean'],
-                    bins=[-np.inf, 0, 10, 30, np.inf],
-                    labels=['Tidak Ada', '1-10 Hari', '11-30 Hari', 'Lebih dari 30 Hari']
+            with col2:
+                # Create bar chart
+                fig = px.bar(
+                    x=osph_dist.index,
+                    y=osph_dist.values,
+                    title="Jumlah Aplikasi per Kategori",
+                    labels={'x': 'Kategori Plafon', 'y': 'Jumlah Aplikasi'},
+                    color=osph_dist.values,
+                    color_continuous_scale='Blues'
                 )
+                fig.update_layout(
+                    height=400,
+                    showlegend=False,
+                    plot_bgcolor='white',
+                    paper_bgcolor='white'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # ====== TAB 4: PERFORMANCE & INSIGHTS ======
+    with tab4:
+        st.markdown("## Kinerja & Insights Strategis")
+        
+        subtab1, subtab2, subtab3 = st.tabs([
+            "📈 Kinerja Cabang & CA",
+            "📊 Status & Penilaian",
+            "💡 Insights & Rekomendasi"
+        ])
+        
+        # Branch & CA Performance
+        with subtab1:
+            st.markdown("### Analisis Kinerja")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### Top 10 Cabang - Volume Aplikasi")
                 
-                lastod_analysis = []
-                
-                for cat in ['Tidak Ada', '1-10 Hari', '11-30 Hari', 'Lebih dari 30 Hari']:
-                    df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
+                if 'branch_name_clean' in df_filtered.columns:
+                    branch_counts = df_filtered.drop_duplicates('apps_id')['branch_name_clean'].value_counts().head(10)
                     
-                    if len(df_od) > 0:
-                        approve = df_od['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                        total = len(df_od[df_od['Scoring_Detail'] != '(Semua)'])
-                        
-                        approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
-                        
-                        lastod_analysis.append({
-                            'Kategori': cat,
-                            'Total Aplikasi': len(df_od),
-                            'Disetujui': approve,
-                            'Tingkat Persetujuan': approval_pct
-                        })
-                
-                lastod_df = pd.DataFrame(lastod_analysis)
-                st.dataframe(lastod_df, use_container_width=True, hide_index=True)
-                
-                # Visualization
-                if len(lastod_df) > 0:
-                    lastod_df['Approval_Numeric'] = lastod_df['Tingkat Persetujuan'].str.rstrip('%').astype(float)
                     fig = px.bar(
-                        lastod_df,
-                        x='Kategori',
-                        y='Approval_Numeric',
-                        title="Tingkat Persetujuan Berdasarkan Last OD",
-                        color='Approval_Numeric',
-                        color_continuous_scale='RdYlGn',
-                        text='Tingkat Persetujuan'
+                        x=branch_counts.index,
+                        y=branch_counts.values,
+                        labels={'x': 'Cabang', 'y': 'Jumlah Aplikasi'},
+                        color=branch_counts.values,
+                        color_continuous_scale='Blues'
                     )
                     fig.update_layout(
-                        yaxis_title="Tingkat Persetujuan (%)",
-                        height=350,
-                        showlegend=False
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.markdown("### Keterlambatan Maksimum (Max OD)")
-            
-            if 'max_OD_clean' in df_distinct.columns:
-                df_distinct_copy2 = df_distinct.copy()
-                df_distinct_copy2['maxOD_Category'] = pd.cut(
-                    df_distinct_copy2['max_OD_clean'],
-                    bins=[-np.inf, 0, 15, 45, np.inf],
-                    labels=['Tidak Ada', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']
-                )
-                
-                maxod_analysis = []
-                
-                for cat in ['Tidak Ada', '1-15 Hari', '16-45 Hari', 'Lebih dari 45 Hari']:
-                    df_od = df_distinct_copy2[df_distinct_copy2['maxOD_Category'] == cat]
-                    
-                    if len(df_od) > 0:
-                        approve = df_od['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                        total = len(df_od[df_od['Scoring_Detail'] != '(Semua)'])
-                        
-                        approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
-                        
-                        maxod_analysis.append({
-                            'Kategori': cat,
-                            'Total Aplikasi': len(df_od),
-                            'Disetujui': approve,
-                            'Tingkat Persetujuan': approval_pct
-                        })
-                
-                maxod_df = pd.DataFrame(maxod_analysis)
-                st.dataframe(maxod_df, use_container_width=True, hide_index=True)
-                
-                # Visualization
-                if len(maxod_df) > 0:
-                    maxod_df['Approval_Numeric'] = maxod_df['Tingkat Persetujuan'].str.rstrip('%').astype(float)
-                    fig = px.bar(
-                        lastod_df,  # atau maxod_df
-                        x='Kategori',
-                        y='Approval_Numeric',
-                        title="Tingkat Persetujuan vs Last OD",
-                        color='Approval_Numeric',
-                        color_continuous_scale='RdYlGn',
-                        text='Persetujuan'
-                    )
-                    fig.update_traces(textposition='outside')
-                    fig.update_layout(
-                        yaxis_title="Tingkat Persetujuan (%)",
                         height=400,
                         showlegend=False,
-                        plot_bgcolor='#fafafa',
+                        plot_bgcolor='white',
                         paper_bgcolor='white',
-                        font=dict(family='Arial', size=13, color='#333333'),
-                        title_font_size=16,
-                        title_font_color='#003d7a'
+                        xaxis_tickangle=-45
                     )
                     st.plotly_chart(fig, use_container_width=True)
-    
-    # ====== TAB 7: INSIGHTS & RECOMMENDATIONS ======
-    with tab7:
-        st.markdown("## Insights & Rekomendasi Strategis")
-        
-        st.markdown("""
-        <div class="info-box">
-        <h4>Tentang Insights</h4>
-        <p>Bagian ini menyajikan analisis mendalam dan rekomendasi strategis berdasarkan data aktual untuk membantu pengambilan keputusan bisnis.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        # Calculate key metrics for insights
-        df_distinct = df_filtered.drop_duplicates('apps_id')
-        
-        # 1. SLA Performance Analysis
-        st.markdown("### 1. Analisis Performa Waktu Proses (SLA)")
-        
-        sla_data = df_filtered[df_filtered['SLA_Hours'].notna()]
-        if len(sla_data) > 0:
-            avg_sla = sla_data['SLA_Hours'].mean()
-            target_sla = 35
-            sla_above_target = (sla_data['SLA_Hours'] > target_sla).sum()
-            sla_pct_above = (sla_above_target / len(sla_data)) * 100
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                status = "Baik" if avg_sla <= target_sla else "Perlu Perbaikan"
-                color = "metric-box-success" if avg_sla <= target_sla else "metric-box-danger"
-                st.markdown(f"""
-                <div class="{color}" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">Status SLA</h4>
-                <h3 style="margin: 0;">{status}</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">Rata-rata: {avg_sla:.1f} jam (Target: 35 jam)</p>
-                </div>
-                """, unsafe_allow_html=True)
             
             with col2:
-                st.markdown(f"""
-                <div class="metric-box-warning" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">Melebihi Target</h4>
-                <h3 style="color: #d4af37; margin: 0;">{sla_pct_above:.1f}%</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">{sla_above_target:,} dari {len(sla_data):,} aplikasi</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### Top 10 Credit Analyst - Volume Aplikasi")
+                
+                if 'user_name_clean' in df_filtered.columns:
+                    ca_counts = df_filtered.drop_duplicates('apps_id')['user_name_clean'].value_counts().head(10)
+                    
+                    fig = px.bar(
+                        x=ca_counts.index,
+                        y=ca_counts.values,
+                        labels={'x': 'Credit Analyst', 'y': 'Jumlah Aplikasi'},
+                        color=ca_counts.values,
+                        color_continuous_scale='Greens'
+                    )
+                    fig.update_layout(
+                        height=400,
+                        showlegend=False,
+                        plot_bgcolor='white',
+                        paper_bgcolor='white',
+                        xaxis_tickangle=-45
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # Status & Scoring
+        with subtab2:
+            st.markdown("### Analisis Status & Hasil Penilaian")
             
-            with col3:
-                # Calculate improvement potential
-                if avg_sla > target_sla:
-                    improvement = avg_sla - target_sla
-                    st.markdown(f"""
-                    <div class="metric-box" style="text-align: center; padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Potensi Peningkatan</h4>
-                    <h3 style="color: #0066b3; margin: 0;">{improvement:.1f} jam</h3>
-                    <p style="color: #666; font-size: 14px; margin-top: 5px;">Efisiensi yang bisa dicapai</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div class="metric-box-success" style="text-align: center; padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Performa Optimal</h4>
-                    <h3 style="color: #1e88e5; margin: 0;">Target Tercapai</h3>
-                    <p style="color: #666; font-size: 14px; margin-top: 5px;">SLA dalam batas normal</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+            df_distinct = df_filtered.drop_duplicates('apps_id')
             
-            st.markdown("#### Rekomendasi SLA:")
-            if avg_sla > target_sla:
-                st.markdown("""
-                - **Prioritas Tinggi**: Evaluasi proses bottleneck yang menyebabkan keterlambatan
-                - Pertimbangkan penambahan resources atau redistribusi beban kerja
-                - Implementasi sistem monitoring real-time untuk identifikasi dini aplikasi yang berisiko melebihi SLA
-                - Training untuk CA dengan performa SLA di bawah target
-                """)
-            else:
-                st.markdown("""
-                - **Pertahankan**: Proses saat ini sudah optimal
-                - Monitor konsistensi performa untuk memastikan sustainabilitas
-                - Dokumentasikan best practices untuk replikasi ke tim lain
-                """)
-        
-        st.markdown("---")
-        
-        # 2. Approval Rate Analysis
-        st.markdown("### 2. Analisis Tingkat Persetujuan")
-        
-        approve_count = df_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-        total_scored = len(df_distinct[df_distinct['Scoring_Detail'] != '(Semua)'])
-        
-        if total_scored > 0:
-            approval_rate = (approve_count / total_scored) * 100
-            reject_count = total_scored - approve_count
-            
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown(f"""
-                <div class="metric-box-success" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">Tingkat Persetujuan</h4>
-                <h3 style="color: #1e88e5; margin: 0;">{approval_rate:.1f}%</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">{approve_count:,} aplikasi disetujui</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### Distribusi Status Aplikasi")
+                
+                if 'apps_status_clean' in df_distinct.columns:
+                    status_dist = df_distinct['apps_status_clean'].value_counts()
+                    
+                    fig = px.pie(
+                        values=status_dist.values,
+                        names=status_dist.index,
+                        title="Status Aplikasi"
+                    )
+                    fig.update_layout(
+                        height=400,
+                        plot_bgcolor='white',
+                        paper_bgcolor='white'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
             
             with col2:
-                st.markdown(f"""
-                <div class="metric-box-danger" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">Ditolak</h4>
-                <h3 style="color: #f44336; margin: 0;">{100-approval_rate:.1f}%</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">{reject_count:,} aplikasi ditolak</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### Distribusi Hasil Penilaian")
+                
+                if 'Scoring_Detail' in df_distinct.columns:
+                    scoring_dist = df_distinct['Scoring_Detail'].value_counts()
+                    
+                    fig = px.pie(
+                        values=scoring_dist.values,
+                        names=scoring_dist.index,
+                        title="Hasil Scoring"
+                    )
+                    fig.update_layout(
+                        height=400,
+                        plot_bgcolor='white',
+                        paper_bgcolor='white'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
             
-            with col3:
-                benchmark = 70  # Industry benchmark
-                vs_benchmark = approval_rate - benchmark
-                color = "metric-box-success" if vs_benchmark >= 0 else "metric-box-warning"
-                symbol = "+" if vs_benchmark >= 0 else ""
-                st.markdown(f"""
-                <div class="{color}" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">vs Benchmark</h4>
-                <h3 style="margin: 0;">{symbol}{vs_benchmark:.1f}%</h3>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">Benchmark industri: {benchmark}%</p>
-                </div>
-                """, unsafe_allow_html=True)
+            st.markdown("---")
             
-            st.markdown("#### Rekomendasi Approval Rate:")
-            if approval_rate < 60:
-                st.markdown("""
-                - **Prioritas Kritis**: Review kriteria scoring yang terlalu ketat
-                - Analisis penyebab utama penolakan aplikasi
-                - Pertimbangkan program pre-screening untuk meningkatkan kualitas aplikasi masuk
-                - Evaluasi apakah target market sudah sesuai
-                """)
-            elif approval_rate < 70:
-                st.markdown("""
-                - **Perlu Perbaikan**: Tingkatkan kualitas assessment awal
-                - Implementasi credit counseling untuk calon nasabah
-                - Review kebijakan kredit untuk segmen tertentu
-                """)
-            else:
-                st.markdown("""
-                - **Performa Baik**: Tingkat persetujuan sudah sehat
-                - Fokus pada kualitas portfolio dan menjaga NPL tetap rendah
-                - Monitor untuk memastikan tidak ada penurunan kualitas assessment
-                """)
+            # Cross-tabulation
+            st.markdown("### Tabel Silang: Status × Hasil Penilaian")
+            
+            if 'apps_status_clean' in df_distinct.columns and 'Scoring_Detail' in df_distinct.columns:
+                cross_tab = pd.crosstab(
+                    df_distinct['apps_status_clean'],
+                    df_distinct['Scoring_Detail'],
+                    margins=True,
+                    margins_name='TOTAL'
+                )
+                
+                cross_tab.index.name = 'Status Aplikasi'
+                cross_tab.columns.name = 'Hasil Penilaian'
+                
+                st.dataframe(cross_tab, use_container_width=True)
         
-        st.markdown("---")
-        
-        # 3. Branch Performance Variance
-        st.markdown("### 3. Analisis Variasi Kinerja Cabang")
-        
-        if 'branch_name_clean' in df_filtered.columns:
-            branch_stats = []
+        # Insights
+        with subtab3:
+            st.markdown("### Insights & Rekomendasi Strategis")
             
-            for branch in df_filtered['branch_name_clean'].unique():
-                if branch == 'Tidak Diketahui':
-                    continue
-                
-                df_branch = df_filtered[df_filtered['branch_name_clean'] == branch]
-                df_branch_distinct = df_branch.drop_duplicates('apps_id')
-                
-                total_apps = len(df_branch_distinct)
-                
-                approve = df_branch_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                total_scored = len(df_branch_distinct[df_branch_distinct['Scoring_Detail'] != '(Semua)'])
-                approval_pct = (approve/total_scored*100) if total_scored > 0 else 0
-                
-                branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
-                avg_sla = branch_sla['SLA_Hours'].mean() if len(branch_sla) > 0 else 0
-                
-                branch_stats.append({
-                    'branch': branch,
-                    'total': total_apps,
-                    'approval': approval_pct,
-                    'sla': avg_sla
-                })
+            df_distinct = df_filtered.drop_duplicates('apps_id')
             
-            if branch_stats:
-                branch_df = pd.DataFrame(branch_stats)
-                
-                # Find best and worst performers
-                best_approval = branch_df.nlargest(1, 'approval').iloc[0]
-                worst_approval = branch_df.nsmallest(1, 'approval').iloc[0]
-                best_sla = branch_df.nsmallest(1, 'sla').iloc[0]
+            # Calculate key metrics
+            approve_count = df_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
+            total_scored = len(df_distinct[df_distinct['Scoring_Detail'] != '(Semua)'])
+            
+            if total_scored > 0:
+                approval_rate = (approve_count / total_scored) * 100
                 
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     st.markdown(f"""
-                    <div class="metric-box-success" style="padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Cabang Terbaik (Approval)</h4>
-                    <h3 style="color: #1e88e5; margin: 5px 0;">{best_approval['branch']}</h3>
-                    <p style="color: #666; font-size: 14px;">{best_approval['approval']:.1f}% approval rate</p>
-                    <p style="color: #666; font-size: 12px;">{best_approval['total']:,} aplikasi</p>
+                    <div class="metric-box-success" style="text-align: center; padding: 25px;">
+                    <h4 style="color: #003d7a; margin-bottom: 10px;">Tingkat Persetujuan</h4>
+                    <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{approval_rate:.1f}%</h1>
+                    <p style="color: #666; font-size: 14px;">{approve_count:,} dari {total_scored:,} aplikasi</p>
                     </div>
                     """, unsafe_allow_html=True)
                 
                 with col2:
-                    st.markdown(f"""
-                    <div class="metric-box-danger" style="padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Perlu Perhatian</h4>
-                    <h3 style="color: #f44336; margin: 5px 0;">{worst_approval['branch']}</h3>
-                    <p style="color: #666; font-size: 14px;">{worst_approval['approval']:.1f}% approval rate</p>
-                    <p style="color: #666; font-size: 12px;">{worst_approval['total']:,} aplikasi</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    sla_data = df_filtered[df_filtered['SLA_Hours'].notna()]
+                    if len(sla_data) > 0:
+                        avg_sla = sla_data['SLA_Hours'].mean()
+                        status = "✅ Baik" if avg_sla <= 35 else "⚠️ Perlu Perbaikan"
+                        st.markdown(f"""
+                        <div class="metric-box" style="text-align: center; padding: 25px;">
+                        <h4 style="color: #003d7a; margin-bottom: 10px;">Status SLA</h4>
+                        <h1 style="color: #0066b3; margin: 10px 0; font-size: 32px;">{status}</h1>
+                        <p style="color: #666; font-size: 14px;">Rata-rata: {avg_sla:.1f} jam (Target: 35 jam)</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 with col3:
+                    total_apps = df_filtered['apps_id'].nunique()
                     st.markdown(f"""
-                    <div class="metric-box" style="padding: 20px;">
-                    <h4 style="color: #003d7a; margin-bottom: 10px;">Tercepat (SLA)</h4>
-                    <h3 style="color: #0066b3; margin: 5px 0;">{best_sla['branch']}</h3>
-                    <p style="color: #666; font-size: 14px;">{best_sla['sla']:.1f} jam rata-rata</p>
-                    <p style="color: #666; font-size: 12px;">{best_sla['total']:,} aplikasi</p>
+                    <div class="metric-box-warning" style="text-align: center; padding: 25px;">
+                    <h4 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h4>
+                    <h1 style="color: #d4af37; margin: 10px 0; font-size: 48px;">{total_apps:,}</h1>
+                    <p style="color: #666; font-size: 14px;">Aplikasi unik diproses</p>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                st.markdown("#### Rekomendasi Cabang:")
-                variance = branch_df['approval'].std()
-                if variance > 15:
-                    st.markdown(f"""
-                    - **Gap Signifikan**: Variasi tinggi antar cabang (std dev: {variance:.1f}%)
-                    - Lakukan knowledge transfer dari cabang terbaik ke cabang lain
-                    - Standardisasi proses assessment antar cabang
-                    - Program mentoring dari CA terbaik ke CA di cabang dengan performa rendah
-                    - Review apakah ada faktor eksternal (demografi, ekonomi lokal) yang mempengaruhi
-                    """)
-                else:
-                    st.markdown(f"""
-                    - **Performa Konsisten**: Variasi rendah antar cabang (std dev: {variance:.1f}%)
-                    - Pertahankan standardisasi proses yang sudah baik
-                    - Fokus pada continuous improvement di semua cabang
-                    """)
-        
-        st.markdown("---")
-        
-        # 4. OD Impact Analysis
-        st.markdown("### 4. Dampak Keterlambatan Pembayaran (OD)")
-        
-        if 'LastOD_clean' in df_distinct.columns:
-            df_with_od = df_distinct[df_distinct['LastOD_clean'].notna()].copy()
-            df_with_od['OD_Category'] = pd.cut(
-                df_with_od['LastOD_clean'],
-                bins=[-np.inf, 0, 10, 30, np.inf],
-                labels=['Tidak Ada', '1-10 Hari', '11-30 Hari', '>30 Hari']
-            )
             
-            od_analysis = []
-            for cat in ['Tidak Ada', '1-10 Hari', '11-30 Hari', '>30 Hari']:
-                df_od = df_with_od[df_with_od['OD_Category'] == cat]
-                if len(df_od) > 0:
-                    approve = df_od['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                    total = len(df_od[df_od['Scoring_Detail'] != '(Semua)'])
-                    approval_pct = (approve/total*100) if total > 0 else 0
-                    
-                    od_analysis.append({
-                        'category': cat,
-                        'count': len(df_od),
-                        'approval': approval_pct
-                    })
+            st.markdown("---")
             
-            if od_analysis:
-                od_df = pd.DataFrame(od_analysis)
-                
-                # Create visualization
-                fig = px.line(
-                    od_df,
-                    x='category',
-                    y='approval',
-                    markers=True,
-                    title="Tingkat Persetujuan berdasarkan Riwayat Keterlambatan",
-                    labels={'category': 'Kategori OD', 'approval': 'Tingkat Persetujuan (%)'}
-                )
-                fig.update_traces(line_color='#f44336', marker=dict(size=12, color='#f44336'))
-                fig.update_layout(
-                    height=400,
-                    plot_bgcolor='#f8f9fa',
-                    paper_bgcolor='white'
-                )
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Calculate correlation
-                no_od_approval = od_df[od_df['category'] == 'Tidak Ada']['approval'].values[0] if len(od_df[od_df['category'] == 'Tidak Ada']) > 0 else 0
-                high_od_approval = od_df[od_df['category'] == '>30 Hari']['approval'].values[0] if len(od_df[od_df['category'] == '>30 Hari']) > 0 else 0
-                impact = no_od_approval - high_od_approval
-                
-                st.markdown(f"""
-                <div class="info-box">
-                <h4>Key Finding</h4>
-                <p><strong>Dampak OD terhadap Approval:</strong> Nasabah tanpa riwayat keterlambatan memiliki tingkat persetujuan 
-                <strong>{impact:.1f}%</strong> lebih tinggi dibanding yang memiliki keterlambatan >30 hari.</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown("#### Rekomendasi OD Management:")
-                st.markdown("""
-                - Implementasi **early warning system** untuk mendeteksi potensi keterlambatan
-                - Program **customer education** tentang pentingnya pembayaran tepat waktu
-                - Berikan **insentif** untuk nasabah dengan track record pembayaran baik
-                - **Stricter screening** untuk aplikant dengan riwayat OD tinggi
-                - Pertimbangkan **risk-based pricing** berdasarkan riwayat OD
-                """)
-        
-        st.markdown("---")
-        
-        # 5. Portfolio Quality
-        st.markdown("### 5. Kualitas Portfolio & Risk Distribution")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # OSPH Distribution
-            if 'OSPH_Category' in df_distinct.columns:
-                osph_dist = df_distinct['OSPH_Category'].value_counts()
-                
-                fig = px.pie(
-                    values=osph_dist.values,
-                    names=osph_dist.index,
-                    title="Distribusi Portfolio berdasarkan Plafon",
-                    color_discrete_sequence=['#1e88e5', '#d4af37', '#f44336']
-                )
-                fig.update_layout(height=400)
-                st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Segmen Distribution
-            if 'Segmen_clean' in df_distinct.columns:
-                segmen_dist = df_distinct['Segmen_clean'].value_counts()
-                
-                fig = px.pie(
-                    values=segmen_dist.values,
-                    names=segmen_dist.index,
-                    title="Distribusi Portfolio berdasarkan Segmen",
-                    color_discrete_sequence=['#0066b3', '#9b59b6', '#e67e22', '#95a5a6']
-                )
-                fig.update_layout(height=400)
-                st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown("#### Rekomendasi Portfolio:")
-        st.markdown("""
-        - **Diversifikasi**: Pastikan tidak ada konsentrasi berlebih di satu segmen atau kategori plafon
-        - **Risk Balancing**: Seimbangkan portfolio antara high-value dan low-value untuk manage risk
-        - **Market Opportunity**: Identifikasi segmen dengan approval rate tinggi untuk growth
-        - **Regular Review**: Monitor portfolio quality secara berkala
-        """)
-        
-        st.markdown("---")
-        
-        # Summary Recommendations
-        st.markdown("### Ringkasan Rekomendasi Prioritas")
-        
-        st.markdown("""
-        <div class="metric-box" style="padding: 25px;">
-        <h4 style="color: #003d7a; margin-bottom: 15px;">Action Items - Prioritas Tinggi</h4>
-        <ol style="color: #003d7a; line-height: 2;">
-            <li><strong>Optimasi SLA:</strong> Fokus pada cabang dan CA dengan SLA di atas target</li>
-            <li><strong>Knowledge Transfer:</strong> Replikasi best practices dari top performers</li>
-            <li><strong>Quality Control:</strong> Strengthen pre-screening process untuk meningkatkan approval rate</li>
-            <li><strong>Risk Management:</strong> Implementasi stricter criteria untuk aplikant dengan high OD history</li>
-            <li><strong>Training & Development:</strong> Program capacity building untuk CA dengan performa rendah</li>
-            <li><strong>Technology:</strong> Pertimbangkan otomasi untuk proses yang repetitive untuk percepat SLA</li>
-        </ol>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ====== TAB 8: DATA EXPORT ======
-    with tab8:
-        st.markdown("## Unduh Data & Laporan")
-        
-        st.markdown("""
-        <div class="info-box">
-        <h4>Cara Mengunduh Data</h4>
-        <p>Anda dapat mengunduh data dalam format CSV untuk analisis lebih lanjut:</p>
-        <ul>
-            <li><strong>Data Lengkap</strong>: Semua data yang sudah difilter dengan kolom penting</li>
-            <li><strong>Ringkasan Statistik</strong>: Metrik utama dan ringkasan analisis</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        st.markdown("### Pratinjau Data")
-        st.caption("*Menampilkan 100 baris pertama dari data yang difilter*")
-        
-        display_cols = [
-            'apps_id', 'apps_status_clean', 'action_on_parsed',
-            'Recommendation_parsed', 'SLA_Formatted', 'SLA_Hours',
-            'Scoring_Detail', 'OSPH_Category', 'Segmen_clean',
-            'JenisKendaraan_clean', 'Pekerjaan_clean', 'LastOD_clean',
-            'user_name_clean', 'branch_name_clean'
-        ]
-        
-        # Rename for better display
-        col_rename = {
-            'apps_id': 'ID Aplikasi',
-            'apps_status_clean': 'Status',
-            'action_on_parsed': 'Waktu Aksi',
-            'Recommendation_parsed': 'Waktu Rekomendasi',
-            'SLA_Formatted': 'SLA',
-            'SLA_Hours': 'SLA (Jam)',
-            'Scoring_Detail': 'Hasil Penilaian',
-            'OSPH_Category': 'Kategori Plafon',
-            'Segmen_clean': 'Segmen',
-            'JenisKendaraan_clean': 'Jenis Kendaraan',
-            'Pekerjaan_clean': 'Pekerjaan',
-            'LastOD_clean': 'Last OD (Hari)',
-            'user_name_clean': 'Credit Analyst',
-            'branch_name_clean': 'Cabang'
-        }
-        
-        available_cols = [c for c in display_cols if c in df_filtered.columns]
-        display_df = df_filtered[available_cols].head(100).rename(columns=col_rename)
-        
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True,
-            height=400
-        )
-        
-        st.caption(f"Menampilkan 100 dari {len(df_filtered):,} baris data")
-        
-        st.markdown("---")
-        st.markdown("### Unduh File")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
+            # Recommendations
+            st.markdown("### Rekomendasi Strategis")
+            
             st.markdown("""
-            <div class="metric-box-success" style="padding: 20px;">
-            <h4 style="color: #003d7a; margin-bottom: 10px;">Data Lengkap</h4>
-            <p style="color: #666;">Unduh semua data yang sudah difilter dalam format CSV</p>
+            <div class="metric-box" style="padding: 25px;">
+            <h4 style="color: #003d7a; margin-bottom: 15px;">🎯 Action Items Prioritas</h4>
+            <ol style="color: #333333; line-height: 2;">
+                <li><strong>Optimasi SLA:</strong> Fokus pada cabang dan CA dengan waktu proses di atas target</li>
+                <li><strong>Knowledge Transfer:</strong> Replikasi best practices dari top performers</li>
+                <li><strong>Quality Control:</strong> Strengthen pre-screening untuk meningkatkan approval rate</li>
+                <li><strong>Training & Development:</strong> Program capacity building untuk CA dengan performa rendah</li>
+                <li><strong>Technology:</strong> Pertimbangkan otomasi untuk percepat proses</li>
+            </ol>
             </div>
             """, unsafe_allow_html=True)
-            
-            csv_data = df_filtered[available_cols].to_csv(index=False)
-            st.download_button(
-                "Unduh Data Lengkap (CSV)",
-                csv_data,
-                "data_analisis_kredit.csv",
-                "text/csv",
-                use_container_width=True
-            )
-        
-        with col2:
-            st.markdown("""
-            <div class="metric-box" style="padding: 20px;">
-            <h4 style="color: #003d7a; margin-bottom: 10px;">Ringkasan Statistik</h4>
-            <p style="color: #666;">Unduh metrik utama dan ringkasan dalam format CSV</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            df_distinct_export = df_filtered.drop_duplicates('apps_id')
-            approve_count = df_distinct_export['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-            total_scored = len(df_distinct_export[df_distinct_export['Scoring_Detail'] != '(Semua)'])
-            
-            summary_data = {
-                'Metrik': [
-                    'Total Catatan',
-                    'Aplikasi Unik',
-                    'Data SLA Lengkap',
-                    'Rata-rata Waktu Proses (jam)',
-                    'Tingkat Persetujuan'
-                ],
-                'Nilai': [
-                    f"{len(df_filtered):,}",
-                    f"{df_filtered['apps_id'].nunique():,}",
-                    f"{df_filtered['SLA_Hours'].notna().sum():,}",
-                    f"{df_filtered['SLA_Hours'].mean():.2f}" if df_filtered['SLA_Hours'].notna().any() else "0",
-                    f"{approve_count / total_scored * 100:.1f}%" if total_scored > 0 else "0%"
-                ]
-            }
-            summary_df = pd.DataFrame(summary_data)
-            csv_summary = summary_df.to_csv(index=False)
-            st.download_button(
-                "Unduh Ringkasan (CSV)",
-                csv_summary,
-                "ringkasan_statistik.csv",
-                "text/csv",
-                use_container_width=True
-            )
     
+    # Footer
     st.markdown("---")
-    
-    # Footer with BCA Branding
-    st.markdown("""
+    st.markdown(f"""
     <div style="background: linear-gradient(135deg, #003d7a 0%, #0066b3 100%); padding: 30px; border-radius: 10px; margin-top: 30px; text-align: center;">
-        <div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 20px;">
-            <div style="color: white;">
-                <h4 style="color: white; margin: 0;">Terakhir Diperbarui</h4>
-                <p style="margin: 5px 0; font-size: 16px;">{}</p>
-            </div>
-            <div style="color: white;">
-                <h4 style="color: white; margin: 0;">Total Data</h4>
-                <p style="margin: 5px 0; font-size: 16px;">{:,} catatan</p>
-            </div>
-            <div style="color: white;">
-                <h4 style="color: white; margin: 0;">Aplikasi Unik</h4>
-                <p style="margin: 5px 0; font-size: 16px;">{:,}</p>
-            </div>
-        </div>
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.3);">
-            <p style="color: #e3f2fd; margin: 0; font-size: 14px;">© 2026 BCA Finance - Dashboard Analisis Kredit</p>
-            <p style="color: #e3f2fd; margin: 5px 0 0 0; font-size: 12px;">Confidential - For Internal Use Only</p>
+        <div style="color: white;">
+            <p style="margin: 0; font-size: 14px;">© 2026 BCA Finance - Dashboard Analisis Kredit</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;">Terakhir diperbarui: {datetime.now().strftime('%d %B %Y, %H:%M:%S')}</p>
         </div>
     </div>
-    """.format(
-        datetime.now().strftime('%d %B %Y, %H:%M:%S'),
-        len(df),
-        df['apps_id'].nunique()
-    ), unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
