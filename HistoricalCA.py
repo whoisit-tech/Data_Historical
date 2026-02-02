@@ -646,6 +646,15 @@ def calculate_sla_per_status(df):
     
     return df_with_sla
 
+def remove_duplicate_status(df):
+    """Remove duplicate status for same apps_id, keeping only the first occurrence."""
+    df_dedup = df.copy()
+    df_dedup = df_dedup.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
+    df_dedup['_duplicate_flag'] = df_dedup.groupby(['apps_id', 'apps_status_clean']).cumcount()
+    df_dedup = df_dedup[df_dedup['_duplicate_flag'] == 0].drop('_duplicate_flag', axis=1).reset_index(drop=True)
+    
+    return df_dedup
+
 @st.cache_data
 def load_data():
     """Load and preprocess data"""
@@ -676,14 +685,6 @@ def load_data():
     except Exception as e:
         st.error(f"Error saat memuat data: {str(e)}")
         return None
-        
-def remove_duplicate_status(df):
-    """Remove duplicate status for same apps_id, keeping only the first occurrence."""
-    df_dedup = df.copy()
-    df_dedup = df_dedup.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
-    df_dedup['_duplicate_flag'] = df_dedup.groupby(['apps_id', 'apps_status_clean']).cumcount()
-    df_dedup = df_dedup[df_dedup['_duplicate_flag'] == 0].drop('_duplicate_flag', axis=1).reset_index(drop=True)
-    return df_dedup
 
 df = remove_duplicate_status(df)
 return df
