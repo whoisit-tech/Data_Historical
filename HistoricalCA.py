@@ -587,7 +587,9 @@ def preprocess_data(df):
         if field in df.columns:
             df[f'{field}_clean'] = df[field].fillna('Tidak Diketahui').astype(str).str.strip()
     
-    return df
+df = remove_duplicate_status(df)
+
+return df
 
 def calculate_sla_per_status(df):
     """
@@ -650,6 +652,10 @@ def remove_duplicate_status(df):
     """Remove duplicate status for same apps_id, keeping only the first occurrence."""
     df_dedup = df.copy()
     df_dedup = df_dedup.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
+    status_to_deduplicate = [
+        'RECOMMENDED CA', 
+        'RECOMMENDED CA COND'
+    ]
     df_dedup['_duplicate_flag'] = df_dedup.groupby(['apps_id', 'apps_status_clean']).cumcount()
     df_dedup = df_dedup[df_dedup['_duplicate_flag'] == 0].drop('_duplicate_flag', axis=1).reset_index(drop=True)
     
