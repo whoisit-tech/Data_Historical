@@ -714,7 +714,7 @@ def main():
     
     with col1:
         st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-        st.metric("Total Aplikasi", f"{total_records:,}")
+        st.metric("Total Data", f"{total_records:,}")
         st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Total semua transaksi dalam sistem</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -2385,12 +2385,12 @@ def main():
                 <p style="color: white !important; margin: 5px 0; font-size: 16px;">{:,} catatan</p>
             </div>
             <div style="color: white;">
-                <h4 style="color: white !important; margin: 0;">Aplikasi Unik</h4>
+                <h4 style="color: white !important; margin: 0;">Total AppID</h4>
                 <p style="color: white !important; margin: 5px 0; font-size: 16px;">{:,}</p>
             </div>
         </div>
         <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.3);">
-            <p style="color: #e3f2fd !important; margin: 0; font-size: 14px;">© 2026 BCA Finance - Dashboard Analisis Kredit</p>
+            <p style="color: #e3f2fd !important; margin: 0; font-size: 14px;">© 2026 BCA Finance - Dashboard CA</p>
             <p style="color: #e3f2fd !important; margin: 5px 0 0 0; font-size: 12px;">Confidential - For Internal Use Only</p>
         </div>
     </div>
