@@ -768,7 +768,6 @@ def main():
         )
     else:
         selected_scoring = []
-    ]
     
     if 'Segmen_clean' in df.columns:
         all_segmen = sorted(df['Segmen_clean'].unique().tolist())
