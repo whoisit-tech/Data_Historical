@@ -1228,7 +1228,7 @@ def main():
                 
                 st.markdown(f"""
                 <div class="{header_color}">
-                <h3>Segmen: {segmen if segmen != '-' else 'Lainnya'}</h3>
+                <h3>Segmen: {segmen if segmen != '-' else 'DS'}</h3>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -1333,7 +1333,7 @@ def main():
                 
                 st.markdown(f"""
                 <div class="{header_color}">
-                <h3>Segmen: {segmen if segmen != '-' else 'Lainnya'}</h3>
+                <h3>Segmen: {segmen if segmen != '-' else 'DS'}</h3>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -1437,7 +1437,7 @@ def main():
                 
                 st.markdown(f"""
                 <div class="{header_color}">
-                <h3>Segmen: {segmen if segmen != '-' else 'Lainnya'}</h3>
+                <h3>Segmen: {segmen if segmen != '-' else 'DS'}</h3>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -1503,7 +1503,7 @@ def main():
                                 x='Kategori Plafon',
                                 y='Jumlah',
                                 color='Jenis Kendaraan',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
+                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'DS'}",
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Safe,
                                 text='Jumlah'
@@ -1554,7 +1554,7 @@ def main():
                 
                 st.markdown(f"""
                 <div class="{header_color}">
-                <h3>Segmen: {segmen if segmen != '-' else 'Lainnya'}</h3>
+                <h3>Segmen: {segmen if segmen != '-' else 'DS'}</h3>
                 </div>
                 """, unsafe_allow_html=True)
                 
