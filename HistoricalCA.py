@@ -1041,9 +1041,9 @@ def main():
         with col1:
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi</h3>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total No Kontrak</h3>
             <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{len(apps_df):,}</h1>
-            <p style="color: #90a4ae; font-size: 14px;">Aplikasi kredit unik dalam sistem</p>
+            <p style="color: #90a4ae; font-size: 14px;">Jumlah AppID</p>
             </div>
             """, unsafe_allow_html=True)
         
