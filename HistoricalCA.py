@@ -373,13 +373,23 @@ st.markdown("""
 # TANGGAL MERAH (Holidays)
 # ============================================================================
 TANGGAL_MERAH = [
-    "01-01-2025", "27-01-2025", "28-01-2025", "29-01-2025", "28-03-2025", "31-03-2025",
-    "01-04-2025", "02-04-2025", "03-04-2025", "04-04-2025", "07-04-2025", "18-04-2025",
-    "01-05-2025", "12-05-2025", "29-05-2025", "06-06-2025", "09-06-2025", "27-06-2025",
-    "18-08-2025", "05-09-2025", "25-12-2025", "26-12-2025", "31-12-2025", "01-01-2026", 
-    "02-01-2026", "16-01-2026", "16-02-2026", "17-02-2026", "18-03-2026", "19-03-2026", 
-    "20-03-2026", "23-03-2026", "24-03-2026", "03-04-2026", "01-05-2026", "14-05-2026",
-    "27-05-2026", "28-05-2026", "01-06-2026", "16-06-2026", "17-08-2026", "25-08-2026", 
+    "01-01-2024", "08-02-2024", "10-02-2024", "11-03-2024",
+    "29-03-2024", "31-03-2024", "10-04-2024", "11-04-2024",
+    "01-05-2024", "09-05-2024", "23-05-2024", "01-06-2024",
+    "17-06-2024", "07-07-2024", "17-08-2024", "16-09-2024",
+    "25-12-2024", "09-02-2024", "12-03-2024", "08-04-2024", 
+    "09-04-2024", "12-04-2024", "10-05-2024", "24-05-2024", 
+    "18-06-2024", "26-12-2024", "01-01-2025", "27-01-2025", 
+    "28-01-2025", "29-01-2025", "28-03-2025", "31-03-2025",
+    "01-04-2025", "02-04-2025", "03-04-2025", "04-04-2025", 
+    "07-04-2025", "18-04-2025", "01-05-2025", "12-05-2025", 
+    "29-05-2025", "06-06-2025", "09-06-2025", "27-06-2025",
+    "18-08-2025", "05-09-2025", "25-12-2025", "26-12-2025", 
+    "31-12-2025", "01-01-2026", "02-01-2026", "16-01-2026", 
+    "16-02-2026", "17-02-2026", "18-03-2026", "19-03-2026", 
+    "20-03-2026", "23-03-2026", "24-03-2026", "03-04-2026", 
+    "01-05-2026", "14-05-2026", "27-05-2026", "28-05-2026", 
+    "01-06-2026", "16-06-2026", "17-08-2026", "25-08-2026", 
     "25-12-2026", "31-12-2026"
 ]
 TANGGAL_MERAH_DT = [datetime.strptime(d, "%d-%m-%Y").date() for d in TANGGAL_MERAH]
@@ -704,14 +714,14 @@ def main():
     
     with col1:
         st.markdown('<div class="metric-box">', unsafe_allow_html=True)
-        st.metric("Total Catatan", f"{total_records:,}")
+        st.metric("Total Aplikasi", f"{total_records:,}")
         st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Total semua transaksi dalam sistem</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
         st.markdown('<div class="metric-box-success">', unsafe_allow_html=True)
-        st.metric("Aplikasi Unik", f"{unique_apps:,}")
-        st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Jumlah AppID</p>', unsafe_allow_html=True)
+        st.metric("Total AppID", f"{unique_apps:,}")
+        st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Jumlah AppID Distinct</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
@@ -728,7 +738,7 @@ def main():
             avg_formatted = convert_hours_to_hm(avg_hours)
             st.markdown('<div class="metric-box-danger">', unsafe_allow_html=True)
             st.metric("Rata-rata Waktu Proses", avg_formatted)
-            st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Dari rekomendasi ke aksi</p>', unsafe_allow_html=True)
+            st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Per History</p>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
@@ -760,7 +770,7 @@ def main():
         selected_scoring = []
     
     if 'Segmen_clean' in df.columns:
-        all_segmen = sorted([x for x in df['Segmen_clean'].unique()])
+        all_segmen = sorted(df['Segmen_clean'].unique()tolist())
         selected_segmen = st.sidebar.selectbox(
             "Segmen Kredit", 
             ['Semua Segmen'] + all_segmen,
