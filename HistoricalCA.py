@@ -770,7 +770,7 @@ def main():
         selected_scoring = []
     
     if 'Segmen_clean' in df.columns:
-        all_segmen = sorted(df['Segmen_clean'].unique()tolist())
+        all_segmen = sorted(df['Segmen_clean'].unique().tolist())
         selected_segmen = st.sidebar.selectbox(
             "Segmen Kredit", 
             ['Semua Segmen'] + all_segmen,
