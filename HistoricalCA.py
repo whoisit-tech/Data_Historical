@@ -759,11 +759,10 @@ def main():
         selected_status = []
     
     if 'Scoring_Detail' in df.columns:
-        all_scoring = sorted([x for x in df['Scoring_Detail'].unique() if x != '(Semua)'])
-        selected_scoring = st.sidebar.multiselect(
+        all_scoring = sorted(df['Scoring_Detail'].unique().tolist())
+        selected_scoring = st.sidebar.selectbox(
             "Hasil Penilaian", 
-            all_scoring, 
-            default=all_scoring,
+            ['Scoring_Detail'] + all_scoring, 
             help="Filter berdasarkan hasil scoring"
         )
     else:
