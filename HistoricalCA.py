@@ -1295,7 +1295,7 @@ def main():
                                 x='Kategori Plafon',
                                 y='Jumlah',
                                 color='Pekerjaan',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
+                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'DS'}",
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Set3,
                                 text='Jumlah'
@@ -1399,7 +1399,7 @@ def main():
                                 x='Kategori Plafon',
                                 y='Jumlah',
                                 color='Status',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
+                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'DS'}",
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Pastel,
                                 text='Jumlah'
@@ -1620,7 +1620,7 @@ def main():
                                 x='Kategori Plafon',
                                 y='Jumlah',
                                 color='Hasil Scoring',
-                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'Lainnya'}",
+                                title=f"Distribusi Plafon untuk Segmen {segmen if segmen != '-' else 'DS'}",
                                 barmode='group',
                                 color_discrete_sequence=px.colors.qualitative.Vivid,
                                 text='Jumlah'
