@@ -801,14 +801,14 @@ def main():
     
     # TABS
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-        "⏱ Waktu Proses",
-        "📋 Data Detail",
-        "💰 Analisis Plafon",
-        "🏆 Kinerja Cabang & CA",
-        "✅ Status & Penilaian",
-        "⚠ Dampak Keterlambatan",
-        "💡 Insights & Rekomendasi",
-        "📥 Unduh Data"
+        " Waktu Proses",
+        " Data Detail",
+        " Analisis Plafon",
+        " Kinerja Cabang & CA",
+        " Status & Penilaian",
+        " Dampak Keterlambatan",
+        " Insights & Rekomendasi",
+        " Unduh Data"
     ])
 
     # ====== TAB 1: SLA ANALYSIS ======
@@ -830,7 +830,7 @@ def main():
         # Overall SLA stats
         sla_valid = df_filtered[df_filtered['SLA_Hours'].notna()]
         
-        st.markdown("### Statistik Waktu Proses: Rekomendasi ke Aksi")
+        st.markdown("### Statistik Waktu Proses ")
         st.caption("*Perhitungan berdasarkan jam kerja 08:30 - 15:30, exclude weekend dan hari libur*")
         
         col1, col2, col3, col4 = st.columns(4)
@@ -1191,10 +1191,10 @@ def main():
         
         # Create subtabs for different analyses
         subtab1, subtab2, subtab3, subtab4 = st.tabs([
-            "📊 Berdasarkan Pekerjaan",
-            "📊 Berdasarkan Status",
-            "📊 Berdasarkan Jenis Kendaraan",
-            "📊 Berdasarkan Hasil Scoring"
+            " Berdasarkan Pekerjaan",
+            " Berdasarkan Status",
+            " Berdasarkan Jenis Kendaraan",
+            " Berdasarkan Hasil Scoring"
         ])
         
         # SUBTAB 1: BY PEKERJAAN
@@ -1646,7 +1646,7 @@ def main():
     with tab4:
         st.markdown("## Analisis Kinerja Cabang & Credit Analyst")
         
-        subtab1, subtab2 = st.tabs(["🏢 Kinerja Cabang", "👤 Kinerja Credit Analyst"])
+        subtab1, subtab2 = st.tabs([" Kinerja Cabang", " Kinerja Credit Analyst"])
         
         # Branch Performance
         with subtab1:
@@ -2352,7 +2352,7 @@ def main():
             summary_df = pd.DataFrame(summary_data)
             csv_summary = summary_df.to_csv(index=False)
             st.download_button(
-                "📥 Unduh Ringkasan (CSV)",
+                " Unduh Ringkasan (CSV)",
                 csv_summary,
                 "ringkasan_statistik.csv",
                 "text/csv",
