@@ -654,9 +654,7 @@ def remove_duplicate_status(df):
     df_dedup = df_dedup[df_dedup['_duplicate_flag'] == 0].drop('_duplicate_flag', axis=1).reset_index(drop=True)
     
     return df_dedup
-    
-df = remove_duplicate_status(df)
-return df
+
 
 @st.cache_data
 def load_data():
@@ -687,6 +685,9 @@ def load_data():
         return df_clean
     except Exception as e:
         st.error(f"Error saat memuat data: {str(e)}")
+
+        df = remove_duplicate_status(df)
+        return df
         return None
 
 # ============================================================================
