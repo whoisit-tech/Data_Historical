@@ -587,9 +587,11 @@ def preprocess_data(df):
         if field in df.columns:
             df[f'{field}_clean'] = df[field].fillna('Tidak Diketahui').astype(str).str.strip()
     
-df = remove_duplicate_status(df)
+    #  TAMBAHAN: REMOVE DUPLICATE STATUS (SELECTIVE)
+    df = remove_duplicate_status(df)
+    
+    return df
 
-return df
 
 def calculate_sla_per_status(df):
     """
@@ -605,8 +607,8 @@ def calculate_sla_per_status(df):
     # Initialize columns
     df_with_sla['SLA_Hours'] = None
     df_with_sla['SLA_Formatted'] = None
-    df_with_sla['SLA_From'] = None  # KOLOM BARU
-    df_with_sla['SLA_To'] = None    # KOLOM BARU
+    df_with_sla['SLA_From'] = None
+    df_with_sla['SLA_To'] = None
     
     # Group by apps_id
     for apps_id, group in df_with_sla.groupby('apps_id'):
@@ -648,16 +650,35 @@ def calculate_sla_per_status(df):
     
     return df_with_sla
 
+
 def remove_duplicate_status(df):
-    """Remove duplicate status for same apps_id, keeping only the first occurrence."""
+    """
+    Remove duplicate status HANYA untuk RECOMMENDED CA dan RECOMMENDED CA WITH COND.
+    Status lain seperti PENDING CA boleh double.
+    
+    Logic:
+    - For RECOMMENDED CA: Keep hanya first occurrence (delete duplicates)
+    - For other status: Keep all (allow duplicates)
+    """
     df_dedup = df.copy()
+    
+    # Step 1: Sort untuk consistency
     df_dedup = df_dedup.sort_values(['apps_id', 'action_on_parsed']).reset_index(drop=True)
+    
+    # Step 2: Define target status untuk deduplication
     status_to_deduplicate = [
-        'RECOMMENDED CA', 
-        'RECOMMENDED CA COND'
+        'RECOMMENDED CA',
+        'RECOMMENDED CA WITH COND',
+        'RECOMMENDED CA WITH CONDITION'
     ]
-    df_dedup['_duplicate_flag'] = df_dedup.groupby(['apps_id', 'apps_status_clean']).cumcount()
-    df_dedup = df_dedup[df_dedup['_duplicate_flag'] == 0].drop('_duplicate_flag', axis=1).reset_index(drop=True)
+    
+    # Step 3: Mark duplikasi dan target status
+    df_dedup['_dup_count'] = df_dedup.groupby(['apps_id', 'apps_status_clean']).cumcount()
+    df_dedup['_is_target'] = df_dedup['apps_status_clean'].isin(status_to_deduplicate)
+    
+    # Step 4: Filter dengan logic: Keep jika first (_dup_count==0) ATAU bukan target status
+    keep_mask = (df_dedup['_dup_count'] == 0) | (~df_dedup['_is_target'])
+    df_dedup = df_dedup[keep_mask].drop(['_dup_count', '_is_target'], axis=1).reset_index(drop=True)
     
     return df_dedup
 
@@ -691,11 +712,7 @@ def load_data():
         return df_clean
     except Exception as e:
         st.error(f"Error saat memuat data: {str(e)}")
-
-        df = remove_duplicate_status(df)
-        return df
         return None
-
 # ============================================================================
 # MAIN APPLICATION
 # ============================================================================
