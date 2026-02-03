@@ -54,7 +54,7 @@ st.markdown("""
     }
     
     .metric-box {
-        background: #ffffff;
+        background: #1e2129;
         padding: 20px;
         border-radius: 10px;
         border: 2px solid #2d3139;
@@ -70,7 +70,7 @@ st.markdown("""
     }
     
     .metric-box-success {
-        background: #ffffff;
+        background: #1e2129;
         border: 2px solid #2d3139;
         border-left: 6px solid #1e88e5;
         box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -82,7 +82,7 @@ st.markdown("""
     }
     
     .metric-box-warning {
-        background: #ffffff;
+        background: #1e2129;
         border: 2px solid #2d3139;
         border-left: 6px solid #ff9800;
         box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -94,7 +94,7 @@ st.markdown("""
     }
     
     .metric-box-danger {
-        background: #ffffff;
+        background: #1e2129;
         border: 2px solid #2d3139;
         border-left: 6px solid #f44336;
         box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -106,7 +106,7 @@ st.markdown("""
     }
     
     .info-box {
-        background: #ffffff;
+        background: #1e2129;
         padding: 20px;
         border-radius: 10px;
         border: 2px solid #0066b3;
@@ -146,7 +146,7 @@ st.markdown("""
     .dataframe td {
         color: #e0e0e0 !important;
         padding: 10px !important;
-        background-color: #ffffff !important;
+        background-color: #1e2129 !important;
     }
     
     .dataframe tr:hover td {
@@ -154,7 +154,7 @@ st.markdown("""
     }
     
     [data-testid="stSidebar"] {
-        background-color: #ffffff;
+        background-color: #1e2129;
         border-right: 2px solid #2d3139;
         box-shadow: 2px 0 10px rgba(0,0,0,0.3);
     }
@@ -180,7 +180,7 @@ st.markdown("""
     
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background-color: #ffffff;
+        background-color: #1e2129;
         padding: 12px;
         border-radius: 10px;
         border: 1px solid #2d3139;
@@ -325,25 +325,25 @@ st.markdown("""
     
     /* Success/Info/Warning/Error messages */
     .stSuccess {
-        background-color: #ffffff !important;
+        background-color: #1e2129 !important;
         border-left-color: #4caf50 !important;
         color: #81c784 !important;
     }
     
     .stInfo {
-        background-color: #ffffff !important;
+        background-color: #1e2129 !important;
         border-left-color: #2196f3 !important;
         color: #64b5f6 !important;
     }
     
     .stWarning {
-        background-color: #ffffff !important;
+        background-color: #1e2129 !important;
         border-left-color: #ff9800 !important;
         color: #ffb74d !important;
     }
     
     .stError {
-        background-color: #ffffff !important;
+        background-color: #1e2129 !important;
         border-left-color: #f44336 !important;
         color: #e57373 !important;
     }
@@ -355,7 +355,7 @@ st.markdown("""
     }
     
     ::-webkit-scrollbar-track {
-        background: #ffffff;
+        background: #1e2129;
     }
     
     ::-webkit-scrollbar-thumb {
@@ -990,8 +990,8 @@ def main():
                 yaxis_title="Waktu Proses (Jam Kerja)",
                 hovermode='x unified',
                 height=500,
-                plot_bgcolor='#ffffff',
-                paper_bgcolor='#ffffff',
+                plot_bgcolor='#1e2129',
+                paper_bgcolor='#1e2129',
                 font=dict(family='Arial', size=13, color='#e0e0e0'),
                 xaxis=dict(
                     showgrid=True,
@@ -1338,8 +1338,8 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=400,
-                                plot_bgcolor='#ffffff',
-                                paper_bgcolor='#ffffff',
+                                plot_bgcolor='#1e2129',
+                                paper_bgcolor='#1e2129',
                                 font=dict(family='Arial', size=12, color='#e0e0e0')
                             )
                             st.plotly_chart(fig, use_container_width=True)
@@ -1442,8 +1442,8 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=400,
-                                plot_bgcolor='#ffffff',
-                                paper_bgcolor='#ffffff',
+                                plot_bgcolor='#1e2129',
+                                paper_bgcolor='#1e2129',
                                 font=dict(family='Arial', size=12, color='#e0e0e0')
                             )
                             st.plotly_chart(fig, use_container_width=True)
@@ -1546,8 +1546,8 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=450,
-                                plot_bgcolor='#ffffff',
-                                paper_bgcolor='#ffffff',
+                                plot_bgcolor='#1e2129',
+                                paper_bgcolor='#1e2129',
                                 showlegend=True,
                                 font=dict(family='Arial', size=13, color='#e0e0e0'),
                                 title_font_size=16,
@@ -1663,8 +1663,8 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=450,
-                                plot_bgcolor='#ffffff',
-                                paper_bgcolor='#ffffff',
+                                plot_bgcolor='#1e2129',
+                                paper_bgcolor='#1e2129',
                                 showlegend=True,
                                 font=dict(family='Arial', size=13, color='#e0e0e0'),
                                 title_font_size=16,
@@ -1764,7 +1764,7 @@ def main():
                         fig1.update_traces(textposition='outside', textfont_size=11)
                         fig1.update_layout(
                             height=400,
-                            plot_bgcolor='#ffffff',
+                            plot_bgcolor='#1e2129',
                             paper_bgcolor='#FFFFFF',
                             showlegend=False,
                             xaxis_tickangle=-45
@@ -1788,7 +1788,7 @@ def main():
                         fig2.update_layout(
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=400,
-                            plot_bgcolor='#ffffff',
+                            plot_bgcolor='#1e2129',
                             paper_bgcolor='#FFFFFF',
                             showlegend=False,
                             xaxis_tickangle=-45
@@ -1866,8 +1866,8 @@ def main():
                         fig1.update_traces(textposition='outside', textfont_size=11)
                         fig1.update_layout(
                             height=450,
-                            plot_bgcolor='#ffffff',
-                            paper_bgcolor='#ffffff',
+                            plot_bgcolor='#1e2129',
+                            paper_bgcolor='#1e2129',
                             showlegend=False,
                             xaxis_tickangle=-45
                         )
@@ -1890,8 +1890,8 @@ def main():
                         fig2.update_layout(
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=450,
-                            plot_bgcolor='#ffffff',
-                            paper_bgcolor='#ffffff',
+                            plot_bgcolor='#1e2129',
+                            paper_bgcolor='#1e2129',
                             showlegend=False,
                             xaxis_tickangle=-45
                         )
@@ -2064,7 +2064,7 @@ def main():
                         yaxis_title="Tingkat Persetujuan (%)",
                         height=350,
                         showlegend=False,
-                        plot_bgcolor='#ffffff',
+                        plot_bgcolor='#1e2129',
                         paper_bgcolor='#FFFFFF'
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -2117,7 +2117,7 @@ def main():
                         yaxis_title="Tingkat Persetujuan (%)",
                         height=350,
                         showlegend=False,
-                        plot_bgcolor='#ffffff',
+                        plot_bgcolor='#1e2129',
                         paper_bgcolor='#FFFFFF'
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -2234,6 +2234,59 @@ def main():
                 <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">{reject_count:,} aplikasi ditolak</p>
                 </div>
                 """, unsafe_allow_html=True)
+            
+            with col3:
+                benchmark = 70
+                vs_benchmark = approval_rate - benchmark
+                color = "metric-box-success" if vs_benchmark >= 0 else "metric-box-warning"
+                symbol = "+" if vs_benchmark >= 0 else ""
+                st.markdown(f"""
+                <div class="{color}" style="text-align: center; padding: 20px;">
+                <h4 style="color: #003d7a; margin-bottom: 10px;">vs Benchmark</h4>
+                <h3 style="margin: 0;">{symbol}{vs_benchmark:.1f}%</h3>
+                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Benchmark industri: {benchmark}%</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("#### Rekomendasi Approval Rate:")
+            if approval_rate < 60:
+                st.markdown("""
+                - **Prioritas Kritis**: Review kriteria scoring yang terlalu ketat
+                - Analisis penyebab utama penolakan aplikasi
+                - Pertimbangkan program pre-screening untuk meningkatkan kualitas aplikasi masuk
+                - Evaluasi apakah target market sudah sesuai
+                """)
+            elif approval_rate < 70:
+                st.markdown("""
+                - **Perlu Perbaikan**: Tingkatkan kualitas assessment awal
+                - Implementasi credit counseling untuk calon nasabah
+                - Review kebijakan kredit untuk segmen tertentu
+                """)
+            else:
+                st.markdown("""
+                - **Performa Baik**: Tingkat persetujuan sudah sehat
+                - Fokus pada kualitas portfolio dan menjaga NPL tetap rendah
+                - Monitor untuk memastikan tidak ada penurunan kualitas assessment
+                """)
+        
+        st.markdown("---")
+        
+        # Summary Recommendations
+        st.markdown("### Ringkasan Rekomendasi Prioritas")
+        
+        st.markdown("""
+        <div class="metric-box" style="padding: 25px;">
+        <h4 style="color: #003d7a; margin-bottom: 15px;">Action Items - Prioritas Tinggi</h4>
+        <ol style="color: #b0bec5; line-height: 2;">
+            <li><strong>Optimasi SLA:</strong> Fokus pada cabang dan CA dengan SLA di atas target</li>
+            <li><strong>Knowledge Transfer:</strong> Replikasi best practices dari top performers</li>
+            <li><strong>Quality Control:</strong> Strengthen pre-screening process untuk meningkatkan approval rate</li>
+            <li><strong>Risk Management:</strong> Implementasi stricter criteria untuk aplikant dengan high OD history</li>
+            <li><strong>Training & Development:</strong> Program capacity building untuk CA dengan performa rendah</li>
+            <li><strong>Technology:</strong> Pertimbangkan otomasi untuk proses yang repetitive untuk percepat SLA</li>
+        </ol>
+        </div>
+        """, unsafe_allow_html=True)
     
     # ====== TAB 8: DATA EXPORT ======
     with tab8:
