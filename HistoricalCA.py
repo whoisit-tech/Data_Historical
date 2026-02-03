@@ -853,7 +853,7 @@ def main():
         " Kinerja Cabang & CA",
         " Status & Penilaian",
         " Dampak Keterlambatan",
-        " Insights & Rekomendasi",
+        " Insights",
         " Unduh Data"
     ])
 
@@ -2122,9 +2122,9 @@ def main():
                     )
                     st.plotly_chart(fig, use_container_width=True)
     
-    # ====== TAB 7: INSIGHTS & RECOMMENDATIONS ======
+    # ====== TAB 7: INSIGHTS ======
     with tab7:
-        st.markdown("## Insights & Rekomendasi Strategis")
+        st.markdown("## Insights")
         
         st.markdown("""
         <div class="info-box">
