@@ -1167,7 +1167,7 @@ def main():
                         """, unsafe_allow_html=True)
                     
                     with col4:
-                        ca = app_records['user_name_clean'].iloc[0] if 'user_name_clean' in app_records.columns else 'N/A'
+                        ca = app_records['user_name_clean'].iloc[-1] if 'user_name_clean' in app_records.columns else 'N/A'
                         st.markdown(f"""
                         <div class="metric-box" style="text-align: center; padding: 20px;">
                         <h4 style="color: #003d7a; margin-bottom: 10px;">CA</h4>
