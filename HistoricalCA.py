@@ -746,7 +746,7 @@ def main():
     unique_apps = df['apps_id'].nunique()
     sla_with_data = df['SLA_Hours'].notna().sum()
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.markdown('<div class="metric-box">', unsafe_allow_html=True)
@@ -775,6 +775,19 @@ def main():
             st.markdown('<div class="metric-box-danger">', unsafe_allow_html=True)
             st.metric("Rata-rata Waktu Proses", avg_formatted)
             st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Per History</p>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+     with col5:
+        sla_valid = df[df['SLA_Hours'].notna()]
+        if len(sla_valid) > 0:
+            mode_hours = sla_valid['SLA_Hours'].mode()
+            if len(mode_hours) > 0:
+                mode_formatted = convert_hours_to_hm(mode_hours.iloc[0])
+            else:
+                mode_formatted = "-"
+            st.markdown('<div class="metric-box" style="min-height: 160px; display: flex; flex-direction: column; justify-content: space-between;">', unsafe_allow_html=True)
+            st.metric("Modus Waktu Proses", mode_formatted)
+            st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Waktu paling sering muncul</p>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
