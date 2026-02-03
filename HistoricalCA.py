@@ -903,7 +903,7 @@ def main():
         with col3:
             if len(sla_valid) > 0:
             # Calculate mode (most frequent value)
-            mode_hours = sla_valid['SLA_Hours'].mode()
+                mode_hours = sla_valid['SLA_Hours'].mode()
             if len(mode_hours) > 0:
                 mode_formatted = convert_hours_to_hm(mode_hours.iloc[0])
             else:
