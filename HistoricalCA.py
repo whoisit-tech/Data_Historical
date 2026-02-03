@@ -1066,7 +1066,7 @@ def main():
         
         for app_id in sorted(df_filtered['apps_id'].unique()):
             app_data = df_filtered[df_filtered['apps_id'] == app_id]
-            latest_record = app_data.sort_values('action_on_parsed', descending=False).iloc[0]
+            latest_record = app_data.sort_values('action_on_parsed', descending=False)
             
             apps_summary.append({
                 'AppID': app_id,
