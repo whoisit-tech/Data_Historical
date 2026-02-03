@@ -2187,21 +2187,6 @@ def main():
                     <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">SLA dalam batas normal</p>
                     </div>
                     """, unsafe_allow_html=True)
-            
-            st.markdown("#### Rekomendasi SLA:")
-            if avg_sla > target_sla:
-                st.markdown("""
-                - **Prioritas Tinggi**: Evaluasi proses bottleneck yang menyebabkan keterlambatan
-                - Pertimbangkan penambahan resources atau redistribusi beban kerja
-                - Implementasi sistem monitoring real-time untuk identifikasi dini aplikasi yang berisiko melebihi SLA
-                - Training untuk CA dengan performa SLA di bawah target
-                """)
-            else:
-                st.markdown("""
-                - **Pertahankan**: Proses saat ini sudah optimal
-                - Monitor konsistensi performa untuk memastikan sustainabilitas
-                - Dokumentasikan best practices untuk replikasi ke tim lain
-                """)
         
         st.markdown("---")
         
