@@ -842,7 +842,7 @@ def main():
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Hasil Filter")
-    st.sidebar.success(f"**{len(df_filtered):,}** catatan ({len(df_filtered)/len(df)*100:.1f}%)")
+    st.sidebar.success(f"**{len(df_filtered):,}**  ({len(df_filtered)/len(df)*100:.1f}%)")
     st.sidebar.info(f"**{df_filtered['apps_id'].nunique():,}** aplikasi unik")
     
     # TABS
@@ -1071,7 +1071,7 @@ def main():
             
             apps_summary.append({
                 'ID Aplikasi': app_id,
-                'Jumlah Catatan': len(app_data),
+                'Jumlah ': len(app_data),
                 'Status Terakhir': latest_record.get('apps_status_clean', 'N/A'),
                 'Aksi Terakhir': latest_record.get('action_on_parsed', pd.NaT),
                 'Segmen': latest_record.get('Segmen_clean', 'N/A'),
@@ -1094,7 +1094,7 @@ def main():
             """, unsafe_allow_html=True)
         
         with col2:
-            total_catatan = apps_df['Jumlah Catatan'].sum()
+            total_ = apps_df['Jumlah Catatan'].sum()
             st.markdown(f"""
             <div class="metric-box" style="text-align: center; padding: 25px;">
             <h3 style="color: #003d7a; margin-bottom: 10px;">Total Catatan</h3>
@@ -1226,7 +1226,7 @@ def main():
             <li><strong>Kategori Plafon</strong>: 0-250 Juta, 250-500 Juta, dan >500 Juta</li>
             <li><strong>Dimensi Analisis</strong>: Pekerjaan, Status Aplikasi, Jenis Kendaraan, dan Hasil Scoring</li>
         </ul>
-        <p><strong>Catatan:</strong> Perhitungan berdasarkan aplikasi unik (bukan duplikasi)</p>
+        <p><strong>Catatan:</strong> Perhitungan berdasarkan total AppID</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1700,7 +1700,6 @@ def main():
             <div class="info-box">
             <h4>Penjelasan Metrik Kinerja Cabang</h4>
             <ul>
-                <li><strong>Total Aplikasi Unik</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
                 <li><strong>Tingkat Persetujuan</strong>: Persentase aplikasi yang disetujui</li>
                 <li><strong>Waktu Proses Rata-rata</strong>: Durasi proses kredit dalam jam kerja</li>
                 <li><strong>Total Plafon</strong>: Akumulasi nilai plafon kredit</li>
@@ -1732,7 +1731,7 @@ def main():
                     
                     branch_perf.append({
                         'Cabang': branch,
-                        'Total Aplikasi Unik': total_apps,
+                        'Total AppID': total_apps,
                         'Total Catatan': total_records,
                         'Disetujui': approve,
                         'Tingkat Persetujuan': approval_pct,
@@ -1911,7 +1910,7 @@ def main():
             <li><strong>Kolom</strong>: Menunjukkan hasil penilaian dari sistem scoring</li>
             <li><strong>Nilai</strong>: Jumlah aplikasi unik untuk setiap kombinasi</li>
         </ul>
-        <p><strong>Catatan:</strong> Perhitungan berdasarkan aplikasi unik (tanpa duplikasi)</p>
+        <p><strong>Catatan:</strong> Perhitungan berdasarkan AppID</p>
         </div>
         """, unsafe_allow_html=True)
         
