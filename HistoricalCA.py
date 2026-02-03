@@ -1867,7 +1867,7 @@ def main():
                         fig1.update_layout(
                             height=450,
                             plot_bgcolor='#1e2129',
-                            paper_bgcolor='#1e2129',
+                            paper_bgcolor='#ffffff',
                             showlegend=False,
                             xaxis_tickangle=-45
                         )
@@ -1891,7 +1891,7 @@ def main():
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=450,
                             plot_bgcolor='#1e2129',
-                            paper_bgcolor='#1e2129',
+                            paper_bgcolor='#ffffff',
                             showlegend=False,
                             xaxis_tickangle=-45
                         )
