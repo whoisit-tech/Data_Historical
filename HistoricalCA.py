@@ -908,10 +908,10 @@ def main():
                 mode_formatted = convert_hours_to_hm(mode_hours.iloc[0])
             else:
                 mode_formatted = "-"
-            st.markdown('<div class="metric-box" style="min-height: 160px; display: flex; flex-direction: column; justify-content: space-between;">', unsafe_allow_html=True)
-            st.metric("Modus Waktu Proses", mode_formatted)
-            st.markdown('<p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Waktu paling sering muncul</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('<div class="metric-box-success" style="text-align: center;">', unsafe_allow_html=True)
+                st.markdown(f'<h3 style="color: #003d7a; margin-bottom: 10px;">Modus</h3>', unsafe_allow_html=True)
+                st.markdown(f'<h2 style="color: #1e88e5; margin: 0;">{mode_formatted}</h2>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
         
         with col4:
             if len(sla_valid) > 0:
