@@ -1070,7 +1070,7 @@ def main():
             latest_record = app_data.sort_values('action_on_parsed', ascending=False).iloc[0]
             
             apps_summary.append({
-                'ID Aplikasi': app_id,
+                'AppID': app_id,
                 'Jumlah Catatan': len(app_data),
                 'Status Terakhir': latest_record.get('apps_status_clean', 'N/A'),
                 'Aksi Terakhir': latest_record.get('action_on_parsed', pd.NaT),
@@ -1123,9 +1123,9 @@ def main():
         
         with col_search:
             search_input = st.text_input(
-                "Masukkan ID Aplikasi:", 
+                "Masukkan AppID:", 
                 placeholder="Contoh: 5259031",
-                help="Ketik ID aplikasi untuk melihat detail lengkap"
+                help="Ketik AppID untuk melihat detail lengkap"
             )
         
         if search_input:
@@ -1134,7 +1134,7 @@ def main():
                 app_records = df[df['apps_id'] == search_id].sort_values('action_on_parsed')
                 
                 if len(app_records) > 0:
-                    st.success(f"Ditemukan **{len(app_records)}** catatan untuk ID Aplikasi: **{search_id}**")
+                    st.success(f"Ditemukan **{len(app_records)}** catatan untuk AppID: **{search_id}**")
                     
                     # Summary
                     st.markdown("#### Ringkasan Aplikasi")
@@ -1208,10 +1208,10 @@ def main():
                     st.dataframe(display_df.reset_index(drop=True), use_container_width=True, height=400)
                     
                 else:
-                    st.warning(f"Tidak ditemukan data untuk ID Aplikasi: {search_id}")
+                    st.warning(f"Tidak ditemukan data untuk AppID: {search_id}")
             
             except ValueError:
-                st.error("Mohon masukkan ID Aplikasi yang valid (angka)")
+                st.error("Mohon masukkan AppID yang valid (angka)")
     
     # ====== TAB 3: OSPH ANALYSIS ======
     with tab3:
@@ -2317,7 +2317,7 @@ def main():
         ]
         
         col_rename = {
-            'apps_id': 'ID Aplikasi',
+            'apps_id': 'AppID',
             'apps_status_clean': 'Status',
             'action_on_parsed': 'Waktu Aksi',
             'Recommendation_parsed': 'Waktu Rekomendasi',
