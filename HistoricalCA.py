@@ -843,7 +843,7 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Hasil Filter")
     st.sidebar.success(f"**{len(df_filtered):,}** catatan ({len(df_filtered)/len(df)*100:.1f}%)")
-    st.sidebar.info(f"**{df_filtered['apps_id'].nunique():,}** aplikasi unik")
+    st.sidebar.info(f"**{df_filtered['apps_id'].nunique():,}** AppID")
     
     # TABS
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
@@ -866,9 +866,8 @@ def main():
         <h4>Penjelasan Waktu Proses (SLA)</h4>
         <p><strong>SLA (Service Level Agreement)</strong> adalah target waktu yang ditetapkan untuk menyelesaikan proses kredit.</p>
         <ul>
-            <li><strong>Perhitungan</strong>: Dari waktu Rekomendasi sampai waktu Aksi</li>
+            <li><strong>Perhitungan</strong>: Historical berdasarkan waktu recommendation hingga action</li>
             <li><strong>Jam Kerja</strong>: 08:30 - 15:30 (tidak termasuk weekend & libur nasional)</li>
-            <li><strong>Target</strong>: Maksimal 35 jam kerja (setara 5 hari kerja)</li>
         </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -1226,7 +1225,7 @@ def main():
             <li><strong>Kategori Plafon</strong>: 0-250 Juta, 250-500 Juta, dan >500 Juta</li>
             <li><strong>Dimensi Analisis</strong>: Pekerjaan, Status Aplikasi, Jenis Kendaraan, dan Hasil Scoring</li>
         </ul>
-        <p><strong>Catatan:</strong> Perhitungan berdasarkan aplikasi unik (bukan duplikasi)</p>
+        <p><strong>Catatan:</strong> Perhitungan Berdasarkan Total AppID</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1275,7 +1274,7 @@ def main():
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Total Aplikasi Unik", f"{total_apps:,}")
+                    st.metric("Total AppID", f"{total_apps:,}")
                 with col2:
                     st.metric("Total Catatan", f"{total_records:,}")
                 
@@ -1380,7 +1379,7 @@ def main():
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Total Aplikasi Unik", f"{total_apps:,}")
+                    st.metric("Total AppID", f"{total_apps:,}")
                 with col2:
                     st.metric("Total Catatan", f"{total_records:,}")
                 
@@ -1484,7 +1483,7 @@ def main():
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Total Aplikasi Unik", f"{total_apps:,}")
+                    st.metric("Total AppID", f"{total_apps:,}")
                 with col2:
                     st.metric("Total Catatan", f"{total_records:,}")
                 
@@ -1601,7 +1600,7 @@ def main():
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("Total Aplikasi Unik", f"{total_apps:,}")
+                    st.metric("Total AppID", f"{total_apps:,}")
                 with col2:
                     st.metric("Total Catatan", f"{total_records:,}")
                 
@@ -1700,7 +1699,7 @@ def main():
             <div class="info-box">
             <h4>Penjelasan Metrik Kinerja Cabang</h4>
             <ul>
-                <li><strong>Total Aplikasi Unik</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
+                <li><strong>Total AppID</strong>: Jumlah pengajuan kredit berbeda (tanpa duplikasi)</li>
                 <li><strong>Tingkat Persetujuan</strong>: Persentase aplikasi yang disetujui</li>
                 <li><strong>Waktu Proses Rata-rata</strong>: Durasi proses kredit dalam jam kerja</li>
                 <li><strong>Total Plafon</strong>: Akumulasi nilai plafon kredit</li>
@@ -1732,7 +1731,7 @@ def main():
                     
                     branch_perf.append({
                         'Cabang': branch,
-                        'Total Aplikasi Unik': total_apps,
+                        'Total AppID': total_apps,
                         'Total Catatan': total_records,
                         'Disetujui': approve,
                         'Tingkat Persetujuan': approval_pct,
@@ -1740,7 +1739,7 @@ def main():
                         'Total Plafon': f"Rp {total_osph:,.0f}"
                     })
                 
-                branch_df = pd.DataFrame(branch_perf).sort_values('Total Aplikasi Unik', ascending=False)
+                branch_df = pd.DataFrame(branch_perf).sort_values('Total AppID', ascending=False)
                 
                 st.markdown("### Tabel Kinerja Seluruh Cabang")
                 st.dataframe(branch_df, use_container_width=True, hide_index=True, height=400)
@@ -1756,11 +1755,11 @@ def main():
                         fig1 = px.bar(
                             branch_df.head(10),
                             x='Cabang',
-                            y='Total Aplikasi Unik',
+                            y='Total AppID',
                             title="Top 10 Cabang - Volume Aplikasi Terbanyak",
-                            color='Total Aplikasi Unik',
+                            color='Total AppID',
                             color_continuous_scale='Blues',
-                            text='Total Aplikasi Unik'
+                            text='Total AppID'
                         )
                         fig1.update_traces(textposition='outside', textfont_size=11)
                         fig1.update_layout(
@@ -1802,7 +1801,7 @@ def main():
             <div class="info-box">
             <h4>Penjelasan Metrik Kinerja Credit Analyst</h4>
             <ul>
-                <li><strong>Total Aplikasi Unik</strong>: Jumlah pengajuan kredit yang ditangani</li>
+                <li><strong>Total AppID</strong>: Jumlah pengajuan kredit yang ditangani</li>
                 <li><strong>Tingkat Persetujuan</strong>: Persentase aplikasi yang berhasil disetujui</li>
                 <li><strong>Waktu Proses Rata-rata</strong>: Efisiensi waktu dalam memproses aplikasi</li>
             </ul>
@@ -1835,14 +1834,14 @@ def main():
                     ca_perf.append({
                         'Nama Credit Analyst': ca,
                         'Cabang': main_branch,
-                        'Total Aplikasi Unik': total_apps,
+                        'Total AppID': total_apps,
                         'Total Catatan': total_records,
                         'Disetujui': approve,
                         'Tingkat Persetujuan': approval_pct,
                         'Waktu Proses Rata-rata': avg_sla
                     })
                 
-                ca_df = pd.DataFrame(ca_perf).sort_values('Total Aplikasi Unik', ascending=False)
+                ca_df = pd.DataFrame(ca_perf).sort_values('Total AppID', ascending=False)
                 
                 st.markdown("### Tabel Kinerja Seluruh Credit Analyst")
                 st.dataframe(ca_df, use_container_width=True, hide_index=True, height=400)
@@ -1858,11 +1857,11 @@ def main():
                         fig1 = px.bar(
                             ca_df.head(10),
                             x='Nama Credit Analyst',
-                            y='Total Aplikasi Unik',
+                            y='Total AppID',
                             title="Top 10 CA - Volume Aplikasi Terbanyak",
-                            color='Total Aplikasi Unik',
+                            color='Total AppID',
                             color_continuous_scale='Greens',
-                            text='Total Aplikasi Unik'
+                            text='Total AppID'
                         )
                         fig1.update_traces(textposition='outside', textfont_size=11)
                         fig1.update_layout(
@@ -1909,9 +1908,9 @@ def main():
         <ul>
             <li><strong>Baris</strong>: Menunjukkan status aplikasi (Approved, Rejected, dll)</li>
             <li><strong>Kolom</strong>: Menunjukkan hasil penilaian dari sistem scoring</li>
-            <li><strong>Nilai</strong>: Jumlah aplikasi unik untuk setiap kombinasi</li>
+            <li><strong>Nilai</strong>: Jumlah AppID untuk setiap kombinasi</li>
         </ul>
-        <p><strong>Catatan:</strong> Perhitungan berdasarkan aplikasi unik (tanpa duplikasi)</p>
+        <p><strong>Catatan:</strong> Perhitungan berdasarkan total AppID</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1923,7 +1922,7 @@ def main():
         with col1:
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi Unik</h3>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total AppID</h3>
             <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
             </div>
             """, unsafe_allow_html=True)
@@ -2000,7 +1999,7 @@ def main():
         with col1:
             st.markdown(f"""
             <div class="metric-box-success" style="text-align: center; padding: 25px;">
-            <h3 style="color: #003d7a; margin-bottom: 10px;">Total Aplikasi Unik</h3>
+            <h3 style="color: #003d7a; margin-bottom: 10px;">Total AppID</h3>
             <h1 style="color: #1e88e5; margin: 10px 0; font-size: 48px;">{total_apps_distinct:,}</h1>
             </div>
             """, unsafe_allow_html=True)
@@ -2382,7 +2381,7 @@ def main():
             summary_data = {
                 'Metrik': [
                     'Total Catatan',
-                    'Aplikasi Unik',
+                    'Total AppID',
                     'Data SLA Lengkap',
                     'Rata-rata Waktu Proses (jam)',
                     'Tingkat Persetujuan'
