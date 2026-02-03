@@ -2234,59 +2234,6 @@ def main():
                 <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">{reject_count:,} aplikasi ditolak</p>
                 </div>
                 """, unsafe_allow_html=True)
-            
-            with col3:
-                benchmark = 70
-                vs_benchmark = approval_rate - benchmark
-                color = "metric-box-success" if vs_benchmark >= 0 else "metric-box-warning"
-                symbol = "+" if vs_benchmark >= 0 else ""
-                st.markdown(f"""
-                <div class="{color}" style="text-align: center; padding: 20px;">
-                <h4 style="color: #003d7a; margin-bottom: 10px;">vs Benchmark</h4>
-                <h3 style="margin: 0;">{symbol}{vs_benchmark:.1f}%</h3>
-                <p style="color: #90a4ae; font-size: 14px; margin-top: 5px;">Benchmark industri: {benchmark}%</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("#### Rekomendasi Approval Rate:")
-            if approval_rate < 60:
-                st.markdown("""
-                - **Prioritas Kritis**: Review kriteria scoring yang terlalu ketat
-                - Analisis penyebab utama penolakan aplikasi
-                - Pertimbangkan program pre-screening untuk meningkatkan kualitas aplikasi masuk
-                - Evaluasi apakah target market sudah sesuai
-                """)
-            elif approval_rate < 70:
-                st.markdown("""
-                - **Perlu Perbaikan**: Tingkatkan kualitas assessment awal
-                - Implementasi credit counseling untuk calon nasabah
-                - Review kebijakan kredit untuk segmen tertentu
-                """)
-            else:
-                st.markdown("""
-                - **Performa Baik**: Tingkat persetujuan sudah sehat
-                - Fokus pada kualitas portfolio dan menjaga NPL tetap rendah
-                - Monitor untuk memastikan tidak ada penurunan kualitas assessment
-                """)
-        
-        st.markdown("---")
-        
-        # Summary Recommendations
-        st.markdown("### Ringkasan Rekomendasi Prioritas")
-        
-        st.markdown("""
-        <div class="metric-box" style="padding: 25px;">
-        <h4 style="color: #003d7a; margin-bottom: 15px;">Action Items - Prioritas Tinggi</h4>
-        <ol style="color: #b0bec5; line-height: 2;">
-            <li><strong>Optimasi SLA:</strong> Fokus pada cabang dan CA dengan SLA di atas target</li>
-            <li><strong>Knowledge Transfer:</strong> Replikasi best practices dari top performers</li>
-            <li><strong>Quality Control:</strong> Strengthen pre-screening process untuk meningkatkan approval rate</li>
-            <li><strong>Risk Management:</strong> Implementasi stricter criteria untuk aplikant dengan high OD history</li>
-            <li><strong>Training & Development:</strong> Program capacity building untuk CA dengan performa rendah</li>
-            <li><strong>Technology:</strong> Pertimbangkan otomasi untuk proses yang repetitive untuk percepat SLA</li>
-        </ol>
-        </div>
-        """, unsafe_allow_html=True)
     
     # ====== TAB 8: DATA EXPORT ======
     with tab8:
