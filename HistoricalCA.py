@@ -54,7 +54,7 @@ st.markdown("""
     }
     
     .metric-box {
-        background: #1e2129;
+        background: #ffffff;
         padding: 20px;
         border-radius: 10px;
         border: 2px solid #2d3139;
@@ -70,7 +70,7 @@ st.markdown("""
     }
     
     .metric-box-success {
-        background: #1e2129;
+        background: #ffffff;
         border: 2px solid #2d3139;
         border-left: 6px solid #1e88e5;
         box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -82,7 +82,7 @@ st.markdown("""
     }
     
     .metric-box-warning {
-        background: #1e2129;
+        background: #ffffff;
         border: 2px solid #2d3139;
         border-left: 6px solid #ff9800;
         box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -94,7 +94,7 @@ st.markdown("""
     }
     
     .metric-box-danger {
-        background: #1e2129;
+        background: #ffffff;
         border: 2px solid #2d3139;
         border-left: 6px solid #f44336;
         box-shadow: 0 2px 10px rgba(0,0,0,0.3);
@@ -106,7 +106,7 @@ st.markdown("""
     }
     
     .info-box {
-        background: #1e2129;
+        background: #ffffff;
         padding: 20px;
         border-radius: 10px;
         border: 2px solid #0066b3;
@@ -146,7 +146,7 @@ st.markdown("""
     .dataframe td {
         color: #e0e0e0 !important;
         padding: 10px !important;
-        background-color: #1e2129 !important;
+        background-color: #ffffff !important;
     }
     
     .dataframe tr:hover td {
@@ -154,7 +154,7 @@ st.markdown("""
     }
     
     [data-testid="stSidebar"] {
-        background-color: #1e2129;
+        background-color: #ffffff;
         border-right: 2px solid #2d3139;
         box-shadow: 2px 0 10px rgba(0,0,0,0.3);
     }
@@ -180,7 +180,7 @@ st.markdown("""
     
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background-color: #1e2129;
+        background-color: #ffffff;
         padding: 12px;
         border-radius: 10px;
         border: 1px solid #2d3139;
@@ -325,25 +325,25 @@ st.markdown("""
     
     /* Success/Info/Warning/Error messages */
     .stSuccess {
-        background-color: #1e2129 !important;
+        background-color: #ffffff !important;
         border-left-color: #4caf50 !important;
         color: #81c784 !important;
     }
     
     .stInfo {
-        background-color: #1e2129 !important;
+        background-color: #ffffff !important;
         border-left-color: #2196f3 !important;
         color: #64b5f6 !important;
     }
     
     .stWarning {
-        background-color: #1e2129 !important;
+        background-color: #ffffff !important;
         border-left-color: #ff9800 !important;
         color: #ffb74d !important;
     }
     
     .stError {
-        background-color: #1e2129 !important;
+        background-color: #ffffff !important;
         border-left-color: #f44336 !important;
         color: #e57373 !important;
     }
@@ -355,7 +355,7 @@ st.markdown("""
     }
     
     ::-webkit-scrollbar-track {
-        background: #1e2129;
+        background: #ffffff;
     }
     
     ::-webkit-scrollbar-thumb {
@@ -990,8 +990,8 @@ def main():
                 yaxis_title="Waktu Proses (Jam Kerja)",
                 hovermode='x unified',
                 height=500,
-                plot_bgcolor='#1e2129',
-                paper_bgcolor='#1e2129',
+                plot_bgcolor='#ffffff',
+                paper_bgcolor='#ffffff',
                 font=dict(family='Arial', size=13, color='#e0e0e0'),
                 xaxis=dict(
                     showgrid=True,
@@ -1338,8 +1338,8 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=400,
-                                plot_bgcolor='#1e2129',
-                                paper_bgcolor='#1e2129',
+                                plot_bgcolor='#ffffff',
+                                paper_bgcolor='#ffffff',
                                 font=dict(family='Arial', size=12, color='#e0e0e0')
                             )
                             st.plotly_chart(fig, use_container_width=True)
@@ -1442,8 +1442,8 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=400,
-                                plot_bgcolor='#1e2129',
-                                paper_bgcolor='#1e2129',
+                                plot_bgcolor='#ffffff',
+                                paper_bgcolor='#ffffff',
                                 font=dict(family='Arial', size=12, color='#e0e0e0')
                             )
                             st.plotly_chart(fig, use_container_width=True)
@@ -1546,8 +1546,8 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=450,
-                                plot_bgcolor='#1e2129',
-                                paper_bgcolor='#1e2129',
+                                plot_bgcolor='#ffffff',
+                                paper_bgcolor='#ffffff',
                                 showlegend=True,
                                 font=dict(family='Arial', size=13, color='#e0e0e0'),
                                 title_font_size=16,
@@ -1663,8 +1663,8 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=450,
-                                plot_bgcolor='#1e2129',
-                                paper_bgcolor='#1e2129',
+                                plot_bgcolor='#ffffff',
+                                paper_bgcolor='#ffffff',
                                 showlegend=True,
                                 font=dict(family='Arial', size=13, color='#e0e0e0'),
                                 title_font_size=16,
@@ -1764,7 +1764,7 @@ def main():
                         fig1.update_traces(textposition='outside', textfont_size=11)
                         fig1.update_layout(
                             height=400,
-                            plot_bgcolor='#1e2129',
+                            plot_bgcolor='#ffffff',
                             paper_bgcolor='#FFFFFF',
                             showlegend=False,
                             xaxis_tickangle=-45
@@ -1788,7 +1788,7 @@ def main():
                         fig2.update_layout(
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=400,
-                            plot_bgcolor='#1e2129',
+                            plot_bgcolor='#ffffff',
                             paper_bgcolor='#FFFFFF',
                             showlegend=False,
                             xaxis_tickangle=-45
@@ -1866,7 +1866,7 @@ def main():
                         fig1.update_traces(textposition='outside', textfont_size=11)
                         fig1.update_layout(
                             height=450,
-                            plot_bgcolor='#1e2129',
+                            plot_bgcolor='#ffffff',
                             paper_bgcolor='#ffffff',
                             showlegend=False,
                             xaxis_tickangle=-45
@@ -1890,7 +1890,7 @@ def main():
                         fig2.update_layout(
                             yaxis_title="Tingkat Persetujuan (%)",
                             height=450,
-                            plot_bgcolor='#1e2129',
+                            plot_bgcolor='#ffffff',
                             paper_bgcolor='#ffffff',
                             showlegend=False,
                             xaxis_tickangle=-45
@@ -2064,7 +2064,7 @@ def main():
                         yaxis_title="Tingkat Persetujuan (%)",
                         height=350,
                         showlegend=False,
-                        plot_bgcolor='#1e2129',
+                        plot_bgcolor='#ffffff',
                         paper_bgcolor='#FFFFFF'
                     )
                     st.plotly_chart(fig, use_container_width=True)
@@ -2117,7 +2117,7 @@ def main():
                         yaxis_title="Tingkat Persetujuan (%)",
                         height=350,
                         showlegend=False,
-                        plot_bgcolor='#1e2129',
+                        plot_bgcolor='#ffffff',
                         paper_bgcolor='#FFFFFF'
                     )
                     st.plotly_chart(fig, use_container_width=True)
