@@ -901,8 +901,7 @@ def main():
                 st.markdown('</div>', unsafe_allow_html=True)
 
         with col3:
-        sla_valid = df[df['SLA_Hours'].notna()]
-        if len(sla_valid) > 0:
+            if len(sla_valid) > 0:
             # Calculate mode (most frequent value)
             mode_hours = sla_valid['SLA_Hours'].mode()
             if len(mode_hours) > 0:
