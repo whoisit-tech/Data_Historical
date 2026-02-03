@@ -2065,7 +2065,7 @@ def main():
                         height=350,
                         showlegend=False,
                         plot_bgcolor='#1e2129',
-                        paper_bgcolor='#1e2129'
+                        paper_bgcolor='#FFFFFF'
                     )
                     st.plotly_chart(fig, use_container_width=True)
         
@@ -2118,7 +2118,7 @@ def main():
                         height=350,
                         showlegend=False,
                         plot_bgcolor='#1e2129',
-                        paper_bgcolor='#1e2129'
+                        paper_bgcolor='#FFFFFF'
                     )
                     st.plotly_chart(fig, use_container_width=True)
     
