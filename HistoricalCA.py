@@ -1744,56 +1744,6 @@ def main():
                 st.markdown("### Tabel Kinerja Seluruh Cabang")
                 st.dataframe(branch_df, use_container_width=True, hide_index=True, height=400)
                 
-                # Charts
-                if len(branch_df) > 0:
-                    st.markdown("---")
-                    st.markdown("### Visualisasi Kinerja Cabang")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        fig1 = px.bar(
-                            branch_df.head(10),
-                            x='Cabang',
-                            y='Total AppID',
-                            title="Top 10 Cabang - Volume Aplikasi Terbanyak",
-                            color='Total AppID',
-                            color_continuous_scale='Blues',
-                            text='Total AppID'
-                        )
-                        fig1.update_traces(textposition='outside', textfont_size=11)
-                        fig1.update_layout(
-                            height=400,
-                            plot_bgcolor='#ffffff',
-                            paper_bgcolor='#FFFFFF',
-                            showlegend=False,
-                            xaxis_tickangle=-45
-                        )
-                        st.plotly_chart(fig1, use_container_width=True)
-                    
-                    with col2:
-                        branch_df_plot = branch_df.copy()
-                        branch_df_plot['Approval_Numeric'] = branch_df_plot['Tingkat Persetujuan'].str.rstrip('%').astype(float)
-                        
-                        fig2 = px.bar(
-                            branch_df_plot.head(10),
-                            x='Cabang',
-                            y='Approval_Numeric',
-                            title="Top 10 Cabang - Tingkat Persetujuan Tertinggi",
-                            color='Approval_Numeric',
-                            color_continuous_scale='RdYlGn',
-                            text=branch_df_plot.head(10)['Tingkat Persetujuan']
-                        )
-                        fig2.update_traces(textposition='outside', textfont_size=11)
-                        fig2.update_layout(
-                            yaxis_title="Tingkat Persetujuan (%)",
-                            height=400,
-                            plot_bgcolor='#ffffff',
-                            paper_bgcolor='#FFFFFF',
-                            showlegend=False,
-                            xaxis_tickangle=-45
-                        )
-                        st.plotly_chart(fig2, use_container_width=True)
         
         # CA Performance
         with subtab2:
@@ -1846,56 +1796,6 @@ def main():
                 st.markdown("### Tabel Kinerja Seluruh Credit Analyst")
                 st.dataframe(ca_df, use_container_width=True, hide_index=True, height=400)
                 
-                # Charts
-                if len(ca_df) > 0:
-                    st.markdown("---")
-                    st.markdown("### Visualisasi Kinerja Credit Analyst")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        fig1 = px.bar(
-                            ca_df.head(10),
-                            x='Nama Credit Analyst',
-                            y='Total AppID',
-                            title="Top 10 CA - Volume Aplikasi Terbanyak",
-                            color='Total AppID',
-                            color_continuous_scale='Greens',
-                            text='Total AppID'
-                        )
-                        fig1.update_traces(textposition='outside', textfont_size=11)
-                        fig1.update_layout(
-                            height=450,
-                            plot_bgcolor='#ffffff',
-                            paper_bgcolor='#ffffff',
-                            showlegend=False,
-                            xaxis_tickangle=-45
-                        )
-                        st.plotly_chart(fig1, use_container_width=True)
-                    
-                    with col2:
-                        ca_df_plot = ca_df.copy()
-                        ca_df_plot['Approval_Numeric'] = ca_df_plot['Tingkat Persetujuan'].str.rstrip('%').astype(float)
-                        
-                        fig2 = px.bar(
-                            ca_df_plot.head(10),
-                            x='Nama Credit Analyst',
-                            y='Approval_Numeric',
-                            title="Top 10 CA - Tingkat Persetujuan Tertinggi",
-                            color='Approval_Numeric',
-                            color_continuous_scale='RdYlGn',
-                            text=ca_df_plot.head(10)['Tingkat Persetujuan']
-                        )
-                        fig2.update_traces(textposition='outside', textfont_size=11)
-                        fig2.update_layout(
-                            yaxis_title="Tingkat Persetujuan (%)",
-                            height=450,
-                            plot_bgcolor='#1e2129',
-                            paper_bgcolor='#1e2129',
-                            showlegend=False,
-                            xaxis_tickangle=-45
-                        )
-                        st.plotly_chart(fig2, use_container_width=True)
     
     # ====== TAB 5: STATUS & SCORING ======
     with tab5:
