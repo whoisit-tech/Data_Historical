@@ -533,14 +533,10 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     df_filtered_copy = df_filtered.copy()
     df_filtered_copy['action_on_parsed'] = pd.to_datetime(df_filtered_copy['action_on'], errors='coerce')
     df_filtered_copy['YearMonth'] = df_filtered_copy['action_on_parsed'].dt.to_period('M').astype(str)
-    
-    # Unique apps per month
-    monthly_apps = df_filtered_copy.drop_duplicates('apps_id').groupby('YearMonth').size().reset_index(name='Jumlah_Aplikasi')
-    monthly_apps.rename(columns={'YearMonth': 'Bulan'}, inplace=True)
-    
-    # Approval rate per month
+
+    # Approval rate per month - BERDASARKAN STATUS RECOMMENDED CA
     df_approved = df_filtered_copy.drop_duplicates('apps_id')
-    df_approved['is_approved'] = df_approved['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).astype(int)
+    df_approved['is_approved'] = df_approved['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).astype(int)
     
     monthly_approval = df_approved.groupby('YearMonth').agg({
         'is_approved': 'sum',
@@ -1821,9 +1817,9 @@ def main():
                     
                     total_apps = len(df_branch_distinct)
                     total_records = len(df_branch)
-                    
-                    approve = df_branch_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                    total_scored = len(df_branch_distinct[df_branch_distinct['Scoring_Detail'] != '(Semua)'])
+
+                    approve = df_branch_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
+                    total_scored = len(df_branch_distinct)
                     approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
                     
                     branch_sla = df_branch[df_branch['SLA_Hours'].notna()]
@@ -1872,9 +1868,9 @@ def main():
                     
                     total_apps = len(df_ca_distinct)
                     total_records = len(df_ca)
-                    
-                    approve = df_ca_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                    total_scored = len(df_ca_distinct[df_ca_distinct['Scoring_Detail'] != '(Semua)'])
+
+                    approve = df_branch_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
+                    total_scored = len(df_branch_distinct)
                     approval_pct = f"{approve/total_scored*100:.1f}%" if total_scored > 0 else "0%"
                     
                     ca_sla = df_ca[df_ca['SLA_Hours'].notna()]
@@ -2035,8 +2031,8 @@ def main():
                     df_od = df_distinct_copy[df_distinct_copy['LastOD_Category'] == cat]
                     
                     if len(df_od) > 0:
-                        approve = df_od['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                        total = len(df_od[df_od['Scoring_Detail'] != '(Semua)'])
+                        approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
+                        total = len(df_od)
                         
                         approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
                         
@@ -2088,8 +2084,8 @@ def main():
                     df_od = df_distinct_copy2[df_distinct_copy2['maxOD_Category'] == cat]
                     
                     if len(df_od) > 0:
-                        approve = df_od['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-                        total = len(df_od[df_od['Scoring_Detail'] != '(Semua)'])
+                        approve = df_od['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
+                        total = len(df_od)
                         
                         approval_pct = f"{approve/total*100:.1f}%" if total > 0 else "0%"
                         
@@ -2194,13 +2190,12 @@ def main():
         
         # 2. Approval Rate Analysis
         st.markdown("### 2. Analisis Tingkat Persetujuan")
-        
-        approve_count = df_distinct['Scoring_Detail'].isin(['APPROVE', 'APPROVE 1', 'APPROVE 2']).sum()
-        total_scored = len(df_distinct[df_distinct['Scoring_Detail'] != '(Semua)'])
+
+        approve_count = df_distinct['apps_status_clean'].isin(['RECOMMENDED CA', 'RECOMMENDED CA WITH COND']).sum()
+        total_scored = len(df_distinct)
         
         if total_scored > 0:
             approval_rate = (approve_count / total_scored) * 100
-            reject_count = total_scored - approve_count
             
             col1, col2, col3 = st.columns(3)
             
