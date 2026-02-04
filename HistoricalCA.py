@@ -1339,8 +1339,8 @@ def main():
                             fig.update_layout(
                                 height=400,
                                 plot_bgcolor='#ffffff',
-                                paper_bgcolor='#1e2129',
-                                font=dict(family='Arial', size=12, color='#e0e0e0')
+                                paper_bgcolor='#ffffff',
+                                font=dict(family='Arial', size=12, color='#1e2129')
                             )
                             st.plotly_chart(fig, use_container_width=True)
                 else:
@@ -1443,8 +1443,8 @@ def main():
                             fig.update_layout(
                                 height=400,
                                 plot_bgcolor='#ffffff',
-                                paper_bgcolor='#1e2129',
-                                font=dict(family='Arial', size=12, color='#e0e0e0')
+                                paper_bgcolor='#ffffff',
+                                font=dict(family='Arial', size=12, color='#1e2129')
                             )
                             st.plotly_chart(fig, use_container_width=True)
                 else:
@@ -1547,9 +1547,9 @@ def main():
                             fig.update_layout(
                                 height=450,
                                 plot_bgcolor='#ffffff',
-                                paper_bgcolor='#1e2129',
+                                paper_bgcolor='#ffffff',
                                 showlegend=True,
-                                font=dict(family='Arial', size=13, color='#e0e0e0'),
+                                font=dict(family='Arial', size=13, color='#1e2129'),
                                 title_font_size=16,
                                 title_font_color='#ffffff',
                                 xaxis=dict(
@@ -1664,9 +1664,9 @@ def main():
                             fig.update_layout(
                                 height=450,
                                 plot_bgcolor='#ffffff',
-                                paper_bgcolor='#1e2129',
+                                paper_bgcolor='#ffffff',
                                 showlegend=True,
-                                font=dict(family='Arial', size=13, color='#e0e0e0'),
+                                font=dict(family='Arial', size=13, color='#1e2129'),
                                 title_font_size=16,
                                 title_font_color='#ffffff',
                                 xaxis=dict(
