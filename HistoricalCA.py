@@ -536,6 +536,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     
     # Unique apps per month
     monthly_apps = df_filtered_copy.drop_duplicates('apps_id').groupby('YearMonth').size().reset_index(name='Jumlah_Aplikasi')
+    monthly_apps.rename(columns={'YearMonth': 'Bulan'}, inplace=True)  ← TAMBAH BARIS INI
     
     # Approval rate per month
     df_approved = df_filtered_copy.drop_duplicates('apps_id')
@@ -552,6 +553,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # Merge semua data
     monthly_data = monthly_avg.merge(monthly_apps, on='Bulan', how='left')
     monthly_data = monthly_data.merge(monthly_approval[['Bulan', 'Approval_Rate']], on='Bulan', how='left')
+
     
     # ============================================================
     # TAMPILKAN TABEL
