@@ -673,17 +673,6 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         hovertemplate='<b>%{x}</b><br>Approval: %{text}<extra></extra>'
     ))
     
-    # Target approval 80%
-    fig3.add_hline(
-        y=80,
-        line_dash="dash",
-        line_color="#ff9800",
-        line_width=2,
-        annotation_text="Target: 80%",
-        annotation_position="right",
-        annotation_font_size=11,
-        annotation_font_color="#ff9800"
-    )
     
     fig3.update_layout(
         title="Tingkat Persetujuan (Approval Rate) per Bulan",
