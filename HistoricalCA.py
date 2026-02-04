@@ -2129,7 +2129,7 @@ def main():
         st.markdown("""
         <div class="info-box">
         <h4>Tentang Insights</h4>
-        <p>Bagian ini menyajikan analisis mendalam dan rekomendasi strategis berdasarkan data aktual untuk membantu pengambilan keputusan bisnis.</p>
+        <p>Bagian ini menyajikan analisis berdasarkan data aktual untuk membantu pengambilan keputusan bisnis.</p>
         </div>
         """, unsafe_allow_html=True)
         
