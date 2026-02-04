@@ -621,7 +621,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # ============================================================
     # CHART 2: JUMLAH APLIKASI PER BULAN
     # ============================================================
-    st.markdown("#### Jumlah Aplikasi Kredit per Bulan")
+    st.markdown("#### Jumlah AppID per Bulan")
     
     fig2 = go.Figure()
     
@@ -636,7 +636,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     ))
     
     fig2.update_layout(
-        title="Jumlah Aplikasi Kredit per Bulan",
+        title="Jumlah AppID per Bulan",
         xaxis_title="Bulan",
         yaxis_title="Jumlah Aplikasi",
         hovermode='x unified',
@@ -1160,12 +1160,12 @@ def main():
     
     # ====== TAB 2: DETAIL RAW DATA ======
     with tab2:
-        st.markdown("## Data Detail Aplikasi Kredit")
+        st.markdown("## Data Detail AppID")
         
         st.markdown("""
         <div class="info-box">
         <h4>Cara Menggunakan</h4>
-        <p>Tab ini menampilkan daftar lengkap semua aplikasi kredit yang ada dalam sistem.</p>
+        <p>Tab ini menampilkan daftar lengkap semua AppID yang ada dalam sistem.</p>
         <ul>
             <li>Lihat ringkasan semua aplikasi dalam tabel di bawah</li>
             <li>Gunakan kolom pencarian untuk menemukan aplikasi tertentu berdasarkan ID</li>
