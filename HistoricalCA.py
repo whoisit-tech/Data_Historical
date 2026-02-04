@@ -616,9 +616,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         showlegend=True
     )
     
-    st.plotly_chart(fig1, use_container_width=True)
-    
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, use_container_width=True, key='chart_waktu_proses')
     
     # ============================================================
     # CHART 2: JUMLAH APLIKASI PER BULAN
@@ -651,7 +649,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         showlegend=False
     )
     
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width=True, key='chart_jumlah_aplikasi')
     
     # ============================================================
     # CHART 3: APPROVAL RATE PER BULAN
@@ -705,7 +703,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         showlegend=True
     )
     
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, use_container_width=True, key='chart_approval_rate')
 
 def get_osph_category(osph_value):
     """Categorize Outstanding PH"""
