@@ -574,7 +574,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # ============================================================
     # CHART 1: WAKTU PROSES
     # ============================================================
-    st.markdown("####  Chart 1: Tren Waktu Proses per Bulan")
+    st.markdown("#### Tren Waktu Proses per Bulan")
     
     fig1 = go.Figure()
     
@@ -621,7 +621,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # ============================================================
     # CHART 2: JUMLAH APLIKASI PER BULAN
     # ============================================================
-    st.markdown("####  Chart 2: Jumlah Aplikasi Kredit per Bulan")
+    st.markdown("#### Jumlah Aplikasi Kredit per Bulan")
     
     fig2 = go.Figure()
     
@@ -654,7 +654,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # ============================================================
     # CHART 3: APPROVAL RATE PER BULAN
     # ============================================================
-    st.markdown("####  Chart 3: Tingkat Persetujuan (Approval Rate) per Bulan")
+    st.markdown("#### Tingkat Persetujuan (Approval Rate) per Bulan")
     
     fig3 = go.Figure()
     
