@@ -574,7 +574,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # ============================================================
     # CHART 1: WAKTU PROSES
     # ============================================================
-    st.markdown("#### 📊 Chart 1: Tren Waktu Proses per Bulan")
+    st.markdown("####  Chart 1: Tren Waktu Proses per Bulan")
     
     fig1 = go.Figure()
     
@@ -588,8 +588,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         textfont=dict(size=10, color='#ffffff', family='monospace'),
         line=dict(color='#0066b3', width=3),
         marker=dict(size=10, color='#0066b3', line=dict(color='white', width=2)),
-        hovertemplate='<b>%{x}</b><br>Waktu: %{text}<extra></extra>',
-        yaxis='y1'
+        hovertemplate='<b>%{x}</b><br>Waktu: %{text}<extra></extra>'
     ))
     
     fig1.add_hline(
@@ -600,8 +599,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
         annotation_text="Target: 35 jam",
         annotation_position="right",
         annotation_font_size=11,
-        annotation_font_color="#f44336",
-        yaxis='y1'
+        annotation_font_color="#f44336"
     )
     
     fig1.update_layout(
@@ -620,10 +618,12 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     
     st.plotly_chart(fig1, use_container_width=True)
     
+    st.plotly_chart(fig1, use_container_width=True)
+    
     # ============================================================
     # CHART 2: JUMLAH APLIKASI PER BULAN
     # ============================================================
-    st.markdown("#### 📊 Chart 2: Jumlah Aplikasi Kredit per Bulan")
+    st.markdown("####  Chart 2: Jumlah Aplikasi Kredit per Bulan")
     
     fig2 = go.Figure()
     
@@ -656,7 +656,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     # ============================================================
     # CHART 3: APPROVAL RATE PER BULAN
     # ============================================================
-    st.markdown("#### 📊 Chart 3: Tingkat Persetujuan (Approval Rate) per Bulan")
+    st.markdown("####  Chart 3: Tingkat Persetujuan (Approval Rate) per Bulan")
     
     fig3 = go.Figure()
     
