@@ -509,6 +509,96 @@ def calculate_sla_working_hours(start_dt, end_dt):
     except:
         return None
 
+def render_sla_trend_chart(sla_valid):
+    """Render improved SLA trend chart dengan detail jam dan menit"""
+    if len(sla_valid) == 0 or 'action_on_parsed' not in sla_valid.columns:
+        st.warning("Data untuk chart tidak tersedia")
+        return
+    
+    sla_trend = sla_valid.copy()
+    sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_period('M').astype(str)
+    
+    monthly_avg = sla_trend.groupby('YearMonth')['SLA_Hours'].agg(['mean', 'count']).reset_index()
+    monthly_avg.columns = ['Bulan', 'Rata-rata Waktu (Jam)', 'Jumlah Data']
+    monthly_avg = monthly_avg.sort_values('Bulan')
+    monthly_avg['Rata-rata Waktu (Teks)'] = monthly_avg['Rata-rata Waktu (Jam)'].apply(convert_hours_to_hm)
+    
+    display_monthly = monthly_avg.rename(columns={
+        'Bulan': 'Bulan',
+        'Rata-rata Waktu (Teks)': 'Waktu Rata-rata',
+        'Jumlah Data': 'Jumlah Aplikasi'
+    })
+    
+    st.dataframe(
+        display_monthly[['Bulan', 'Waktu Rata-rata', 'Jumlah Aplikasi']], 
+        use_container_width=True, 
+        hide_index=True
+    )
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=monthly_avg['Bulan'],
+        y=monthly_avg['Rata-rata Waktu (Jam)'],
+        mode='lines+markers+text',
+        name='Waktu Proses',
+        text=monthly_avg['Rata-rata Waktu (Teks)'],
+        textposition='top center',
+        textfont=dict(size=12, color='#ffffff', family='monospace'),
+        line=dict(color='#0066b3', width=4),
+        marker=dict(
+            size=14, 
+            color='#0066b3',
+            line=dict(color='white', width=3),
+            symbol='circle'
+        ),
+        hovertemplate='<b>%{x}</b><br>' +
+                      'Waktu: %{text}<br>' +
+                      'Jumlah Data: %{customdata}<br>' +
+                      '<extra></extra>',
+        customdata=monthly_avg['Jumlah Data']
+    ))
+    
+    fig.add_hline(
+        y=35, 
+        line_dash="dash", 
+        line_color="#f44336",
+        line_width=3,
+        annotation_text=" Target: 35 jam",
+        annotation_position="right",
+        annotation_font_size=13,
+        annotation_font_color="#f44336"
+    )
+    
+    fig.update_layout(
+        title={
+            'text': "Tren Waktu Proses per Bulan",
+            'font': {'size': 20, 'color': '#ffffff'},
+            'x': 0.5,
+            'xanchor': 'center'
+        },
+        xaxis_title="Bulan",
+        yaxis_title="Waktu Proses (Jam Kerja)",
+        hovermode='x unified',
+        height=500,
+        plot_bgcolor='#1e2129',
+        paper_bgcolor='#1e2129',
+        font=dict(family='Arial', size=13, color='#e0e0e0'),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='#2d3139',
+            linecolor='#2d3139'
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#2d3139',
+            linecolor='#2d3139'
+        ),
+        showlegend=False
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
 def get_osph_category(osph_value):
     """Categorize Outstanding PH"""
     try:
@@ -921,92 +1011,9 @@ def main():
         
         # SLA TREND
         st.markdown("### Tren Waktu Proses Bulanan")
-        st.caption("*Grafik menunjukkan rata-rata waktu proses per bulan*")
+        st.caption("*Grafik menunjukkan rata-rata waktu proses per bulan dengan detail jam dan menit*")
         
-        if len(sla_valid) > 0 and 'action_on_parsed' in sla_valid.columns:
-            sla_trend = sla_valid.copy()
-            sla_trend['YearMonth'] = sla_trend['action_on_parsed'].dt.to_period('M').astype(str)
-            
-            monthly_avg = sla_trend.groupby('YearMonth')['SLA_Hours'].agg(['mean', 'count']).reset_index()
-            monthly_avg.columns = ['Bulan', 'Rata-rata Waktu (Jam)', 'Jumlah Data']
-            monthly_avg = monthly_avg.sort_values('Bulan')
-            monthly_avg['Rata-rata Waktu (Teks)'] = monthly_avg['Rata-rata Waktu (Jam)'].apply(convert_hours_to_hm)
-            
-            # Display table
-            display_monthly = monthly_avg.rename(columns={
-                'Bulan': 'Bulan',
-                'Rata-rata Waktu (Teks)': 'Waktu Rata-rata',
-                'Jumlah Data': 'Jumlah Aplikasi'
-            })
-            
-            st.dataframe(
-                display_monthly[['Bulan', 'Waktu Rata-rata', 'Jumlah Aplikasi']], 
-                use_container_width=True, 
-                hide_index=True
-            )
-            
-            # Line chart
-            fig = go.Figure()
-            
-            fig.add_trace(go.Scatter(
-                x=monthly_avg['Bulan'],
-                y=monthly_avg['Rata-rata Waktu (Jam)'],
-                mode='lines+markers+text',
-                name='Waktu Proses',
-                text=[f"{val:.1f} jam" for val in monthly_avg['Rata-rata Waktu (Jam)']],
-                textposition='top center',
-                textfont=dict(size=11, color='#ffffff'),
-                line=dict(color='#0066b3', width=4),
-                marker=dict(
-                    size=14, 
-                    color='#0066b3',
-                    line=dict(color='white', width=3),
-                    symbol='circle'
-                ),
-                hovertemplate='<b>%{x}</b><br>' +
-                              'Waktu: %{y:.1f} jam<br>' +
-                              '<extra></extra>'
-            ))
-            
-            fig.add_hline(
-                y=35, 
-                line_dash="dash", 
-                line_color="#f44336",
-                line_width=3,
-                annotation_text=" Target: 35 jam",
-                annotation_position="right",
-                annotation_font_size=13,
-                annotation_font_color="#f44336"
-            )
-            
-            fig.update_layout(
-                title={
-                    'text': "Tren Waktu Proses per Bulan",
-                    'font': {'size': 20, 'color': '#ffffff'},
-                    'x': 0.5,
-                    'xanchor': 'center'
-                },
-                xaxis_title="Bulan",
-                yaxis_title="Waktu Proses (Jam Kerja)",
-                hovermode='x unified',
-                height=500,
-                plot_bgcolor='#1e2129',
-                paper_bgcolor='#1e2129',
-                font=dict(family='Arial', size=13, color='#e0e0e0'),
-                xaxis=dict(
-                    showgrid=True,
-                    gridcolor='#2d3139',
-                    linecolor='#2d3139'
-                ),
-                yaxis=dict(
-                    showgrid=True,
-                    gridcolor='#2d3139',
-                    linecolor='#2d3139'
-                ),
-                showlegend=False
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+        render_sla_trend_chart(sla_valid)
         
         st.markdown("---")
         
