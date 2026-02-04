@@ -1338,7 +1338,7 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=400,
-                                plot_bgcolor='#1e2129',
+                                plot_bgcolor='#ffffff',
                                 paper_bgcolor='#1e2129',
                                 font=dict(family='Arial', size=12, color='#e0e0e0')
                             )
@@ -1442,7 +1442,7 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=400,
-                                plot_bgcolor='#1e2129',
+                                plot_bgcolor='#ffffff',
                                 paper_bgcolor='#1e2129',
                                 font=dict(family='Arial', size=12, color='#e0e0e0')
                             )
@@ -1546,7 +1546,7 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=450,
-                                plot_bgcolor='#1e2129',
+                                plot_bgcolor='#ffffff',
                                 paper_bgcolor='#1e2129',
                                 showlegend=True,
                                 font=dict(family='Arial', size=13, color='#e0e0e0'),
@@ -1663,7 +1663,7 @@ def main():
                             fig.update_traces(textposition='outside', textfont_size=11)
                             fig.update_layout(
                                 height=450,
-                                plot_bgcolor='#1e2129',
+                                plot_bgcolor='#ffffff',
                                 paper_bgcolor='#1e2129',
                                 showlegend=True,
                                 font=dict(family='Arial', size=13, color='#e0e0e0'),
