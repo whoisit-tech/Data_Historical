@@ -536,7 +536,7 @@ def render_sla_trend_chart(sla_valid, df_filtered):
     
     # Unique apps per month
     monthly_apps = df_filtered_copy.drop_duplicates('apps_id').groupby('YearMonth').size().reset_index(name='Jumlah_Aplikasi')
-    monthly_apps.rename(columns={'YearMonth': 'Bulan'}, inplace=True)  ← TAMBAH BARIS INI
+    monthly_apps.rename(columns={'YearMonth': 'Bulan'}, inplace=True)
     
     # Approval rate per month
     df_approved = df_filtered_copy.drop_duplicates('apps_id')
